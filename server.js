@@ -297,26 +297,30 @@ ${JSON.stringify(req.body?.context || {}, null, 2)}
 
 ${pdfExtraText ? `以下是 PDF 文档提取的文本内容（请以其为主要分析依据）：\n${pdfExtraText.slice(0, 8000)}\n` : ''}
 
-请输出 JSON：
+请输出 JSON，必须包含所有字段且每个字段都必须有具体内容（不能为空字符串）：
 {
-  "reportOverview": "",
-  "learningGoal": "",
-  "achievementSummary": "",
-  "finalGrade": "",
-  "gradeComment": "",
-  "teacherMessage": "",
-  "futureSuggestions": "",
-  "assistantMessage": "",
-  "performanceDesc": ""
+  "reportOverview": "报告综述：概述学生的学习历程和整体表现",
+  "learningGoal": "学习目标：描述学生本课程的学习目标",
+  "achievementSummary": "学习成果总结：总结学生取得的学习成果和进步",
+  "finalGrade": "总成绩：从材料中提取成绩，若无则写'良好'或'合格'",
+  "gradeComment": "成绩评语：对成绩的评价说明",
+  "teacherMessage": "讲师寄语：以讲师口吻给学生写一段寄语，鼓励继续努力",
+  "futureSuggestions": "下学期学习建议：通用的成长鼓励类建议，侧重综合素养提升",
+  "assistantMessage": "教辅寄语：以教辅老师口吻写一段寄语，肯定学生的学习态度",
+  "performanceDesc": "学习表现描述：分析学生的学习态度、课堂参与度等表现"
 }
 
 要求：
 1. 输出适合正式中文报告的语气。
-2. 若截图中没有明确成绩，不要编造具体分数，可留空或写模糊等级描述。
-3. performanceDesc 聚焦学习表现分析，不要和其他字段重复过多。
-4. 不要输出结构外字段。
-6. futureSuggestions（下学期学习建议）: 该课程已结束，学生不会再继续学习此课程。请输出通用的成长鼓励类套话，不要涉及具体课程内容或后续学习建议，侧重于综合素养提升和未来学业展望。
-5. ${pdfExtraText ? '优先根据 PDF 文本内容分析，截图和 PDF 信息冲突时以 PDF 为准。' : ''}`;
+2. 每个字段都必须有实质内容，不能留空。
+3. teacherMessage 和 assistantMessage 必须是完整的寄语段落，至少50字。
+4. achievementSummary 必须详细总结学习成果，至少50字。
+5. 若截图中没有明确成绩，finalGrade 可写"良好"或"合格"，不要编造具体分数。
+6. performanceDesc 聚焦学习表现分析，不要和其他字段重复过多。
+7. futureSuggestions：该课程已结束，请输出通用的成长鼓励类建议，侧重综合素养提升和未来学业展望。
+8. 不要输出结构外字段。
+9. ${pdfExtraText ? '优先根据 PDF 文本内容分析，截图和 PDF 信息冲突时以 PDF 为准。' : '根据截图内容分析生成。'}
+`;
 
         const result = await askQwenForJson({ prompt, images });
 

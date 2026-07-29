@@ -1047,7 +1047,11 @@
         }
 
         async function performScheduleRecognition() {
+            const btn = document.getElementById('aiScheduleRecognizeBtn');
+            if (btn.disabled) return;
             if (!scheduleImages.length) { alert('请先上传排课截图或PDF文件'); return; }
+            btn.disabled = true;
+            btn.style.opacity = '0.6';
             const statusDiv = document.getElementById('scheduleAiStatus');
             const fileInfo = scheduleImages.map(f => `${f.name}(${(f.size/1024).toFixed(1)}KB)`).join(', ');
             statusDiv.innerText = `⏳ 正在解析 ${scheduleImages.length} 个文件：${fileInfo}`;
@@ -1068,22 +1072,29 @@
                 statusDiv.innerText = `❌ ${err.message || 'AI 识别失败'}`;
                 statusDiv.style.color = '#ef4444';
                 console.error('识别错误:', err);
+            } finally {
+                btn.disabled = false;
+                btn.style.opacity = '';
             }
         }
 
         async function performFeedbackRecognition() {
+            const btn = document.getElementById('aiFeedbackRecognizeBtn');
+            if (btn.disabled) return;
             if (!feedbackImages.length) { alert('请先上传反馈截图或PDF文件'); return; }
+            btn.disabled = true;
+            btn.style.opacity = '0.6';
             const statusDiv = document.getElementById('feedbackAiStatus');
             const fileInfo = feedbackImages.map(f => `${f.name}(${(f.size/1024).toFixed(1)}KB)`).join(', ');
             statusDiv.innerText = `⏳ 正在解析 ${feedbackImages.length} 个文件：${fileInfo}`;
             statusDiv.style.color = '';
             try {
                 const data = await callAIFeedbackExtract();
-                if (data.performance || data.progress || data.mastery || data.suggestion) {
-                    if (data.performance) document.getElementById('performanceText').value = data.performance;
-                    if (data.progress) document.getElementById('progressText').value = data.progress;
-                    if (data.mastery) document.getElementById('masteryText').value = data.mastery;
-                    if (data.suggestion) document.getElementById('suggestionText').value = data.suggestion;
+                if (data.performance !== undefined || data.progress !== undefined || data.mastery !== undefined || data.suggestion !== undefined) {
+                    if (data.performance !== undefined) document.getElementById('performanceText').value = data.performance;
+                    if (data.progress !== undefined) document.getElementById('progressText').value = data.progress;
+                    if (data.mastery !== undefined) document.getElementById('masteryText').value = data.mastery;
+                    if (data.suggestion !== undefined) document.getElementById('suggestionText').value = data.suggestion;
                     renderPreview();
                     statusDiv.innerText = '✅ 识别完成，已填充反馈字段';
                     statusDiv.style.color = '#22c55e';
@@ -1095,6 +1106,9 @@
                 statusDiv.innerText = `❌ ${err.message || 'AI 识别失败'}`;
                 statusDiv.style.color = '#ef4444';
                 console.error('识别错误:', err);
+            } finally {
+                btn.disabled = false;
+                btn.style.opacity = '';
             }
         }
 

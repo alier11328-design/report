@@ -625,18 +625,18 @@
                     images: prepared.images,
                     context: context
                 });
-                if (result.reportOverview) { fields.reportOverview.value = result.reportOverview; userEditedOverview = true; }
-                if (result.learningGoal) fields.learningGoal.value = result.learningGoal;
-                if (result.achievementSummary) fields.achievementSummary.value = result.achievementSummary;
-                if (result.finalGrade) fields.finalGrade.value = result.finalGrade;
-                if (result.gradeComment) fields.gradeComment.value = result.gradeComment;
-                if (result.teacherMessage) fields.teacherMessage.value = result.teacherMessage;
-                if (result.futureSuggestions) fields.futureSuggestions.value = result.futureSuggestions;
-                if (result.assistantMessage) fields.assistantMessage.value = result.assistantMessage;
-                if (result.attendanceRate) fields.attendanceRate.value = result.attendanceRate;
-                if (result.taskCompletionRate) fields.taskCompletionRate.value = result.taskCompletionRate;
-                if (result.interactionRate) fields.interactionRate.value = result.interactionRate;
-                if (result.performanceDesc) fields.performanceDesc.value = result.performanceDesc;
+                if (result.reportOverview !== undefined) { fields.reportOverview.value = result.reportOverview; userEditedOverview = true; }
+                if (result.learningGoal !== undefined) fields.learningGoal.value = result.learningGoal;
+                if (result.achievementSummary !== undefined) fields.achievementSummary.value = result.achievementSummary;
+                if (result.finalGrade !== undefined) fields.finalGrade.value = result.finalGrade;
+                if (result.gradeComment !== undefined) fields.gradeComment.value = result.gradeComment;
+                if (result.teacherMessage !== undefined) fields.teacherMessage.value = result.teacherMessage;
+                if (result.futureSuggestions !== undefined) fields.futureSuggestions.value = result.futureSuggestions;
+                if (result.assistantMessage !== undefined) fields.assistantMessage.value = result.assistantMessage;
+                if (result.attendanceRate !== undefined) fields.attendanceRate.value = result.attendanceRate;
+                if (result.taskCompletionRate !== undefined) fields.taskCompletionRate.value = result.taskCompletionRate;
+                if (result.interactionRate !== undefined) fields.interactionRate.value = result.interactionRate;
+                if (result.performanceDesc !== undefined) fields.performanceDesc.value = result.performanceDesc;
                 renderPreview();
                 statusDiv.innerText = '✅ 完成';
             } catch (err) {
