@@ -84,6 +84,9 @@ $RECYCLE.BIN/
 # EdgeOne Pages
 .edgeone/
 
+# Netlify
+.netlify/
+
 # Project specific
 backups/
 *.bak
