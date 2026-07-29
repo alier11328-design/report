@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>万能班长 · 智能报告工坊</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        body {
+            background: #f5f7fb;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .app {
+            width: 100%;
+            max-width: 1500px;
+            background: white;
+            border-radius: 32px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+            overflow: hidden;
+            min-height: 700px;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .type-selector {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 500px;
+            padding: 40px;
+            flex: 1;
+        }
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+            max-width: 700px;
+            margin: 30px 0;
+        }
+        .type-card {
+            background: white;
+            border-radius: 24px;
+            padding: 28px 20px;
+            text-align: center;
+            box-shadow: 0 8px 18px rgba(0,0,0,0.04);
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .type-card:hover {
+            border-color: #BF2A32;
+            transform: translateY(-4px);
+        }
+        .type-card i {
+            font-size: 48px;
+            color: #BF2A32;
+            margin-bottom: 16px;
+        }
+        .type-card h3 { font-size: 20px; margin-bottom: 8px; }
+        .type-card p { color: #64748b; font-size: 14px; }
+    </style>
+</head>
+<body>
+<div class="app">
+    <div class="type-selector">
+        <div style="text-align:center; margin-bottom:20px;">
+            <h1 style="font-size:36px; font-weight:800; color:#0b1c2e;">📋 万能班长报告工坊</h1>
+            <p style="color:#64748b; margin-top:8px;">选择你要生成的报告类型，AI 辅助高效填写</p>
+        </div>
+        <div class="card-grid">
+            <a class="type-card" href="course-plan.html">
+                <i class="fas fa-calendar-week"></i>
+                <h3>课程规划</h3>
+                <p>12周学习计划、考核方式梳理</p>
+            </a>
+            <a class="type-card" href="period-feedback.html">
+                <i class="fas fa-chart-line"></i>
+                <h3>周期反馈</h3>
+                <p>阶段性学习报告，课时进度与表现</p>
+            </a>
+            <a class="type-card" href="final-report.html">
+                <i class="fas fa-graduation-cap"></i>
+                <h3>结课报告</h3>
+                <p>学期总结，成绩与寄语</p>
+            </a>
+            <a class="type-card" href="review-report.html">
+                <i class="fas fa-undo-alt"></i>
+                <h3>复盘报告</h3>
+                <p>学习复盘与改进建议</p>
+            </a>
+        </div>
+        <p style="color:#94a3b8; margin-top:20px;"><i class="far fa-lightbulb"></i> 四种报告均已可用</p>
+    </div>
+</div>
+</body>
+</html>

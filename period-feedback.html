@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>万能班长 · 周期反馈报告</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+   <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="ai-client.js"></script>
+   <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+
+        :root {
+            --primary-color: #BF2A32;
+            --primary-rgb: 191, 42, 50;
+            --primary-light: color-mix(in srgb, var(--primary-color), white 30%);
+            --primary-dark: color-mix(in srgb, var(--primary-color), black 12%);
+            --primary-bg-soft: color-mix(in srgb, var(--primary-color), white 92%);
+            --primary-bg-hover: color-mix(in srgb, var(--primary-color), white 84%);
+        }
+
+        body {
+            background: #f5f7fb;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .app {
+            width: 100%;
+            max-width: 1500px;
+            background: white;
+            border-radius: 32px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+            overflow: hidden;
+            min-height: 700px;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .split-layout {
+            display: grid;
+            grid-template-columns: 480px 1fr;
+            flex: 1;
+            min-height: 0;
+        }
+        .editor-pane {
+            background: #fafbfc;
+            border-right: 1px solid #eef2f6;
+            padding: 28px 24px;
+            overflow-y: auto;
+            height: 100%;
+        }
+        .preview-pane {
+            background: #f2f4f8;
+            padding: 24px;
+            overflow-y: auto;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .form-section-title {
+            font-weight: 700;
+            font-size: 18px;
+            margin: 24px 0 16px;
+            color: #1e293b;
+            border-left: 5px solid var(--primary-color);
+            padding-left: 14px;
+        }
+        .form-group {
+            margin-bottom: 18px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            font-size: 13px;
+            color: #475569;
+            margin-bottom: 6px;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 14px;
+            background: white;
+            transition: 0.2s;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.08);
+        }
+        .btn {
+            background: white;
+            border: 1px solid #cbd5e1;
+            padding: 10px 18px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-primary {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: var(--primary-color);
+            filter: brightness(0.85);
+        }
+        .btn-block { width: 100%; justify-content: center; }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+        .paste-area {
+            border: 2px dashed var(--primary-color);
+            border-radius: 20px;
+            padding: 16px;
+            text-align: center;
+            background: var(--primary-bg-soft);
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .paste-area:hover {
+            background: var(--primary-bg-hover);
+        }
+        .paste-area i { font-size: 28px; color: var(--primary-color); margin-bottom: 6px; }
+        .file-list {
+            margin-top: 12px;
+            text-align: left;
+            max-height: 100px;
+            overflow-y: auto;
+            font-size: 13px;
+        }
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            background: white;
+            border-radius: 20px;
+            margin-bottom: 4px;
+        }
+        .file-item i { font-size: 14px; margin:0; color: var(--primary-color); }
+        .file-item span {
+            flex:1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+            color: #1e293b;
+        }
+        .file-item span:hover { text-decoration: underline; color: var(--primary-color); }
+
+        .editable-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .editable-table th {
+            background: #1e293b;
+            color: white;
+            padding: 8px 4px;
+        }
+        .editable-table td {
+            padding: 6px 4px;
+            border-bottom: 1px solid #eef2f6;
+            text-align: center;
+        }
+        .editable-table input {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #d1d9e0;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .delete-row { color: #94a3b8; cursor: pointer; }
+
+        .feedback-item-wrapper {
+            margin-bottom: 20px;
+        }
+        .feedback-item-wrapper textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 12px 14px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 14px;
+            background: white;
+            resize: vertical;
+        }
+        .feedback-item-wrapper textarea:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.08);
+        }
+
+        .report-card {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+            padding: 30px;
+            position: relative;
+        }
+        .watermark-bg {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0.15;
+            pointer-events: none;
+            z-index: 1;
+            background-repeat: no-repeat;
+            background-position: center 65%;
+            background-size: 60%;
+        }
+        .report-inner {
+            position: relative;
+            z-index: 2;
+        }
+        .report-header {
+            background: var(--primary-color);
+            padding: 25px;
+            margin: -30px -30px 30px -30px;
+            border-radius: 12px 12px 0 0;
+            text-align: center;
+            color: white;
+        }
+        .report-header h1 {
+            color: white;
+            font-size: 32px;
+            margin-bottom: 10px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        .order-badge {
+            color: rgba(255,255,255,0.9);
+            font-size: 14px;
+            font-weight: 500;
+            word-break: break-word;
+            max-width: 90%;
+            margin: 0 auto;
+        }
+
+        .info-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 35px;
+        }
+        .info-tile {
+            flex: 1 1 290px;
+            border-radius: 8px;
+            padding: 18px 20px;
+            border-left: 4px solid var(--primary-color);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+            background: #fff;
+            transition: transform 0.2s;
+        }
+        .info-tile:hover {
+            transform: translateY(-3px);
+        }
+        .info-tile h3 {
+            color: var(--primary-color);
+            margin-bottom: 8px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .info-tile p {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1e2a3e;
+            line-height: 1.3;
+        }
+        .info-tile1 {
+            flex: 1 1 280px;
+            border-radius: 8px;
+            padding: 18px 20px;
+            border-left: 4px solid var(--primary-color);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+            background: #fff;
+            transition: transform 0.2s;
+        }
+        .info-tile1:hover {
+            transform: translateY(-3px);
+        }
+        .info-tile1 h3 {
+            color: var(--primary-color);
+            margin-bottom: 8px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .info-tile1 p {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1e2a3e;
+            line-height: 1.3;
+        }
+        .hours-highlight p {
+            font-size: 26px;
+            color: var(--primary-color);
+        }
+
+        .progress-wrap {
+            margin-bottom: 30px;
+        }
+        .progress-bar-bg {
+            height: 24px;
+            background: #e9ecef;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), color-mix(in srgb, var(--primary-color), white 30%));
+            border-radius: 12px;
+            width: 0%;
+        }
+        .progress-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .schedule-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0 10px;
+            box-shadow: 0 0 8px rgba(0,0,0,0.03);
+        }
+        .schedule-table th {
+            background: var(--primary-color);
+            color: white;
+            text-align: center;
+            padding: 14px 10px;
+            font-weight: 600;
+            font-size: 15px;
+        }
+        .schedule-table td {
+            padding: 12px 8px;
+            border-bottom: 1px solid #eee;
+            text-align: center;
+            font-size: 14px;
+            background: transparent;
+        }
+        .schedule-table tr:hover {
+            background: rgba(var(--primary-rgb), 0.04);
+        }
+
+        .feedback-block {
+            margin-top: 40px;
+        }
+        .feedback-item {
+            margin-bottom: 25px;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary-color);
+            background: transparent;
+        }
+        .feedback-item h4 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .feedback-item p {
+            color: #2c3e44;
+            line-height: 1.7;
+        }
+        .footer-note {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 13px;
+        }
+
+        .back-btn {
+            background: transparent;
+            border: none;
+            color: #475569;
+            font-weight: 600;
+            margin-bottom: 16px;
+            cursor: pointer;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+        }
+        .status-tip {
+            font-size: 13px;
+            color: var(--primary-color);
+            margin: 5px 0;
+        }
+
+        .theme-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 16px;
+            margin-bottom: 20px;
+            background: #ffffffcc;
+            padding: 8px 12px;
+            border-radius: 28px;
+            border: 1px solid #eef2f6;
+        }
+        .theme-label {
+            font-weight: 600;
+            font-size: 13px;
+            color: #1e293b;
+        }
+        .theme-options {
+            display: flex;
+            gap: 12px;
+        }
+        .theme-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 14px;
+            border-radius: 40px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            background: #f1f5f9;
+            color: #334155;
+            transition: 0.2s;
+            border: 1px solid #e2e8f0;
+        }
+        .theme-badge i {
+            font-size: 13px;
+        }
+        .theme-badge.active {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            color: white;
+        }
+        .theme-badge:not(.active):hover {
+            background: #e9eef3;
+        }
+    </style>
+</head>
+<body>
+<div class="app" id="app"></div>
+
+<script>
+    (function(){
+        "use strict";
+
+        let scheduleData = [];
+        let scheduleImages = [];
+        let feedbackImages = [];
+        let scheduleListUrls = [];
+        let feedbackListUrls = [];
+        let lastHoveredPasteArea = 'schedule';
+        let currentTheme = 'red';
+        
+        let currentWatermark = 'w1';
+        let currentCopyright = 'c1';
+        
+        const themeMap = {
+            red: { primary: '#BF2A32', rgb: '191,42,50' },
+            blue: { primary: '#2A6FBF', rgb: '42,111,191' }
+        };
+        
+        const watermarkMap = {
+            w1: { name: '万能班长', url: 'https://i.ibb.co/hxw0GD7L/retouch-2025041613021979.png' },
+            w2: { name: '留学云伴', url: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 200'%3E%3Ctext x='50%25' y='50%25' font-size='38' fill='%23999' text-anchor='middle' dominant-baseline='middle' font-weight='bold' opacity='0.8'%3E留学云伴%3C/text%3E%3C/svg%3E" },
+            none: null
+        };
+        
+        const copyrightMap = {
+            c1: "© 万能班长 留学生学术成长赋能平台",
+            c2: "© 留学云伴 · 学业护航",
+            none: null
+        };
+
+        function applyTheme(themeId) {
+            const theme = themeMap[themeId];
+            if (!theme) return;
+            document.documentElement.style.setProperty('--primary-color', theme.primary);
+            document.documentElement.style.setProperty('--primary-rgb', theme.rgb);
+            currentTheme = themeId;
+            renderPreview();
+            updateThemeActiveClass(themeId);
+        }
+
+        function updateThemeActiveClass(themeId) {
+            const redBtn = document.getElementById('themeRedBtn');
+            const blueBtn = document.getElementById('themeBlueBtn');
+            if (redBtn && blueBtn) {
+                if (themeId === 'red') {
+                    redBtn.classList.add('active');
+                    blueBtn.classList.remove('active');
+                } else {
+                    blueBtn.classList.add('active');
+                    redBtn.classList.remove('active');
+                }
+            }
+        }
+        
+        window.handleThemeChange = function(themeId) {
+            applyTheme(themeId);
+        };
+        
+        function updateWatermarkActiveClass() {
+            document.querySelectorAll('.watermark-option').forEach(btn => {
+                const val = btn.getAttribute('data-watermark');
+                if (val === currentWatermark) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+        }
+        
+        function updateCopyrightActiveClass() {
+            document.querySelectorAll('.copyright-option').forEach(btn => {
+                const val = btn.getAttribute('data-copyright');
+                if (val === currentCopyright) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+        }
+        
+        function setWatermark(type) {
+            if (type === currentWatermark) return;
+            currentWatermark = type;
+            updateWatermarkActiveClass();
+            renderPreview();
+        }
+        
+        function setCopyright(type) {
+            if (type === currentCopyright) return;
+            currentCopyright = type;
+            updateCopyrightActiveClass();
+            renderPreview();
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c] || c);
+        }
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+            return (bytes/(1024*1024)).toFixed(1) + ' MB';
+        }
+
+        function renderApp() {
+            document.getElementById('app').innerHTML = renderEditorLayout();
+            bindEditorEvents();
+            renderScheduleTable();
+            renderPreview();
+            setupPasteAndUpload();
+            renderFileLists();
+            toggleTotalHoursField();
+            applyTheme(currentTheme);
+            updateWatermarkActiveClass();
+            updateCopyrightActiveClass();
+            bindWatermarkCopyrightEvents();
+        }
+
+        function renderEditorLayout() {
+            return `
+                <div class="split-layout">
+                    <div class="editor-pane">
+                        <a class="back-btn" href="index.html"><i class="fas fa-arrow-left"></i> 返回选择类型</a>
+                        
+                        <div class="theme-row">
+                            <span class="theme-label"><i class="fas fa-palette"></i> 主题色：</span>
+                            <div class="theme-options">
+                                <div class="theme-badge active" id="themeRedBtn" onclick="window.handleThemeChange('red')"><i class="fas fa-dot-circle"></i> 红色</div>
+                                <div class="theme-badge" id="themeBlueBtn" onclick="window.handleThemeChange('blue')"><i class="fas fa-droplet"></i> 蓝色</div>
+                            </div>
+                        </div>
+                        
+                        <div class="theme-row">
+                            <span class="theme-label"><i class="fas fa-watermark"></i> 水印图片：</span>
+                            <div class="theme-options">
+                                <div class="theme-badge watermark-option" data-watermark="w1"><i class="fas fa-image"></i> 万能班长</div>
+                                <div class="theme-badge watermark-option" data-watermark="w2"><i class="fas fa-cloud"></i> 留学云伴</div>
+                                <div class="theme-badge watermark-option" data-watermark="none"><i class="fas fa-ban"></i> 无</div>
+                            </div>
+                        </div>
+                        
+                        <div class="theme-row">
+                            <span class="theme-label">版权信息：</span>
+                            <div class="theme-options">
+                                <div class="theme-badge copyright-option" data-copyright="c1"><i class="fas fa-cloud"></i> 万能班长</div>
+                                <div class="theme-badge copyright-option" data-copyright="c2"><i class="fas fa-cloud"></i> 留学云伴</div>
+                                <div class="theme-badge copyright-option" data-copyright="none"><i class="fas fa-ban"></i> 无</div>
+                            </div>
+                        </div>
+
+                        <h3 style="font-size:22px; margin-bottom:20px;"><i class="fas fa-pen-alt" style="color:var(--primary-color);"></i> 填写报告信息</h3>
+
+                        <div class="form-group">
+                            <label>📌 辅导类型</label>
+                            <select id="tutorTypeSelect">
+                                <option value="package" selected>包课辅导</option>
+                                <option value="custom">定制辅导</option>
+                                <option value="semester">学期辅导</option>
+                                <option value="unlimited">包课辅导（不限课时）</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>👤 学生姓名</label>
+                            <input type="text" id="studentNameInp" value="" placeholder="例如：黄奔涵">
+                        </div>
+                        <div class="form-group">
+                            <label>📦 订单号</label>
+                            <input type="text" id="orderNumberInp" value="" placeholder="订单编号">
+                        </div>
+                        <div class="form-group">
+                            <label>📚 课程名称</label>
+                            <input type="text" id="courseNameInp" value="" placeholder="例如：Consumer Behaviour">
+                        </div>
+                        <div class="form-group">
+                            <label>🧑‍🏫 讲师</label>
+                            <input type="text" id="teacherNameInp" value="" placeholder="讲师姓名">
+                        </div>
+                        <div style="display:flex; gap:12px;">
+                            <div class="form-group" style="flex:1;">
+                                <label>⏱️ 已消耗 (小时)</label>
+                                <input type="number" step="0.01" id="usedHoursInp" value="" placeholder="0.00">
+                            </div>
+                            <div class="form-group" style="flex:1;" id="totalHoursGroup">
+                                <label>📊 总课时</label>
+                                <input type="number" step="0.01" id="totalHoursInp" value="" placeholder="20">
+                            </div>
+                        </div>
+
+                        <div class="form-section-title"><i class="fas fa-calendar-alt"></i> 排课记录</div>
+
+                        <div class="paste-area" id="schedulePasteArea">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p style="font-weight:600; margin:5px 0;">📋 粘贴图片 / 上传PDF</p>
+                            <p style="font-size:13px; color:#64748b;">支持图片、PDF文件，AI 将自动识别排课表格</p>
+                            <input type="file" id="scheduleImageUpload" accept="image/*,.pdf" multiple style="display:none;">
+                            <div id="scheduleFileList" class="file-list"></div>
+                            <div id="scheduleAiStatus" class="status-tip"></div>
+                        </div>
+
+                        <div style="display:flex; gap:10px; margin:10px 0;">
+                            <button class="btn btn-primary" id="aiScheduleRecognizeBtn"><i class="fas fa-robot"></i> AI 识别排课</button>
+                            <button class="btn" id="clearScheduleImagesBtn" disabled><i class="fas fa-times"></i> 清除文件</button>
+                        </div>
+
+                        <div style="display:flex; justify-content:space-between; margin:10px 0 6px;">
+                            <span style="font-weight:600;">📅 排课列表</span>
+                            <div>
+                                <button class="btn btn-sm" id="addRowBtn"><i class="fas fa-plus"></i> 添加</button>
+                                <button class="btn btn-sm" id="clearTableBtn"><i class="fas fa-trash"></i> 清空</button>
+                            </div>
+                        </div>
+                        <table class="editable-table" id="scheduleTable">
+                            <thead><tr><th>课程</th><th>开始时间</th><th>结束时间</th><th>时长</th><th></th></tr></thead>
+                            <tbody id="tableBody"></tbody>
+                        </table>
+
+                        <div class="form-section-title" style="margin-top:30px;"><i class="fas fa-comment-dots"></i> 学习反馈</div>
+
+                        <div class="paste-area" id="feedbackPasteArea">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p style="font-weight:600; margin:5px 0;">📝 粘贴图片 / 上传PDF</p>
+                            <p style="font-size:13px; color:#64748b;">支持图片、PDF文件，AI 将自动识别并填充下方四个反馈字段</p>
+                            <input type="file" id="feedbackImageUpload" accept="image/*,.pdf" multiple style="display:none;">
+                            <div id="feedbackFileList" class="file-list"></div>
+                            <div id="feedbackAiStatus" class="status-tip"></div>
+                        </div>
+
+                        <div style="display:flex; gap:10px; margin:10px 0;">
+                            <button class="btn btn-primary" id="aiFeedbackRecognizeBtn"><i class="fas fa-robot"></i> AI 识别反馈</button>
+                            <button class="btn" id="clearFeedbackImagesBtn" disabled><i class="fas fa-times"></i> 清除文件</button>
+                        </div>
+
+                        ${renderFeedbackField('performance', '💬 平时课堂表现', '')}
+                        ${renderFeedbackField('progress', '📈 当前辅导进度', '')}
+                        ${renderFeedbackField('mastery', '🎯 课程掌握情况', '')}
+                        ${renderFeedbackField('suggestion', '💡 后续学习建议', '')}
+
+                        <button class="btn btn-primary btn-block" id="refreshPreviewBtn" style="margin-top:20px;"><i class="fas fa-sync-alt"></i> 刷新预览</button>
+                    </div>
+
+                    <div class="preview-pane">
+                        <div class="preview-header">
+                            <h3><i class="far fa-eye"></i> 实时预览</h3>
+                            <button class="btn btn-primary" id="exportImageBtn"><i class="fas fa-camera"></i> 导出PNG</button>
+                        </div>
+                        <div id="previewContainer">
+                            <div style="text-align:center; padding:60px 20px; color:#94a3b8;">
+                                <i class="fas fa-file-alt" style="font-size:48px; margin-bottom:16px; opacity:0.5;"></i>
+                                <p>填写左侧信息后，报告预览将出现在这里</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function bindWatermarkCopyrightEvents() {
+            document.querySelectorAll('.watermark-option').forEach(btn => {
+                btn.removeEventListener('click', watermarkClickHandler);
+                btn.addEventListener('click', watermarkClickHandler);
+            });
+            document.querySelectorAll('.copyright-option').forEach(btn => {
+                btn.removeEventListener('click', copyrightClickHandler);
+                btn.addEventListener('click', copyrightClickHandler);
+            });
+        }
+        
+        function watermarkClickHandler(e) {
+            setWatermark(this.getAttribute('data-watermark'));
+        }
+        
+        function copyrightClickHandler(e) {
+            setCopyright(this.getAttribute('data-copyright'));
+        }
+
+        function renderFeedbackField(fieldKey, label, value) {
+            return `
+                <div class="feedback-item-wrapper">
+                    <div class="feedback-header" style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                        <label style="font-weight:600; font-size:14px;">${label}</label>
+                    </div>
+                    <textarea id="${fieldKey}Text" placeholder="输入或通过上方AI识别填充">${escapeHtml(value)}</textarea>
+                </div>
+            `;
+        }
+
+        function toggleTotalHoursField() {
+            const typeSelect = document.getElementById('tutorTypeSelect');
+            const totalGroup = document.getElementById('totalHoursGroup');
+            if (typeSelect && totalGroup) {
+                totalGroup.style.display = typeSelect.value === 'package' ? 'block' : 'none';
+                renderPreview();
+            }
+        }
+
+        function revokeUrls(arr) {
+            arr.forEach(u => URL.revokeObjectURL(u));
+            arr.length = 0;
+        }
+
+        function getFileIcon(file) {
+            const type = file.type || '';
+            const ext = (file.name || '').split('.').pop().toLowerCase();
+            if (type.startsWith('image/')) return 'far fa-image';
+            if (type === 'application/pdf' || ext === 'pdf') return 'fas fa-file-pdf';
+            if (ext === 'txt' || ext === 'md') return 'fas fa-file-alt';
+            if (ext === 'json' || ext === 'csv') return 'fas fa-file-code';
+            return 'fas fa-file';
+        }
+
+        function isImageFile(file) {
+            return (file.type || '').startsWith('image/');
+        }
+
+        function renderFileLists() {
+            const scheduleContainer = document.getElementById('scheduleFileList');
+            const scheduleFiles = scheduleImages;
+            if (scheduleContainer) {
+                revokeUrls(scheduleListUrls);
+                if (scheduleFiles.length === 0) {
+                    scheduleContainer.innerHTML = '<div style="color:#94a3b8; text-align:center; padding:8px;">暂无文件</div>';
+                    document.getElementById('clearScheduleImagesBtn').disabled = true;
+                } else {
+                    let html = '';
+                    scheduleFiles.forEach((file, idx) => {
+                        const icon = getFileIcon(file);
+                        let url = null;
+                        if (isImageFile(file)) {
+                            url = URL.createObjectURL(file);
+                            scheduleListUrls.push(url);
+                        }
+                        const clickable = isImageFile(file) ? `class="preview-img" data-url="${url}"` : '';
+                        html += `<div class="file-item"><i class="${icon}"></i><span ${clickable}>${escapeHtml(file.name)} (${formatFileSize(file.size)})</span><i class="fas fa-times" style="cursor:pointer;" data-type="schedule" data-idx="${idx}"></i></div>`;
+                    });
+                    scheduleContainer.innerHTML = html;
+                    document.getElementById('clearScheduleImagesBtn').disabled = false;
+                }
+            }
+            const feedbackContainer = document.getElementById('feedbackFileList');
+            const feedbackFiles = feedbackImages;
+            if (feedbackContainer) {
+                revokeUrls(feedbackListUrls);
+                if (feedbackFiles.length === 0) {
+                    feedbackContainer.innerHTML = '<div style="color:#94a3b8; text-align:center; padding:8px;">暂无文件</div>';
+                    document.getElementById('clearFeedbackImagesBtn').disabled = true;
+                } else {
+                    let html = '';
+                    feedbackFiles.forEach((file, idx) => {
+                        const icon = getFileIcon(file);
+                        let url = null;
+                        if (isImageFile(file)) {
+                            url = URL.createObjectURL(file);
+                            feedbackListUrls.push(url);
+                        }
+                        const clickable = isImageFile(file) ? `class="preview-img" data-url="${url}"` : '';
+                        html += `<div class="file-item"><i class="${icon}"></i><span ${clickable}>${escapeHtml(file.name)} (${formatFileSize(file.size)})</span><i class="fas fa-times" style="cursor:pointer;" data-type="feedback" data-idx="${idx}"></i></div>`;
+                    });
+                    feedbackContainer.innerHTML = html;
+                    document.getElementById('clearFeedbackImagesBtn').disabled = false;
+                }
+            }
+            document.querySelectorAll('.preview-img').forEach(span => {
+                span.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    window.open(span.dataset.url, '_blank');
+                });
+            });
+            document.querySelectorAll('.file-item .fa-times').forEach(icon => {
+                icon.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const type = icon.dataset.type;
+                    const idx = parseInt(icon.dataset.idx, 10);
+                    if (type === 'schedule') scheduleImages.splice(idx, 1);
+                    else feedbackImages.splice(idx, 1);
+                    renderFileLists();
+                });
+            });
+        }
+
+        function renderScheduleTable() {
+            const tbody = document.getElementById('tableBody');
+            if (!tbody) return;
+            let html = '';
+            scheduleData.forEach((row, idx) => {
+                html += `<tr>
+                    <td><input type="text" value="${escapeHtml(row.courseName||'')}" data-idx="${idx}" data-field="courseName" placeholder="课程名"></td>
+                    <td><input type="text" value="${escapeHtml(row.startTime||'')}" data-idx="${idx}" data-field="startTime" placeholder="2026-04-02 20:20"></td>
+                    <td><input type="text" value="${escapeHtml(row.endTime||'')}" data-idx="${idx}" data-field="endTime"></td>
+                    <td><input type="text" value="${escapeHtml(row.duration||'')}" data-idx="${idx}" data-field="duration" placeholder="1:21:00"></td>
+                    <td><span class="delete-row" data-idx="${idx}"><i class="fas fa-times-circle"></i></span></td>
+                </tr>`;
+            });
+            tbody.innerHTML = html || '<tr><td colspan="5" style="padding:12px;text-align:center; color:#94a3b8;">暂无排课，可手动添加或AI识别</td></tr>';
+        }
+
+        function renderPreview() {
+            const container = document.getElementById('previewContainer');
+            if (!container) return;
+
+            const tutorType = document.getElementById('tutorTypeSelect')?.value || 'package';
+            const student = document.getElementById('studentNameInp')?.value || '学生姓名';
+            const order = document.getElementById('orderNumberInp')?.value || '订单编号';
+            const course = document.getElementById('courseNameInp')?.value || '课程名称';
+            const teacher = document.getElementById('teacherNameInp')?.value || '讲师';
+            const used = parseFloat(document.getElementById('usedHoursInp')?.value) || 0;
+            
+            const showTotalAndProgress = (tutorType === 'package');
+            const total = showTotalAndProgress ? (parseFloat(document.getElementById('totalHoursInp')?.value) || 0) : 0;
+            const remaining = Math.max(0, total - used);
+            const percent = total > 0 ? Math.min(100, Math.max(0, (used/total*100))).toFixed(1) : 0;
+
+            const sorted = [...scheduleData].sort((a,b) => (a.startTime||'').localeCompare(b.startTime||''));
+            let rows = '';
+            sorted.forEach(r => rows += `<tr><td>${escapeHtml(r.courseName) || '—'}</td><td>${escapeHtml(r.startTime) || '—'}</td><td>${escapeHtml(r.endTime) || '—'}</td><td>${escapeHtml(r.duration) || '—'}</td></tr>`);
+
+            const perf = document.getElementById('performanceText')?.value || '';
+            const prog = document.getElementById('progressText')?.value || '';
+            const mast = document.getElementById('masteryText')?.value || '';
+            const sugg = document.getElementById('suggestionText')?.value || '';
+
+            let titleType = '';
+            if (tutorType === 'package') titleType = '包课辅导';
+            else if (tutorType === 'custom') titleType = '定制辅导';
+            else if (tutorType === 'semester') titleType = '学期辅导';
+            else if (tutorType === 'unlimited') titleType = '包课辅导';
+            const headerTitle = `${escapeHtml(student)}-${titleType}阶段性反馈报告`;
+
+            const infoCards = showTotalAndProgress ? `
+                <div class="info-tile"><h3><i class="fas fa-book"></i> 课程名称</h3><p>${escapeHtml(course)}</p></div>
+                <div class="info-tile"><h3><i class="fas fa-chalkboard-teacher"></i> 讲师</h3><p>${escapeHtml(teacher)}</p></div>
+                <div class="info-tile"><h3><i class="fas fa-clock"></i> 已消耗课时</h3><p>${used.toFixed(2)} 小时</p></div>
+                <div class="info-tile"><h3><i class="fas fa-hourglass-half"></i> 剩余课时</h3><p>${remaining.toFixed(2)} 小时</p></div>
+            ` : `
+                <div class="info-tile1"><h3><i class="fas fa-book-open"></i> 课程名称</h3><p>${escapeHtml(course)}</p></div>
+                <div class="info-tile1"><h3><i class="fas fa-chalkboard-user"></i> 讲师</h3><p>${escapeHtml(teacher)}</p></div>
+                <div class="info-tile1 hours-highlight"><h3><i class="fas fa-hourglass-half"></i> 已消耗课时</h3><p>${used.toFixed(2)} 小时</p></div>
+            `;
+
+            const progressHtml = showTotalAndProgress ? `
+                <div class="progress-wrap">
+                    <div class="progress-bar-bg"><div class="progress-fill" style="width:${percent}%;"></div></div>
+                    <div class="progress-labels">
+                        <div>已消耗：<span>${used.toFixed(2)} 小时</span></div>
+                        <div>剩余：<span>${remaining.toFixed(2)} 小时</span></div>
+                        <div>总课时：<span>${total} 小时</span></div>
+                    </div>
+                </div>
+            ` : '';
+
+            const watermarkInfo = watermarkMap[currentWatermark];
+            let watermarkHtml = watermarkInfo ? `<div class="watermark-bg" style="background-image: url('${watermarkInfo.url}');"></div>` : `<div class="watermark-bg" style="display: none;"></div>`;
+            
+            const copyrightText = copyrightMap[currentCopyright];
+            let footerHtml = copyrightText ? `<div class="footer-note">${escapeHtml(copyrightText)}</div>` : '';
+
+            container.innerHTML = `
+                <div class="report-card" id="reportForExport">
+                    ${watermarkHtml}
+                    <div class="report-inner">
+                        <div class="report-header">
+                            <h1>${headerTitle}</h1>
+                            <div class="order-badge">${escapeHtml(order)}</div>
+                        </div>
+                        <div class="info-grid">
+                            ${infoCards}
+                        </div>
+                        ${progressHtml}
+                        <div class="schedule-section">
+                            <h2 style="color:var(--primary-color); margin-bottom:15px; padding-bottom:8px; border-bottom:1px solid #eee;"><i class="fas fa-calendar-alt"></i> 排课情况</h2>
+                            <table class="schedule-table">
+                                <thead><tr><th>课堂名称</th><th>开始时间</th><th>结束时间</th><th>上课时长</th></tr></thead>
+                                <tbody>${rows || '<tr><td colspan="4" style="text-align:center;">暂无排课</td></tr>'}</tbody>
+                            </table>
+                        </div>
+                        <div class="feedback-block">
+                            <h2 style="color:var(--primary-color); margin-bottom:20px; padding-bottom:8px; border-bottom:1px solid #eee;"><i class="fas fa-user-graduate"></i> 学习情况综合分析</h2>
+                            <div class="feedback-item"><h4><i class="fas fa-comment-dots"></i> 平时课堂表现</h4><p>${escapeHtml(perf).replace(/\n/g,'<br>') || '暂无'}</p></div>
+                            <div class="feedback-item"><h4><i class="fas fa-chalkboard"></i> 当前辅导进度</h4><p>${escapeHtml(prog).replace(/\n/g,'<br>') || '暂无'}</p></div>
+                            <div class="feedback-item"><h4><i class="fas fa-chart-line"></i> 课程掌握情况</h4><p>${escapeHtml(mast).replace(/\n/g,'<br>') || '暂无'}</p></div>
+                            <div class="feedback-item"><h4><i class="fas fa-lightbulb"></i> 后续学习建议</h4><p>${escapeHtml(sugg).replace(/\n/g,'<br>') || '暂无'}</p></div>
+                        </div>
+                        ${footerHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function singleImageToBase64(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    let b64 = e.target.result.split(',')[1];
+                    resolve(b64);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+       async function callAIScheduleExtract() {
+            if (!scheduleImages.length) return [];
+            const prepared = await window.aiClient.prepareFiles(scheduleImages, { maxImages: 8, maxTextFiles: 6 });
+            if (!prepared.images.length && !prepared.textBlocks.length) {
+                const skipMsg = prepared.skipped.length ? `\n\n被跳过的文件：\n${prepared.skipped.join('\n')}` : '';
+                throw new Error('文件解析失败，请确认文件格式正确' + skipMsg);
+            }
+            if (prepared.skipped.length) {
+                console.warn('Skipped files:', prepared.skipped);
+            }
+            const result = await window.aiClient.request('/api/ai/period-feedback/schedule', {
+                images: prepared.images,
+                textBlocks: prepared.textBlocks,
+                context: {
+                    tutorType: document.getElementById('tutorTypeSelect')?.value || '',
+                    studentName: document.getElementById('studentNameInp')?.value || '',
+                    orderNumber: document.getElementById('orderNumberInp')?.value || '',
+                    courseName: document.getElementById('courseNameInp')?.value || '',
+                    teacherName: document.getElementById('teacherNameInp')?.value || '',
+                    usedHours: document.getElementById('usedHoursInp')?.value || '',
+                    totalHours: document.getElementById('totalHoursInp')?.value || ''
+                }
+            });
+            return Array.isArray(result.rows) ? result.rows : [];
+       }
+
+       async function callAIFeedbackExtract() {
+            if (!feedbackImages.length) return {};
+            const prepared = await window.aiClient.prepareFiles(feedbackImages, { maxImages: 8, maxTextFiles: 6 });
+            if (!prepared.images.length && !prepared.textBlocks.length) {
+                const skipMsg = prepared.skipped.length ? `\n\n被跳过的文件：\n${prepared.skipped.join('\n')}` : '';
+                throw new Error('文件解析失败，请确认文件格式正确' + skipMsg);
+            }
+            if (prepared.skipped.length) {
+                console.warn('Skipped files:', prepared.skipped);
+            }
+            return window.aiClient.request('/api/ai/period-feedback/feedback', {
+                images: prepared.images,
+                textBlocks: prepared.textBlocks,
+                context: {
+                    tutorType: document.getElementById('tutorTypeSelect')?.value || '',
+                    studentName: document.getElementById('studentNameInp')?.value || '',
+                    orderNumber: document.getElementById('orderNumberInp')?.value || '',
+                    courseName: document.getElementById('courseNameInp')?.value || '',
+                    teacherName: document.getElementById('teacherNameInp')?.value || '',
+                    usedHours: document.getElementById('usedHoursInp')?.value || '',
+                    totalHours: document.getElementById('totalHoursInp')?.value || '',
+                    performance: document.getElementById('performanceText')?.value || '',
+                    progress: document.getElementById('progressText')?.value || '',
+                    mastery: document.getElementById('masteryText')?.value || '',
+                    suggestion: document.getElementById('suggestionText')?.value || ''
+                }
+            });
+       }
+
+       function addImagesToTarget(files, target) {
+            const newFiles = Array.from(files);
+            if (!newFiles.length) return;
+            if (target === 'schedule') scheduleImages = [...scheduleImages, ...newFiles];
+            else feedbackImages = [...feedbackImages, ...newFiles];
+            renderFileLists();
+            
+            // 显示添加成功的提示
+            const statusId = target === 'schedule' ? 'scheduleAiStatus' : 'feedbackAiStatus';
+            const statusEl = document.getElementById(statusId);
+            if (statusEl) {
+                const fileNames = newFiles.map(f => f.name).join(', ');
+                statusEl.innerText = `✅ 已添加 ${newFiles.length} 个文件：${fileNames}`;
+                statusEl.style.color = '#22c55e';
+                setTimeout(() => { statusEl.innerText = ''; statusEl.style.color = ''; }, 3000);
+            }
+        }
+
+        function clearImages(target) {
+            if (target === 'schedule') scheduleImages = [];
+            else feedbackImages = [];
+            renderFileLists();
+        }
+
+        async function performScheduleRecognition() {
+            if (!scheduleImages.length) { alert('请先上传排课截图或PDF文件'); return; }
+            const statusDiv = document.getElementById('scheduleAiStatus');
+            const fileInfo = scheduleImages.map(f => `${f.name}(${(f.size/1024).toFixed(1)}KB)`).join(', ');
+            statusDiv.innerText = `⏳ 正在解析 ${scheduleImages.length} 个文件：${fileInfo}`;
+            statusDiv.style.color = '';
+            try {
+                const rows = await callAIScheduleExtract();
+                if (rows && rows.length > 0) {
+                    scheduleData = rows;
+                    renderScheduleTable();
+                    renderPreview();
+                    statusDiv.innerText = `✅ 识别完成，找到 ${rows.length} 条课程记录`;
+                    statusDiv.style.color = '#22c55e';
+                } else {
+                    statusDiv.innerText = '❌ 未识别到课程数据，请检查文件内容是否包含排课信息';
+                    statusDiv.style.color = '#ef4444';
+                }
+            } catch (err) {
+                statusDiv.innerText = `❌ ${err.message || 'AI 识别失败'}`;
+                statusDiv.style.color = '#ef4444';
+                console.error('识别错误:', err);
+            }
+        }
+
+        async function performFeedbackRecognition() {
+            if (!feedbackImages.length) { alert('请先上传反馈截图或PDF文件'); return; }
+            const statusDiv = document.getElementById('feedbackAiStatus');
+            const fileInfo = feedbackImages.map(f => `${f.name}(${(f.size/1024).toFixed(1)}KB)`).join(', ');
+            statusDiv.innerText = `⏳ 正在解析 ${feedbackImages.length} 个文件：${fileInfo}`;
+            statusDiv.style.color = '';
+            try {
+                const data = await callAIFeedbackExtract();
+                if (data.performance || data.progress || data.mastery || data.suggestion) {
+                    if (data.performance) document.getElementById('performanceText').value = data.performance;
+                    if (data.progress) document.getElementById('progressText').value = data.progress;
+                    if (data.mastery) document.getElementById('masteryText').value = data.mastery;
+                    if (data.suggestion) document.getElementById('suggestionText').value = data.suggestion;
+                    renderPreview();
+                    statusDiv.innerText = '✅ 识别完成，已填充反馈字段';
+                    statusDiv.style.color = '#22c55e';
+                } else {
+                    statusDiv.innerText = '❌ 未识别到反馈内容，请检查文件格式';
+                    statusDiv.style.color = '#ef4444';
+                }
+            } catch (err) {
+                statusDiv.innerText = `❌ ${err.message || 'AI 识别失败'}`;
+                statusDiv.style.color = '#ef4444';
+                console.error('识别错误:', err);
+            }
+        }
+
+        function setupPasteAndUpload() {
+            const scheduleArea = document.getElementById('schedulePasteArea');
+            const scheduleInput = document.getElementById('scheduleImageUpload');
+            scheduleArea.addEventListener('click', () => scheduleInput.click());
+            scheduleInput.addEventListener('change', () => { addImagesToTarget(scheduleInput.files, 'schedule'); scheduleInput.value = ''; });
+            setupDragDrop(scheduleArea, 'schedule');
+            scheduleArea.addEventListener('mouseenter', () => { lastHoveredPasteArea = 'schedule'; });
+
+            const feedbackArea = document.getElementById('feedbackPasteArea');
+            const feedbackInput = document.getElementById('feedbackImageUpload');
+            feedbackArea.addEventListener('click', () => feedbackInput.click());
+            feedbackInput.addEventListener('change', () => { addImagesToTarget(feedbackInput.files, 'feedback'); feedbackInput.value = ''; });
+            setupDragDrop(feedbackArea, 'feedback');
+            feedbackArea.addEventListener('mouseenter', () => { lastHoveredPasteArea = 'feedback'; });
+
+            document.addEventListener('paste', e => {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+                const items = e.clipboardData?.items;
+                if (!items) return;
+                const files = [];
+                for (let item of items) if (item.type.indexOf('image') !== -1) files.push(item.getAsFile());
+                if (files.length) {
+                    e.preventDefault();
+                    const target = lastHoveredPasteArea;
+                    addImagesToTarget(files, target);
+                    const statusId = target === 'schedule' ? 'scheduleAiStatus' : 'feedbackAiStatus';
+                    const statusEl = document.getElementById(statusId);
+                    if (statusEl) { statusEl.innerText = `📋 已添加 ${files.length} 个文件到${target === 'schedule' ? '排课' : '反馈'}区`; setTimeout(() => statusEl.innerText = '', 1800); }
+                }
+            });
+            document.getElementById('clearScheduleImagesBtn').addEventListener('click', () => clearImages('schedule'));
+            document.getElementById('clearFeedbackImagesBtn').addEventListener('click', () => clearImages('feedback'));
+            document.getElementById('aiScheduleRecognizeBtn').addEventListener('click', performScheduleRecognition);
+            document.getElementById('aiFeedbackRecognizeBtn').addEventListener('click', performFeedbackRecognition);
+        }
+
+        function setupDragDrop(el, target) {
+            el.addEventListener('dragover', e => { e.preventDefault(); el.style.background = 'var(--primary-bg-hover)'; });
+            el.addEventListener('dragleave', () => el.style.background = 'var(--primary-bg-soft)');
+            el.addEventListener('drop', e => { e.preventDefault(); el.style.background = 'var(--primary-bg-soft)'; if (e.dataTransfer.files.length) addImagesToTarget(e.dataTransfer.files, target); });
+        }
+
+        async function exportCurrentReport() {
+            const el = document.getElementById('reportForExport');
+            if (!el) return;
+            try {
+                const canvas = await html2canvas(el, { scale: 2.5, useCORS: true, backgroundColor: '#fff' });
+                const link = document.createElement('a');
+                const studentVal = document.getElementById('studentNameInp')?.value || '报告';
+                link.download = `${studentVal}_反馈报告.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            } catch(e) { alert('导出失败'); }
+        }
+
+        function bindEditorEvents() {
+            const typeSelect = document.getElementById('tutorTypeSelect');
+            typeSelect.addEventListener('change', () => { toggleTotalHoursField(); renderPreview(); });
+            document.getElementById('addRowBtn').addEventListener('click', ()=>{ scheduleData.push({}); renderScheduleTable(); renderPreview(); });
+            document.getElementById('clearTableBtn').addEventListener('click', ()=>{ scheduleData = []; renderScheduleTable(); renderPreview(); });
+            const tbody = document.getElementById('tableBody');
+            tbody.addEventListener('click', e => {
+                const del = e.target.closest('.delete-row');
+                if (del) { scheduleData.splice(parseInt(del.dataset.idx, 10), 1); renderScheduleTable(); renderPreview(); }
+            });
+            tbody.addEventListener('input', e => {
+                const inp = e.target;
+                if (inp.dataset.idx !== undefined) {
+                    const idx = parseInt(inp.dataset.idx, 10);
+                    if (!scheduleData[idx]) scheduleData[idx] = {};
+                    scheduleData[idx][inp.dataset.field] = inp.value;
+                    renderPreview();
+                }
+            });
+            ['studentNameInp','orderNumberInp','courseNameInp','teacherNameInp','usedHoursInp','totalHoursInp','performanceText','progressText','masteryText','suggestionText'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('input', renderPreview);
+            });
+            document.getElementById('refreshPreviewBtn').addEventListener('click', renderPreview);
+            document.getElementById('exportImageBtn').addEventListener('click', exportCurrentReport);
+        }
+
+        renderApp();
+    })();
+</script>
+</body>
+</html>

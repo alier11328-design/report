@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>万能班长 · 课程规划AI工坊 | 智能润色版</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', system-ui, sans-serif;
+        }
+        body {
+            background: linear-gradient(145deg, #eef2f9 0%, #e2e8f0 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 28px;
+        }
+        .app {
+            width: 100%;
+            max-width: 1500px;
+            background: rgba(255,255,255,0.96);
+            backdrop-filter: blur(0px);
+            border-radius: 40px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            overflow: hidden;
+            min-height: 700px;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .split-layout {
+            display: grid;
+            grid-template-columns: 520px 1fr;
+            flex: 1;
+            min-height: 0;
+        }
+        .editor-pane {
+            background: #ffffff;
+            border-right: 1px solid rgba(0,0,0,0.05);
+            padding: 28px 24px;
+            overflow-y: auto;
+            height: 100%;
+            scrollbar-width: thin;
+        }
+        .editor-pane::-webkit-scrollbar { width: 6px; }
+        .editor-pane::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 8px; }
+        .editor-pane::-webkit-scrollbar-thumb { background: #BF2A32; border-radius: 8px; }
+
+        .preview-pane {
+            background: #f8fafc;
+            padding: 28px 24px;
+            overflow-y: auto;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .form-section-title {
+            font-weight: 700;
+            font-size: 18px;
+            margin: 32px 0 18px 0;
+            color: #0f172a;
+            border-left: 5px solid #BF2A32;
+            padding-left: 16px;
+            letter-spacing: -0.2px;
+            background: linear-gradient(90deg, rgba(191,42,50,0.03), transparent);
+        }
+        .form-group {
+            margin-bottom: 22px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            font-size: 13px;
+            color: #334155;
+            margin-bottom: 8px;
+            letter-spacing: 0.3px;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 20px;
+            font-size: 14px;
+            background: #ffffff;
+            transition: all 0.25s ease;
+            outline: none;
+            color: #1e293b;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+            text-align: left;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: #BF2A32;
+            box-shadow: 0 0 0 4px rgba(191,42,50,0.12);
+            background-color: #fffefb;
+        }
+        ::placeholder { color: #94a3b8; font-size: 13px; }
+        .btn {
+            background: white;
+            border: 1px solid #cbd5e1;
+            padding: 10px 18px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary {
+            background: linear-gradient(105deg, #BF2A32 0%, #a01f26 100%);
+            border: none;
+            color: white;
+            box-shadow: 0 4px 8px rgba(191,42,50,0.2);
+        }
+        .btn-primary:hover {
+            background: linear-gradient(105deg, #a01f26 0%, #8a1920 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -5px rgba(191,42,50,0.4);
+        }
+        .btn-sm { padding: 6px 14px; font-size: 12px; border-radius: 30px; }
+        .btn-block { width: 100%; justify-content: center; margin-top: 12px; }
+        .btn:active { transform: translateY(1px); }
+        .back-btn {
+            background: transparent;
+            border: none;
+            color: #475569;
+            font-weight: 600;
+            margin-bottom: 16px;
+            cursor: pointer;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+        }
+        .drag-area {
+            border: 2px dashed #BF2A32;
+            border-radius: 28px;
+            padding: 28px 20px;
+            text-align: center;
+            background: #fff9f9;
+            margin: 16px 0;
+            cursor: pointer;
+            transition: all 0.25s;
+        }
+        .drag-area:hover { background: #fff0f0; border-color: #a01f26; transform: scale(0.99); }
+        .drag-area i { font-size: 36px; color: #BF2A32; margin-bottom: 12px; }
+        .school-suggest {
+            background: white;
+            border-radius: 20px;
+            max-height: 220px;
+            overflow-y: auto;
+            box-shadow: 0 12px 24px -8px rgba(0,0,0,0.15);
+            z-index: 20;
+        }
+        .school-suggest div { padding: 12px 16px; border-bottom: 1px solid #f0f0f0; }
+        .school-suggest div:hover { background: #fef2f2; color: #BF2A32; }
+        .difficulty-radar { display: flex; flex-direction: column; gap: 12px; margin: 16px 0; }
+        .difficulty-item {
+            background: #fefaf9;
+            border-radius: 24px;
+            padding: 14px 16px;
+            border: 1px solid #ffe3e3;
+        }
+        .difficulty-item label { font-weight: 700; color: #BF2A32; font-size: 13px; }
+        .difficulty-item input { background: white; border-radius: 40px; border: 1px solid #f0cdcf; }
+
+        /* 表格美化 + 垂直居中 */
+        .assessment-table, .week-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 6px;
+            font-size: 13px;
+            margin-top: 6px;
+        }
+        .assessment-table th, .week-table th {
+            background: #f1f5f9;
+            color: #1e293b;
+            padding: 14px 8px;
+            font-weight: 700;
+            text-align: center;
+            vertical-align: middle;
+            border-radius: 16px 16px 8px 8px;
+        }
+        .assessment-table td, .week-table td {
+            padding: 8px 6px;
+            background: white;
+            border-bottom: none;
+            text-align: center;
+            vertical-align: middle;
+            border-radius: 16px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+        }
+        .assessment-table input, .week-table input {
+            width: 100%;
+            padding: 10px 10px;
+            border-radius: 18px;
+            border: 1px solid #e2e8f0;
+            background: #fefefe;
+            text-align: center;
+        }
+        .delete-row { color: #94a3b8; cursor: pointer; text-align: center; }
+        .delete-row:hover { color: #BF2A32; transform: scale(1.1); }
+
+        /* 预览卡片 — 全面美化，间距加大 */
+        .report-card {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 36px;
+            box-shadow: 0 20px 40px -12px rgba(0,0,0,0.2);
+            overflow: hidden;
+            position: relative;
+        }
+        .watermark-bg {
+            position: absolute; top:0; left:0; width:100%; height:100%;
+            opacity: 0.08; pointer-events: none; z-index:1;
+            background-image: url('https://i.ibb.co/hxw0GD7L/retouch-2025041613021979.png');
+            background-repeat: no-repeat; background-position: center 60%; background-size: 70% auto;
+        }
+        .report-inner { position: relative; z-index: 2; }
+        .report-header {
+            background: #BF2A32;
+            padding: 36px 32px;
+            text-align: center;
+            color: white;
+        }
+        .report-header h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.3px; color: white; }
+        .info-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            padding: 32px 32px 20px;
+            background: #fff;
+        }
+        .info-tile {
+            flex: 1 1 200px;
+            background: #f9fafc;
+            border-radius: 24px;
+            padding: 18px 20px;
+            border: 1px solid #edf2f7;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.02);
+            text-align: center;
+        }
+        .info-tile h3 { font-size: 15px; font-weight: 700; margin-bottom: 10px; color: #1e293b; }
+        .info-tile p { font-weight: 500; color: #334155; }
+        .content-section { padding: 0 32px 32px; }
+        .section-block { margin-bottom: 40px; }
+        .section-title {
+            font-size: 22px; font-weight: 700; margin-bottom: 20px;
+            border-bottom: 3px solid #BF2A32; display: inline-block; padding-bottom: 6px;
+        }
+
+        /* 保留红线条：课程介绍、难度分析 */
+        .highlight-box, .difficulty-box {
+            background: #fefaf9;
+            border-radius: 24px;
+            padding: 22px 26px;
+            border-left: 6px solid #BF2A32;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.02);
+            line-height: 1.6;
+        }
+        /* 其余框美化 (无左边红线) */
+        .suggestion-box, .assessment-preview-box, .week-preview-box, .outcomes-preview-box {
+            background: #f8fafc;
+            border-radius: 26px;
+            padding: 22px 26px;
+            border: 1px solid #e9edf4;
+            box-shadow: 0 6px 12px -6px rgba(0,0,0,0.05);
+        }
+        .learning-outcomes {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px,1fr));
+            gap: 14px;
+        }
+        .outcome-item {
+            background: #ffffff;
+            padding: 14px 18px;
+            border-radius: 20px;
+            border: 1px solid #eef2f6;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+            font-size: 0.85rem;
+            text-align: center;
+            color: #2c3e50;
+        }
+        .footer-note {
+            margin-top: 32px; padding: 20px 32px; text-align: center;
+            background: #faf9fc; font-size: 13px; border-top: 1px solid #f0eef3;
+        }
+        /* 表格预览也居中 */
+        .preview-table-wrap table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+        .preview-table-wrap th { background: #eef2f6; padding: 14px 10px; border-radius: 20px; text-align: center; }
+        .preview-table-wrap td { background: #ffffff; padding: 12px 10px; border-radius: 18px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
+
+        .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index:1000; align-items:center; justify-content:center; }
+        .modal-content { background: white; max-width:500px; width:90%; border-radius:40px; padding:28px; }
+        .mini-btn { background: rgba(191,42,50,0.08); border:none; border-radius:60px; padding:6px 12px; font-size:12px; cursor: pointer; }
+    </style>
+</head>
+<body>
+<div class="app" id="app"></div>
+
+<script src="./ai-client.js"></script>
+<script>
+    (function(){
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+        const schoolCalendar = {
+            "bristol": { name: "布里斯托大学", term: "2026年春季学期: 1月19日-6月12日; 秋季学期: 9月28日-12月18日", weeks: "教学块2: 第13-24周" },
+            "manchester": { name: "曼彻斯特大学", term: "春季学期: 1月26日-6月5日; 秋季学期: 9月21日-12月11日", weeks: "12周教学+复习周" },
+            "ucl": { name: "伦敦大学学院", term: "Term2: 1月12日-3月27日; Term3: 4月27日-6月12日", weeks: "教学周灵活" },
+            "edinburgh": { name: "爱丁堡大学", term: "Semester2: 1月12日-5月22日", weeks: "12周授课计划" },
+            "default": { name: "通用校历", term: "春季学期: 1月-4月; 秋季学期: 9月-12月", weeks: "建议12周教学计划" }
+        };
+
+        let courseData = {
+            辅导类型: "", studentName: "", courseCode: "", courseName: "", teacherName: "", institution: "", college: "", semesterInfo: "",
+            courseIntro: "",
+            difficultyAnalysis: { knowledgeDepth: "", practicalReq: "", assessmentDifficulty: "", workload: "" },
+            learningOutcomes: [],
+            assessments: [],
+            weekPlans: [],
+            learningSuggest: ""
+        };
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c] || c);
+        }
+
+        function renderApp() {
+            const app = document.getElementById('app');
+            app.innerHTML = renderEditor();
+            bindEvents();
+            renderAssessmentTable();
+            renderWeekTable();
+            initSchoolAutocomplete();
+            setTimeout(() => populateDemoData(), 20);
+        }
+
+        function populateDemoData() {
+            renderPreview();
+        }
+
+        function renderEditor() {
+            return `
+                <div class="split-layout">
+                    <div class="editor-pane">
+                        <a class="back-btn" href="index.html"><i class="fas fa-arrow-left"></i> 返回选择类型</a>
+                        <h3 style="font-size:24px; font-weight:700; margin-bottom:24px; background: linear-gradient(135deg,#BF2A32,#9b2f36); -webkit-background-clip:text; background-clip:text; color:transparent;"><i class="fas fa-map" style="color:#BF2A32;"></i> 课程规划 · AI智能工坊</h3>
+                        <div class="form-group"><label>📌 辅导类型</label><select id="tutorTypeSelect"><option value="课时卡" selected>课时卡</option><option value="包课辅导">包课辅导</option><option value="论文辅导">论文辅导</option></select></div>
+                        <div class="form-group"><label>👤 学生姓名</label><input id="studentName" placeholder="Alex Chen"></div>
+                        <div class="form-group"><label>📖 课程代码</label><input id="courseCode" placeholder="WUCB160"></div>
+                        <div class="form-group"><label>📚 课程名称</label><input id="courseName" placeholder="Economics Essentials for Business"></div>
+                        <div class="form-group"><label>🧑‍🏫 讲师</label><input id="teacherName" placeholder="Dr. R. Hubbard"></div>
+                        <div class="form-group relative"><label>🏫 院校 <button type="button" id="previewCalendarBtn" class="mini-btn"><i class="far fa-calendar-alt"></i> 预览校历</button></label><input id="institutionInput" placeholder="伍伦贡大学学院"><div id="schoolSuggestions" class="school-suggest" style="display:none;"></div></div>
+                        <div class="form-group"><label>🏛️ 学院</label><input id="collegeInput" placeholder="商学院"></div>
+                        <div class="form-group"><label>📅 教学周期</label><input id="semesterInfo" placeholder="Autumn 2026, 教学周1-12 + 考试周"></div>
+
+                        <div class="form-section-title"><i class="fas fa-cloud-upload-alt"></i> 📂 上传大纲 (AI识别)</div>
+                        <div id="dragArea" class="drag-area">
+                            <i class="fas fa-file-import"></i>
+                            <p style="font-weight:500;">拖拽 PDF / 图片 / TXT / JSON 或点击上传</p>
+                            <input type="file" id="fileInput" accept=".pdf,.txt,.json,image/png,image/jpeg,image/jpg" style="display:none;">
+                            <div id="uploadStatus" class="upload-status"></div>
+                        </div>
+                        <button class="btn btn-primary btn-block" id="aiRecognizeBtn"><i class="fas fa-robot"></i> 🤖 AI 智能识别填充</button>
+
+                        <div class="form-section-title">📖 课程介绍</div>
+                        <textarea id="courseIntro" rows="3" placeholder="本课程为经济学导论，无需预备知识。介绍经济学基本原理及其在商业管理中的应用，涵盖微观与宏观基础，帮助学生理解市场运行、政府政策及经济事件。"></textarea>
+
+                        <div class="form-section-title">📊 课程难度分析</div>
+                        <div class="difficulty-radar">
+                            <div class="difficulty-item"><label>📘 知识点深度</label><input id="diffDepth" placeholder="中等偏上，需理解抽象模型"></div>
+                            <div class="difficulty-item"><label>⚙️ 实践要求</label><input id="diffPractice" placeholder="中等，含数据分析及报告"></div>
+                            <div class="difficulty-item"><label>📝 考核难度</label><input id="diffAssessment" placeholder="较高，包含期中/期末闭卷"></div>
+                            <div class="difficulty-item"><label>⏱️ 课业负荷</label><input id="diffLoad" placeholder="每周约9-12小时"></div>
+                        </div>
+
+                        <div class="form-section-title">🎯 学习成果 (中文简版)</div>
+                        <textarea id="learningOutcomesRaw" rows="6" placeholder="运用数据与简单经济模型理解经济社会现象&#10;清晰呈现口头及书面经济解释&#10;阐释假设与价值判断对经济政策的影响&#10;分析政策变化并撰写综合报告&#10;理解公私部门领导者面临的挑战&#10;使用模型与数据预测政策影响"></textarea>
+
+                        <div class="form-section-title">📋 考核方式</div>
+                        <div style="display:flex; gap:12px; margin-bottom:14px;">
+                            <button class="btn btn-sm" id="addAssessmentBtn"><i class="fas fa-plus-circle"></i> 添加</button>
+                            <button class="btn btn-sm" id="clearAssessmentsBtn"><i class="fas fa-trash-alt"></i> 清空</button>
+                        </div>
+                        <table class="assessment-table" id="assessmentTable"><thead><tr><th>名称</th><th>类型</th><th>DDL</th><th>总结</th></tr></thead><tbody id="assessmentTableBody"></tbody></table>
+
+                        <div class="form-section-title">🗓️ 周计划</div>
+                        <div style="display:flex; gap:12px; margin-bottom:14px;">
+                            <button class="btn btn-sm" id="addWeekBtn"><i class="fas fa-plus-circle"></i> 添加周次</button>
+                            <button class="btn btn-sm" id="clearWeeksBtn"><i class="fas fa-trash-alt"></i> 清空</button>
+                        </div>
+                        <table class="week-table" id="weekTable"><thead><tr><th>教学周</th><th>学习重点</th><th>主要活动</th><th>评估节点</th></tr></thead><tbody id="weekTableBody"></tbody></table>
+
+                        <div class="form-section-title">💡 学习建议</div>
+                        <textarea id="learningSuggest" rows="3" placeholder="1. 每周预习指定章节，完成课后习题；2. 积极参与tutorial讨论；3. 关注quiz与期中/期末时间节点，提前三周复习；4. 利用办公时间解决疑难。"></textarea>
+                        <button class="btn btn-primary btn-block" id="refreshPreviewBtn"><i class="fas fa-sync-alt"></i> 刷新预览</button>
+                    </div>
+                    <div class="preview-pane">
+                        <div class="preview-header"><h3 style="font-weight:700;"><i class="far fa-eye"></i> 报告实时预览</h3><button class="btn btn-primary" id="exportBtn"><i class="fas fa-camera"></i> 导出PNG</button></div>
+                        <div id="previewContainer"></div>
+                    </div>
+                </div>
+                <div id="calendarModal" class="modal"><div class="modal-content"><h3>📅 校历参考</h3><div id="calendarModalBody"></div><button class="btn" id="closeModalBtn" style="margin-top:20px;">关闭</button></div></div>
+            `;
+        }
+
+        function renderAssessmentTable() {
+            const tbody = document.getElementById('assessmentTableBody');
+            let html = '';
+            courseData.assessments.forEach((item, idx) => {
+                html += `<tr><td><input data-assessidx="${idx}" data-field="name" value="${escapeHtml(item.name)}"></td><td><input data-assessidx="${idx}" data-field="type" value="${escapeHtml(item.type)}"></td><td><input data-assessidx="${idx}" data-field="ddl" value="${escapeHtml(item.ddl)}"></td><td><input data-assessidx="${idx}" data-field="summary" value="${escapeHtml(item.summary)}"></td><td class="delete-row" data-assessidx="${idx}"><i class="fas fa-trash-alt"></i></td></tr>`;
+            });
+            tbody.innerHTML = html || '<tr><td colspan="5" style="text-align:center; padding:24px;">暂无考核项</td></tr>';
+        }
+        function renderWeekTable() {
+            const tbody = document.getElementById('weekTableBody');
+            let html = '';
+            courseData.weekPlans.forEach((row, idx) => {
+                html += `<tr><td><input data-weekidx="${idx}" data-field="week" value="${escapeHtml(row.week)}"></td><td><input data-weekidx="${idx}" data-field="focus" value="${escapeHtml(row.focus)}"></td><td><input data-weekidx="${idx}" data-field="activities" value="${escapeHtml(row.activities)}"></td><td><input data-weekidx="${idx}" data-field="assessment" value="${escapeHtml(row.assessment)}"></td><td class="delete-row" data-weekidx="${idx}"><i class="fas fa-trash-alt"></i></td></tr>`;
+            });
+            tbody.innerHTML = html || '<tr><td colspan="5" style="text-align:center;">暂无周计划</td></tr>';
+        }
+
+        function collectFormData() {
+            courseData.辅导类型 = document.getElementById('tutorTypeSelect')?.value || '';
+            courseData.studentName = document.getElementById('studentName')?.value || '';
+            courseData.courseCode = document.getElementById('courseCode')?.value || '';
+            courseData.courseName = document.getElementById('courseName')?.value || '';
+            courseData.teacherName = document.getElementById('teacherName')?.value || '';
+            courseData.institution = document.getElementById('institutionInput')?.value || '';
+            courseData.college = document.getElementById('collegeInput')?.value || '';
+            courseData.semesterInfo = document.getElementById('semesterInfo')?.value || '';
+            courseData.courseIntro = document.getElementById('courseIntro')?.value || '';
+            courseData.difficultyAnalysis = {
+                knowledgeDepth: document.getElementById('diffDepth')?.value || '',
+                practicalReq: document.getElementById('diffPractice')?.value || '',
+                assessmentDifficulty: document.getElementById('diffAssessment')?.value || '',
+                workload: document.getElementById('diffLoad')?.value || ''
+            };
+            let outcomesRaw = document.getElementById('learningOutcomesRaw')?.value || '';
+            courseData.learningOutcomes = outcomesRaw.split(/\r?\n/).filter(s => s.trim().length > 0);
+            courseData.learningSuggest = document.getElementById('learningSuggest')?.value || '';
+            const assessInputs = document.querySelectorAll('#assessmentTableBody input');
+            let newAssess = [];
+            assessInputs.forEach(inp => {
+                let idx = parseInt(inp.dataset.assessidx, 10);
+                if (!newAssess[idx]) newAssess[idx] = { name:'', type:'', ddl:'', summary:'' };
+                newAssess[idx][inp.dataset.field] = inp.value;
+            });
+            courseData.assessments = newAssess.filter(a => a);
+            const weekInputs = document.querySelectorAll('#weekTableBody input');
+            let newPlans = [];
+            weekInputs.forEach(inp => {
+                let idx = parseInt(inp.dataset.weekidx, 10);
+                if (!newPlans[idx]) newPlans[idx] = { week:'', focus:'', activities:'', assessment:'' };
+                newPlans[idx][inp.dataset.field] = inp.value;
+            });
+            courseData.weekPlans = newPlans.filter(p => p);
+        }
+
+        function renderPreview() {
+            collectFormData();
+            const container = document.getElementById('previewContainer');
+            const diff = courseData.difficultyAnalysis;
+            const typeText = courseData.辅导类型 || '课程';
+            const titleMain = `${courseData.studentName || '学生'}的${typeText}规划报告`;
+            const outcomesHtml = courseData.learningOutcomes.length ? `<div class="learning-outcomes">${courseData.learningOutcomes.map(oc => `<div class="outcome-item">✔ ${escapeHtml(oc)}</div>`).join('')}</div>` : '<p>暂无</p>';
+            const assessmentsHtml = courseData.assessments.length ? `<div class="preview-table-wrap"><table><thead><tr><th>考核项</th><th>类型</th><th>DDL</th><th>总结</th></tr></thead><tbody>${courseData.assessments.map(a => `<tr><td>${escapeHtml(a.name)}</td><td>${escapeHtml(a.type)}</td><td>${escapeHtml(a.ddl)}</td><td>${escapeHtml(a.summary)}</td></tr>`).join('')}</tbody></table></div>` : '<p>暂无考核</p>';
+            const weeksHtml = courseData.weekPlans.length ? `<div class="preview-table-wrap"><table><thead><tr><th>教学周</th><th>学习重点</th><th>主要活动</th><th>评估节点</th></tr></thead><tbody>${courseData.weekPlans.map(w => `<tr><td>${escapeHtml(w.week)}</td><td>${escapeHtml(w.focus)}</td><td>${escapeHtml(w.activities)}</td><td>${escapeHtml(w.assessment)}</td></tr>`).join('')}</tbody></table></div>` : '<p>暂无</p>';
+
+            container.innerHTML = `
+                <div class="report-card" id="reportForExport">
+                    <div class="watermark-bg"></div>
+                    <div class="report-inner">
+                        <div class="report-header"><h1>📖 ${escapeHtml(titleMain)}</h1><div style="margin-top:10px;">课程代码: ${escapeHtml(courseData.courseCode)}</div></div>
+                        <div class="info-grid">${['课程名称','讲师','院校/学院','教学周期'].map((t,i)=> `<div class="info-tile"><h3>${t}</h3><p>${escapeHtml([courseData.courseName,courseData.teacherName,courseData.institution+' '+courseData.college,courseData.semesterInfo][i])}</p></div>`).join('')}</div>
+                        <div class="content-section">
+                            <div class="section-block"><h2 class="section-title">📌 课程介绍</h2><div class="highlight-box">${escapeHtml(courseData.courseIntro).replace(/\n/g,'<br>')}</div></div>
+                            <div class="section-block"><h2 class="section-title">📊 难度分析</h2><div class="difficulty-box"><strong>知识点深度：</strong>${escapeHtml(diff.knowledgeDepth)}<br><strong>实践要求：</strong>${escapeHtml(diff.practicalReq)}<br><strong>考核难度：</strong>${escapeHtml(diff.assessmentDifficulty)}<br><strong>课业负荷：</strong>${escapeHtml(diff.workload)}</div></div>
+                            <div class="section-block"><h2 class="section-title">🎯 学习成果</h2><div class="outcomes-preview-box">${outcomesHtml}</div></div>
+                            <div class="section-block"><h2 class="section-title">📋 考核方式</h2><div class="assessment-preview-box">${assessmentsHtml}</div></div>
+                            <div class="section-block"><h2 class="section-title">🗓️ 周计划</h2><div class="week-preview-box">${weeksHtml}</div></div>
+                            <div class="section-block"><h2 class="section-title">💡 学习建议</h2><div class="suggestion-box">${escapeHtml(courseData.learningSuggest).replace(/\n/g,'<br>')}</div></div>
+                        </div>
+                        <div class="footer-note">© 万能班长 留学生学术成长赋能平台</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        let lastUploadedText = "";
+
+        function applyCoursePlanAIResult(result) {
+            if (!result) return;
+
+            if (result.courseCode) document.getElementById('courseCode').value = result.courseCode;
+            if (result.courseName) document.getElementById('courseName').value = result.courseName;
+            if (result.teacherName) document.getElementById('teacherName').value = result.teacherName;
+            if (result.courseIntro) document.getElementById('courseIntro').value = result.courseIntro;
+            if (result.learningSuggest) document.getElementById('learningSuggest').value = result.learningSuggest;
+            if (Array.isArray(result.learningOutcomes) && result.learningOutcomes.length) {
+                document.getElementById('learningOutcomesRaw').value = result.learningOutcomes.join('\n');
+            }
+
+            const difficulty = result.difficulty || {};
+            if (difficulty.knowledgeDepth) document.getElementById('diffDepth').value = difficulty.knowledgeDepth;
+            if (difficulty.practicalReq) document.getElementById('diffPractice').value = difficulty.practicalReq;
+            if (difficulty.assessmentDifficulty) document.getElementById('diffAssessment').value = difficulty.assessmentDifficulty;
+            if (difficulty.workload) document.getElementById('diffLoad').value = difficulty.workload;
+
+            if (Array.isArray(result.assessments) && result.assessments.length) {
+                courseData.assessments = result.assessments.map(item => ({
+                    name: item.name || '',
+                    type: item.type || '',
+                    ddl: item.ddl || '',
+                    summary: item.summary || ''
+                }));
+                renderAssessmentTable();
+            }
+
+            if (Array.isArray(result.weekPlans) && result.weekPlans.length) {
+                courseData.weekPlans = result.weekPlans.map(item => ({
+                    week: item.week || '',
+                    focus: item.focus || '',
+                    activities: item.activities || '',
+                    assessment: item.assessment || ''
+                }));
+                renderWeekTable();
+            }
+
+            renderPreview();
+        }
+
+        async function requestCoursePlanAI() {
+            if (!lastUploadedText) {
+                alert('请先上传课程大纲文件');
+                return;
+            }
+
+            const statusDiv = document.getElementById('uploadStatus');
+            statusDiv.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> AI 识别中...';
+
+            try {
+                const result = await window.aiClient.request('/api/ai/course-plan', {
+                    extractedText: lastUploadedText,
+                    context: {
+                        tutorType: document.getElementById('tutorTypeSelect')?.value || '',
+                        studentName: document.getElementById('studentName')?.value || '',
+                        courseCode: document.getElementById('courseCode')?.value || '',
+                        courseName: document.getElementById('courseName')?.value || '',
+                        teacherName: document.getElementById('teacherName')?.value || '',
+                        institution: document.getElementById('institutionInput')?.value || '',
+                        college: document.getElementById('collegeInput')?.value || '',
+                        semesterInfo: document.getElementById('semesterInfo')?.value || ''
+                    }
+                });
+                applyCoursePlanAIResult(result);
+                statusDiv.innerHTML = '<span style="color:#2b9348;">✅ AI 填充完成</span>';
+            } catch (err) {
+                statusDiv.innerHTML = `<span style="color:#BF2A32;">${escapeHtml(err.message || 'AI 识别失败')}</span>`;
+            }
+        }
+
+        async function handleFile(file) {
+            const statusDiv = document.getElementById('uploadStatus');
+            statusDiv.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> 解析中...';
+            try {
+                let text = "";
+                if (file.type === 'application/pdf') {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    let full = '';
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const content = await page.getTextContent();
+                        full += content.items.map(item => item.str).join(' ') + '\n';
+                    }
+                    text = full;
+                } else if (file.type.startsWith('image/')) {
+                    const { data: { text: ocrText } } = await Tesseract.recognize(file, 'eng+chi_sim');
+                    text = ocrText;
+                } else text = await file.text();
+                lastUploadedText = text;
+                statusDiv.innerHTML = '<span style="color:#2b9348;">✅ 文件已解析，点击下方 AI 按钮开始填充</span>';
+            } catch(err) {
+                statusDiv.innerHTML = '<span style="color:#BF2A32;">识别失败</span>';
+            }
+        }
+
+        function bindEvents() {
+            document.getElementById('refreshPreviewBtn')?.addEventListener('click', renderPreview);
+            document.getElementById('exportBtn')?.addEventListener('click', async () => {
+                const el = document.getElementById('reportForExport'); if (!el) return;
+                const canvas = await html2canvas(el, { scale: 2.5, backgroundColor: '#ffffff' });
+                const link = document.createElement('a'); link.download = `规划_${courseData.courseCode}.png`; link.href = canvas.toDataURL(); link.click();
+            });
+            document.getElementById('addWeekBtn').addEventListener('click', ()=>{ courseData.weekPlans.push({ week:'',focus:'',activities:'',assessment:'' }); renderWeekTable(); renderPreview(); });
+            document.getElementById('clearWeeksBtn').addEventListener('click', ()=>{ courseData.weekPlans=[]; renderWeekTable(); renderPreview(); });
+            document.getElementById('addAssessmentBtn').addEventListener('click', ()=>{ courseData.assessments.push({ name:'',type:'',ddl:'',summary:'' }); renderAssessmentTable(); renderPreview(); });
+            document.getElementById('clearAssessmentsBtn').addEventListener('click', ()=>{ courseData.assessments=[]; renderAssessmentTable(); renderPreview(); });
+            document.getElementById('assessmentTableBody')?.addEventListener('click', (e)=>{ const del=e.target.closest('.delete-row'); if (del) { courseData.assessments.splice(parseInt(del.dataset.assessidx, 10), 1); renderAssessmentTable(); renderPreview(); } });
+            document.getElementById('weekTableBody')?.addEventListener('click', (e)=>{ const del=e.target.closest('.delete-row'); if (del) { courseData.weekPlans.splice(parseInt(del.dataset.weekidx, 10), 1); renderWeekTable(); renderPreview(); } });
+            document.querySelectorAll('#assessmentTableBody, #weekTableBody').forEach(el => el?.addEventListener('input', renderPreview));
+            ['studentName','courseCode','courseName','teacherName','institutionInput','collegeInput','semesterInfo','courseIntro','diffDepth','diffPractice','diffAssessment','diffLoad','learningOutcomesRaw','learningSuggest'].forEach(id => document.getElementById(id)?.addEventListener('input', renderPreview));
+            document.getElementById('tutorTypeSelect')?.addEventListener('change', renderPreview);
+            const area = document.getElementById('dragArea'), fileInput = document.getElementById('fileInput');
+            area.addEventListener('click', ()=> fileInput.click());
+            area.addEventListener('dragover', e=>{ e.preventDefault(); });
+            area.addEventListener('drop', e=>{ e.preventDefault(); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+            fileInput.addEventListener('change', e=>{ if (e.target.files.length) handleFile(e.target.files[0]); });
+            document.getElementById('aiRecognizeBtn').addEventListener('click', requestCoursePlanAI);
+            document.getElementById('previewCalendarBtn').addEventListener('click', ()=>{
+                const inst = document.getElementById('institutionInput')?.value;
+                let matched = Object.values(schoolCalendar).find(s => inst && s.name.includes(inst)) || schoolCalendar.default;
+                document.getElementById('calendarModalBody').innerHTML = `<p><strong>${escapeHtml(matched.name)}</strong></p><p>${escapeHtml(matched.term)}</p>`;
+                document.getElementById('calendarModal').style.display = 'flex';
+            });
+            document.getElementById('closeModalBtn').addEventListener('click', ()=> document.getElementById('calendarModal').style.display = 'none');
+        }
+        function initSchoolAutocomplete() { /* 简版 */ }
+        renderApp();
+    })();
+</script>
+</body>
+</html>

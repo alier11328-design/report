@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>万能班长 · 结课报告生成器</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <!-- PDF.js 库，用于提取 PDF 文本 -->
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="ai-client.js"></script>
+   <script>
+       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        body {
+            background: #f5f7fb;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .app {
+            width: 100%;
+            max-width: 1500px;
+            background: white;
+            border-radius: 32px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+            overflow: hidden;
+            min-height: 700px;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .split-layout {
+            display: grid;
+            grid-template-columns: 480px 1fr;
+            flex: 1;
+            min-height: 0;
+        }
+        .editor-pane {
+            background: #fafbfc;
+            border-right: 1px solid #eef2f6;
+            padding: 28px 24px;
+            overflow-y: auto;
+            height: 100%;
+        }
+        .preview-pane {
+            background: #f2f4f8;
+            padding: 24px;
+            overflow-y: auto;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+        .form-section-title {
+            font-weight: 700;
+            font-size: 18px;
+            margin: 24px 0 16px;
+            color: #1e293b;
+            border-left: 5px solid var(--primary-color);
+            padding-left: 14px;
+        }
+        .form-group {
+            margin-bottom: 0;
+            flex: 1;
+        }
+        .form-group label {
+            display: inline-flex;
+            align-items: center;
+            font-weight: 600;
+            font-size: 13px;
+            color: #475569;
+            margin-bottom: 6px;
+            white-space: nowrap;
+        }
+        .field-checkbox {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            accent-color: var(--primary-color);
+            margin-left: -10px;
+            flex-shrink: 0;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 14px;
+            background: white;
+            transition: 0.2s;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.08);
+        }
+        .btn {
+            background: white;
+            border: 1px solid #cbd5e1;
+            padding: 10px 18px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-primary {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: var(--primary-color);
+            filter: brightness(0.85);
+        }
+        .btn-block { width: 100%; justify-content: center; }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+        .back-btn {
+            background: transparent;
+            border: none;
+            color: #475569;
+            font-weight: 600;
+            margin-bottom: 16px;
+            cursor: pointer;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+        }
+        .paste-area {
+            border: 2px dashed var(--primary-color);
+            border-radius: 20px;
+            padding: 16px;
+            text-align: center;
+            background: var(--primary-bg-soft);
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .paste-area:hover {
+            background: var(--primary-bg-hover);
+        }
+        .paste-area i { font-size: 28px; color: var(--primary-color); margin-bottom: 6px; }
+        .file-list {
+            margin-top: 12px;
+            text-align: left;
+            max-height: 100px;
+            overflow-y: auto;
+            font-size: 13px;
+        }
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            background: white;
+            border-radius: 20px;
+            margin-bottom: 4px;
+        }
+        .file-item i { font-size: 14px; margin:0; color: var(--primary-color); }
+        .file-item span {
+            flex:1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+            color: #1e293b;
+        }
+        .file-item span:hover { text-decoration: underline; color: var(--primary-color); }
+        .status-tip {
+            font-size: 13px;
+            color: var(--primary-color);
+            margin: 5px 0;
+        }
+
+        /* 主题配置行 */
+        .theme-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 16px;
+            margin-bottom: 20px;
+            background: #ffffffcc;
+            padding: 8px 12px;
+            border-radius: 28px;
+            border: 1px solid #eef2f6;
+        }
+        .theme-label {
+            font-weight: 600;
+            font-size: 13px;
+            color: #1e293b;
+        }
+        .theme-options {
+            display: flex;
+            gap: 12px;
+        }
+        .theme-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 14px;
+            border-radius: 40px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            background: #f1f5f9;
+            color: #334155;
+            transition: 0.2s;
+            border: 1px solid #e2e8f0;
+        }
+        .theme-badge i { font-size: 13px; }
+        .theme-badge.active {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            color: white;
+        }
+        .theme-badge:not(.active):hover {
+            background: #e9eef3;
+        }
+
+        /* 结课报告预览样式 */
+        .final-report-card {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+            position: relative;
+            overflow: hidden;
+        }
+        .final-watermark {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-repeat: no-repeat;
+            background-position: center 60%;
+            background-size: 80% auto;
+            opacity: 0.3;
+            z-index: 1;
+            pointer-events: none;
+        }
+        .final-inner {
+            position: relative;
+            z-index: 2;
+        }
+        .final-header {
+            background: var(--primary-color);
+            padding: 30px 40px;
+            text-align: center;
+            color: white;
+        }
+        .final-header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        .final-order-number {
+            font-size: 14px;
+            opacity: 0.9;
+            letter-spacing: 1px;
+        }
+        .final-basic-info {
+            padding: 25px 40px;
+            border-bottom: 1px solid #e0e0e0;
+            background: #f9f9f9;
+        }
+        .final-info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .final-info-item {
+            display: flex;
+            align-items: center;
+        }
+        .final-info-label {
+            font-weight: bold;
+            width: 100px;
+            color: var(--primary-color);
+            flex-shrink: 0;
+        }
+        .final-content {
+            padding: 30px 40px;
+        }
+        .final-content p,
+        .final-learning-goal,
+        .final-teacher-review p,
+        .final-assistant-review p,
+        .final-performance-item p,
+        .final-info-item div {
+            line-height: 1.8;
+        }
+        .final-section {
+            margin-bottom: 35px;
+        }
+        .final-section-title {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            font-size: 20px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--primary-color);
+        }
+        .final-subsection-title {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 17px;
+            font-weight: 600;
+        }
+        .final-subsection-title:last-of-type {
+            margin-top: 25px;
+        }
+        .final-teacher-review + .final-subsection-title {
+            margin-top: 30px;
+        }
+        .final-learning-goal {
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .final-performance-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .final-performance-item {
+            padding: 15px;
+            background: rgba(249, 249, 249, 0.7);
+            border-radius: 5px;
+            text-align: center;
+        }
+        .final-teacher-review, .final-assistant-review {
+            padding: 25px;
+            border-radius: 8px;
+            margin-top: 20px;
+            position: relative;
+        }
+        .final-teacher-review {
+            background: rgba(249, 242, 243, 0.7);
+            border-left: 4px solid rgba(var(--primary-rgb), 0.9);
+        }
+        .final-assistant-review {
+            background: #fff9f0;
+            border-left: 4px solid #FFC107;
+        }
+        .final-footer {
+            background: #f5f5f5;
+            padding: 20px 40px;
+            text-align: center;
+            color: #666;
+            border-top: 1px solid #e0e0e0;
+        }
+        .final-red-text {
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+        @media (max-width: 900px) {
+            .split-layout { grid-template-columns: 1fr; height: auto; }
+            .app { height: auto; }
+        }
+    </style>
+</head>
+<body>
+<div class="app">
+    <div class="split-layout">
+        <!-- 左侧编辑区 -->
+        <div class="editor-pane">
+            <a class="back-btn" href="index.html"><i class="fas fa-arrow-left"></i> 返回选择类型</a>
+
+            <!-- 主题、水印、版权配置行 -->
+            <div class="theme-row">
+                <span class="theme-label"><i class="fas fa-palette"></i> 主题色：</span>
+                <div class="theme-options">
+                    <div class="theme-badge active" id="themeRedBtn"><i class="fas fa-dot-circle"></i> 红色</div>
+                    <div class="theme-badge" id="themeBlueBtn"><i class="fas fa-droplet"></i> 蓝色</div>
+                </div>
+            </div>
+            <div class="theme-row">
+                <span class="theme-label"><i class="fas fa-watermark"></i> 水印图片：</span>
+                <div class="theme-options">
+                    <div class="theme-badge watermark-option" data-watermark="w1"><i class="fas fa-image"></i> 万能班长</div>
+                    <div class="theme-badge watermark-option" data-watermark="w2"><i class="fas fa-cloud"></i> 留学云伴</div>
+                    <div class="theme-badge watermark-option" data-watermark="none"><i class="fas fa-ban"></i> 无</div>
+                </div>
+            </div>
+            <div class="theme-row">
+                <span class="theme-label">版权信息：</span>
+                <div class="theme-options">
+                    <div class="theme-badge copyright-option" data-copyright="c1"><i class="fas fa-cloud"></i> 万能班长</div>
+                    <div class="theme-badge copyright-option" data-copyright="c2"><i class="fas fa-cloud"></i> 留学云伴</div>
+                    <div class="theme-badge copyright-option" data-copyright="none"><i class="fas fa-ban"></i> 无</div>
+                </div>
+            </div>
+
+            <h3 style="font-size:22px; margin-bottom:20px;"><i class="fas fa-graduation-cap" style="color:var(--primary-color);"></i> 结课报告 · 填写信息</h3>
+
+            <!-- 辅导类型 -->
+            <div class="form-group" style="margin-bottom:18px;">
+                <label>📌 辅导类型</label>
+                <select id="tutorTypeSelect">
+                    <option value="package" selected>包课辅导</option>
+                    <option value="custom">定制辅导</option>
+                    <option value="semester">学期辅导</option>
+                </select>
+            </div>
+
+            <div style="display:flex; gap:12px; margin-bottom:18px;">
+                <div class="form-group"><label>👤 学生姓名</label><input id="studentName" placeholder="黄奔涵"></div>
+                <div class="form-group"><label>📦 订单号</label><input id="orderNumber" placeholder="订单编号"></div>
+            </div>
+
+            <div style="display:flex; gap:12px; margin-bottom:18px;">
+                <div class="form-group"><label>🏫 在读院校</label><input id="university" placeholder="曼彻斯特大学"></div>
+                <div class="form-group"><label>📖 当前年级 <input type="checkbox" class="field-checkbox" id="showGrade" checked></label><input id="grade" placeholder="大三"></div>
+            </div>
+
+            <div style="display:flex; gap:12px; margin-bottom:18px;">
+                <div class="form-group"><label>📚 课程名称</label><input id="courseName" placeholder="Consumer Behaviour"></div>
+                <div class="form-group"><label>🎓 在读专业 <input type="checkbox" class="field-checkbox" id="showMajor" checked></label><input id="major" placeholder="市场营销"></div>
+            </div>
+
+            <div style="display:flex; gap:12px; margin-bottom:18px;">
+                <div class="form-group"><label>🧑‍🏫 讲师姓名</label><input id="teacherName" placeholder="Dr. Emily Zhang"></div>
+                <div class="form-group"><label>🧑‍💼 教辅姓名</label><input id="assistantName" placeholder="Amy"></div>
+            </div>
+
+            <div style="display:flex; gap:12px; margin-bottom:18px;">
+                <div class="form-group"><label>🗓️ 辅导开始日期</label><input id="startDate" value=""></div>
+                <div class="form-group"><label>🏁 辅导结束日期</label><input id="endDate" value=""></div>
+            </div>
+
+            <div style="display:flex; gap:12px; margin-bottom:18px;">
+                <div class="form-group"><label>🥇 总成绩/等级 <input type="checkbox" class="field-checkbox" id="showFinalGrade" checked></label><input id="finalGrade" value=""></div>
+                <div class="form-group"><label>⏱️ 总课时(小时)</label><input id="totalHours" value=""></div>
+                <div class="form-group"><label>📊 排课次数</label><input id="classCount" value=""></div>
+            </div>
+
+            <div style="display:flex; gap:12px; margin-bottom:18px;">
+                <div class="form-group"><label>✅ 出勤率</label><input id="attendanceRate" value=""></div>
+                <div class="form-group"><label>📝 任务完成率</label><input id="taskCompletionRate" value=""></div>
+                <div class="form-group"><label>💬 课堂互动率</label><input id="interactionRate" value=""></div>
+            </div>
+
+            <div class="form-section-title">AI 智能填充</div>
+            <div class="paste-area" id="aiPasteArea">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <p style="font-weight:600; margin:5px 0;">点击 / 拖拽 / 粘贴截图 / PDF</p>
+                <input type="file" id="imageUpload" accept="image/*,application/pdf" multiple style="display:none;">
+                <div id="fileList" class="file-list"></div>
+                <div id="aiStatus" class="status-tip"></div>
+            </div>
+            <div style="display:flex; gap:10px; margin:10px 0;">
+                <button class="btn btn-primary" id="aiFillBtn"><i class="fas fa-robot"></i> AI 识别填充</button>
+                <button class="btn" id="clearImagesBtn" disabled>清除文件</button>
+            </div>
+
+            <div class="form-group"><label>📋 报告概述</label><textarea id="reportOverview" rows="4"></textarea></div>
+            <div class="form-group"><label>🎯 学习目标回顾</label><textarea id="learningGoal" rows="3"></textarea></div>
+            <div class="form-group"><label>🏆 学习成果总结</label><textarea id="achievementSummary" rows="4"></textarea></div>
+           <div class="form-group"><label>💯 成绩评语 <input type="checkbox" class="field-checkbox" id="showGradeComment" checked></label><textarea id="gradeComment" rows="2"></textarea></div>
+            <div class="form-group"><label>📊 学习表现分析</label><textarea id="performanceDesc" rows="4"></textarea></div>
+           <div class="form-group"><label>💌 讲师寄语</label><textarea id="teacherMessage" rows="4"></textarea></div>
+            <div class="form-group"><label>💡 下学期学习建议 <input type="checkbox" class="field-checkbox" id="showFutureSuggestions" checked></label><textarea id="futureSuggestions" rows="4"></textarea></div>
+            <div class="form-group"><label>📮 教辅寄语</label><textarea id="assistantMessage" rows="3"></textarea></div>
+
+            <button class="btn btn-primary btn-block" id="refreshPreviewBtn" style="margin-top:20px;">刷新预览</button>
+        </div>
+
+        <!-- 右侧预览区 -->
+        <div class="preview-pane">
+            <div class="preview-header">
+                <h3><i class="far fa-eye"></i> 实时预览</h3>
+                <button class="btn btn-primary" id="exportImageBtn"><i class="fas fa-camera"></i> 导出PNG</button>
+            </div>
+            <div id="previewContainer"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function(){
+        let currentTheme = 'red';
+        let currentWatermark = 'w1';
+        let currentCopyright = 'c1';
+        const themeMap = { red: { primary: '#BF2A32', rgb: '191,42,50' }, blue: { primary: '#2A6FBF', rgb: '42,111,191' } };
+        const watermarkMap = { w1: { name: '万能班长', url: 'https://i.ibb.co/hxw0GD7L/retouch-2025041613021979.png' }, w2: { name: '留学云伴', url: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 200'%3E%3Ctext x='50%25' y='50%25' font-size='38' fill='%23999' text-anchor='middle' dominant-baseline='middle' font-weight='bold' opacity='0.8'%3E留学云伴%3C/text%3E%3C/svg%3E" }, none: null };
+        const copyrightMap = { c1: "© 万能班长 留学生学术成长赋能平台", c2: "© 留学云伴 · 学业护航", none: null };
+        const tutorTypeDisplayMap = { package: '包课辅导', custom: '定制辅导', semester: '学期辅导' };
+        function getBrandName() { if (currentCopyright === 'c1') return '万能班长'; if (currentCopyright === 'c2') return '留学云伴'; return ''; }
+        function getTutorTypeDisplay() { const select = document.getElementById('tutorTypeSelect'); const type = select ? select.value : 'package'; return tutorTypeDisplayMap[type] || '包课辅导'; }
+        function getDynamicTitle(studentName) { const brand = getBrandName(); const tutorTypeName = getTutorTypeDisplay(); let mainPart = brand ? `${brand}${tutorTypeName}` : tutorTypeName; if (studentName && studentName.trim() !== '') return `${studentName.trim()}-${mainPart}结课报告`; else return `${mainPart}结课报告`; }
+        function getDynamicOverview() { const brand = getBrandName(); const tutorTypeName = getTutorTypeDisplay(); let projectName = brand ? `${brand}${tutorTypeName}` : `${tutorTypeName}`; return `本报告旨在总结学生在"${projectName}"中的整体学习表现与服务成果。通过数据化分析、导师反馈和阶段性复盘，全面展示学生的学业成长，并为后续学习提供指导。报告内容严格遵循学术诚信原则，保护学生隐私。`; }
+        const fields = {
+            studentName: document.getElementById('studentName'), orderNumber: document.getElementById('orderNumber'), courseName: document.getElementById('courseName'), teacherName: document.getElementById('teacherName'),
+            assistantName: document.getElementById('assistantName'), university: document.getElementById('university'), major: document.getElementById('major'), grade: document.getElementById('grade'),
+            startDate: document.getElementById('startDate'), endDate: document.getElementById('endDate'), totalHours: document.getElementById('totalHours'), classCount: document.getElementById('classCount'),
+            attendanceRate: document.getElementById('attendanceRate'), taskCompletionRate: document.getElementById('taskCompletionRate'), interactionRate: document.getElementById('interactionRate'),
+            reportOverview: document.getElementById('reportOverview'), learningGoal: document.getElementById('learningGoal'), achievementSummary: document.getElementById('achievementSummary'),
+           finalGrade: document.getElementById('finalGrade'), gradeComment: document.getElementById('gradeComment'), teacherMessage: document.getElementById('teacherMessage'),
+            futureSuggestions: document.getElementById('futureSuggestions'), assistantMessage: document.getElementById('assistantMessage'),
+            performanceDesc: document.getElementById('performanceDesc')
+        };
+        let extraContent = { performanceDesc: '' };
+       let uploadedImages = [], fileListUrls = [];
+        let userEditedOverview = false;
+        function escapeHtml(text) { if (!text) return ''; return String(text).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c] || c); }
+        function formatFileSize(bytes) { if (bytes < 1024) return bytes + ' B'; if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB'; return (bytes/(1024*1024)).toFixed(1) + ' MB'; }
+        function applyTheme(themeId) { const theme = themeMap[themeId]; if (!theme) return; document.documentElement.style.setProperty('--primary-color', theme.primary); document.documentElement.style.setProperty('--primary-rgb', theme.rgb); currentTheme = themeId; renderPreview(); updateThemeActiveClass(); }
+        function updateThemeActiveClass() { const redBtn = document.getElementById('themeRedBtn'), blueBtn = document.getElementById('themeBlueBtn'); if (redBtn && blueBtn) { if (currentTheme === 'red') { redBtn.classList.add('active'); blueBtn.classList.remove('active'); } else { blueBtn.classList.add('active'); redBtn.classList.remove('active'); } } }
+        function setWatermark(type) { if (type === currentWatermark) return; currentWatermark = type; updateWatermarkActiveClass(); renderPreview(); }
+        function updateWatermarkActiveClass() { document.querySelectorAll('.watermark-option').forEach(btn => { const val = btn.getAttribute('data-watermark'); if (val === currentWatermark) btn.classList.add('active'); else btn.classList.remove('active'); }); }
+        function setCopyright(type) { if (type === currentCopyright) return; currentCopyright = type; updateCopyrightActiveClass(); if (!userEditedOverview) { fields.reportOverview.value = getDynamicOverview(); } renderPreview(); }
+        function updateCopyrightActiveClass() { document.querySelectorAll('.copyright-option').forEach(btn => { const val = btn.getAttribute('data-copyright'); if (val === currentCopyright) btn.classList.add('active'); else btn.classList.remove('active'); }); }
+        function onTutorTypeChange() { if (!userEditedOverview) { fields.reportOverview.value = getDynamicOverview(); } renderPreview(); }
+        function setupOverviewEditDetection() { fields.reportOverview.addEventListener('input', function() { userEditedOverview = true; }); }
+        
+        // 压缩图片（宽度最大 800px）
+        async function compressImage(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        const maxWidth = 800;
+                        if (width > maxWidth) {
+                            height = (height * maxWidth) / width;
+                            width = maxWidth;
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        canvas.toBlob((blob) => {
+                            resolve(blob);
+                        }, 'image/jpeg', 0.7);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        // 提取 PDF 文本（最多 4000 字符）
+        async function extractPdfText(file, maxChars = 4000) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                fullText += pageText + '\n';
+                if (fullText.length >= maxChars) break;
+            }
+            return fullText.slice(0, maxChars);
+        }
+        
+       // AI 识别填充（支持图片和 PDF）
+       async function recognizeFinalReportByAI() {
+            if (uploadedImages.length === 0) {
+                alert('请先上传图片或 PDF 文档');
+                return;
+            }
+            const statusDiv = document.getElementById('aiStatus');
+            statusDiv.innerText = '⏳ AI 识别中...';
+            try {
+                const imageFiles = uploadedImages.filter(f => f.type.startsWith('image/'));
+                const pdfFiles = uploadedImages.filter(f => f.type === 'application/pdf');
+                let context = {
+                    studentName: fields.studentName.value,
+                    orderNumber: fields.orderNumber.value,
+                    courseName: fields.courseName.value,
+                    teacherName: fields.teacherName.value,
+                    assistantName: fields.assistantName.value,
+                    university: fields.university.value,
+                    major: fields.major.value,
+                    grade: fields.grade.value,
+                    startDate: fields.startDate.value,
+                    endDate: fields.endDate.value,
+                    totalHours: fields.totalHours.value,
+                    classCount: fields.classCount.value,
+                    attendanceRate: fields.attendanceRate.value,
+                    taskCompletionRate: fields.taskCompletionRate.value,
+                    interactionRate: fields.interactionRate.value,
+                    reportOverview: fields.reportOverview.value,
+                    learningGoal: fields.learningGoal.value,
+                    achievementSummary: fields.achievementSummary.value,
+                    finalGrade: fields.finalGrade.value,
+                    gradeComment: fields.gradeComment.value,
+                   teacherMessage: fields.teacherMessage.value,
+                    performanceDesc: fields.performanceDesc.value,
+                   futureSuggestions: fields.futureSuggestions.value,
+                    assistantMessage: fields.assistantMessage.value
+                };
+                for (const pdfFile of pdfFiles) {
+                    const pdfText = await extractPdfText(pdfFile, 4000);
+                    if (pdfText) context.pdfExtraText = (context.pdfExtraText || '') + '\n' + pdfText;
+                }
+                const prepared = await window.aiClient.prepareFiles(imageFiles, { maxImages: 8, maxTextFiles: 0 });
+                const result = await window.aiClient.request('/api/ai/final-report', {
+                    images: prepared.images,
+                    context: context
+                });
+                if (result.reportOverview) { fields.reportOverview.value = result.reportOverview; userEditedOverview = true; }
+                if (result.learningGoal) fields.learningGoal.value = result.learningGoal;
+                if (result.achievementSummary) fields.achievementSummary.value = result.achievementSummary;
+                if (result.finalGrade) fields.finalGrade.value = result.finalGrade;
+                if (result.gradeComment) fields.gradeComment.value = result.gradeComment;
+                if (result.teacherMessage) fields.teacherMessage.value = result.teacherMessage;
+                if (result.futureSuggestions) fields.futureSuggestions.value = result.futureSuggestions;
+                if (result.assistantMessage) fields.assistantMessage.value = result.assistantMessage;
+                if (result.attendanceRate) fields.attendanceRate.value = result.attendanceRate;
+                if (result.taskCompletionRate) fields.taskCompletionRate.value = result.taskCompletionRate;
+                if (result.interactionRate) fields.interactionRate.value = result.interactionRate;
+                if (result.performanceDesc) fields.performanceDesc.value = result.performanceDesc;
+                renderPreview();
+                statusDiv.innerText = '✅ 完成';
+            } catch (err) {
+                statusDiv.innerText = `❌ ${err.message}`;
+                console.error(err);
+            }
+            setTimeout(() => { if (statusDiv.innerText === '✅ 完成') statusDiv.innerText = ''; }, 2500);
+       }
+       
+       function renderPreview() {
+            const showMajor = document.getElementById('showMajor').checked;
+            const showGrade = document.getElementById('showGrade').checked;
+            const showFinalGrade = document.getElementById('showFinalGrade').checked;
+            const showGradeComment = document.getElementById('showGradeComment').checked;
+            const showFutureSuggestions = document.getElementById('showFutureSuggestions').checked;
+            
+            const student = fields.studentName.value;
+            const order = fields.orderNumber.value;
+            const course = fields.courseName.value;
+            const teacher = fields.teacherName.value;
+            const assistant = fields.assistantName.value;
+            const university = fields.university.value;
+            const majorVal = fields.major.value;
+            const gradeVal = fields.grade.value;
+            const startDate = fields.startDate.value;
+            const endDate = fields.endDate.value;
+            const attendance = fields.attendanceRate.value;
+            const taskRate = fields.taskCompletionRate.value;
+            const interaction = fields.interactionRate.value;
+            let reportOverview = fields.reportOverview.value;
+            if (!userEditedOverview) reportOverview = getDynamicOverview();
+            const learningGoal = fields.learningGoal.value;
+            const achievement = fields.achievementSummary.value;
+            const finalGrade = fields.finalGrade.value;
+            const gradeComment = fields.gradeComment.value;
+            const teacherMsg = fields.teacherMessage.value;
+            const futureSugg = fields.futureSuggestions.value;
+            const assistantMsg = fields.assistantMessage.value;
+            const performanceDesc = fields.performanceDesc.value;
+            const dynamicTitle = getDynamicTitle(student);
+            const watermarkInfo = watermarkMap[currentWatermark];
+            let watermarkHtml = watermarkInfo ? `<div class="final-watermark" style="background-image: url('${watermarkInfo.url}');"></div>` : `<div class="final-watermark" style="display:none;"></div>`;
+            const copyrightText = copyrightMap[currentCopyright];
+            let footerHtml = '';
+            if (copyrightText && currentCopyright !== 'none') {
+                footerHtml = `<div class="final-footer"><p>${escapeHtml(copyrightText)}</p></div>`;
+            }
+            const hasMajor = showMajor;
+            const hasGrade = showGrade;
+            let leftItems = [], rightItems = [];
+            if (!hasMajor && !hasGrade) {
+                leftItems = [
+                    { label: '学生姓名：', value: student || '—' },
+                    { label: '在读院校：', value: university || '—' },
+                    { label: '辅导课程：', value: course || '—' }
+                ];
+                rightItems = [
+                    { label: '讲师姓名：', value: teacher || '—' },
+                    { label: '教辅姓名：', value: assistant || '—' },
+                    { label: '辅导周期：', value: `${startDate}${startDate && endDate ? ' 至 ' : ''}${endDate}` }
+                ];
+            } else if (hasMajor && !hasGrade) {
+                leftItems = [
+                    { label: '学生姓名：', value: student || '—' },
+                    { label: '在读院校：', value: university || '—' },
+                    { label: '在读专业：', value: majorVal || '—' },
+                    { label: '辅导周期：', value: `${startDate}${startDate && endDate ? ' 至 ' : ''}${endDate}` }
+                ];
+                rightItems = [
+                    { label: '辅导课程：', value: course || '—' },
+                    { label: '讲师姓名：', value: teacher || '—' },
+                    { label: '教辅姓名：', value: assistant || '—' }
+                ];
+            } else if (!hasMajor && hasGrade) {
+                leftItems = [
+                    { label: '学生姓名：', value: student || '—' },
+                    { label: '在读院校：', value: university || '—' },
+                    { label: '当前年级：', value: gradeVal || '—' },
+                    { label: '辅导周期：', value: `${startDate}${startDate && endDate ? ' 至 ' : ''}${endDate}` }
+                ];
+                rightItems = [
+                    { label: '辅导课程：', value: course || '—' },
+                    { label: '讲师姓名：', value: teacher || '—' },
+                    { label: '教辅姓名：', value: assistant || '—' }
+                ];
+            } else {
+                leftItems = [
+                    { label: '学生姓名：', value: student || '—' },
+                    { label: '在读院校：', value: university || '—' },
+                    { label: '在读专业：', value: majorVal || '—' },
+                    { label: '当前年级：', value: gradeVal || '—' }
+                ];
+                rightItems = [
+                    { label: '辅导课程：', value: course || '—' },
+                    { label: '讲师姓名：', value: teacher || '—' },
+                    { label: '教辅姓名：', value: assistant || '—' },
+                    { label: '辅导周期：', value: `${startDate}${startDate && endDate ? ' 至 ' : ''}${endDate}` }
+                ];
+            }
+            const leftHtml = leftItems.map(item => `<div class="final-info-item"><div class="final-info-label">${escapeHtml(item.label)}</div><div>${escapeHtml(item.value)}</div></div>`).join('');
+            const rightHtml = rightItems.map(item => `<div class="final-info-item"><div class="final-info-label">${escapeHtml(item.label)}</div><div>${escapeHtml(item.value)}</div></div>`).join('');
+            
+            // 总成绩和成绩评语的显示控制
+            let gradeSectionHtml = '';
+            if (showFinalGrade || showGradeComment) {
+                if (showFinalGrade) {
+                    gradeSectionHtml += `<div class="final-subsection-title" style="margin-top:15px;">3. 总成绩：<span class="final-red-text">${escapeHtml(finalGrade) || '—'}</span></div>`;
+                }
+                if (showGradeComment) {
+                    gradeSectionHtml += `<p>${escapeHtml(gradeComment).replace(/\n/g,'<br>') || '—'}</p>`;
+                }
+            }
+            
+            // 下学期学习建议的显示控制
+            let futureSuggestionsHtml = '';
+            if (showFutureSuggestions) {
+                futureSuggestionsHtml = `<div class="final-subsection-title">2. 下学期的学习建议</div><div>${escapeHtml(futureSugg).replace(/\n/g,'<br>') || '—'}</div>`;
+            }
+            
+            const html = `
+                <div class="final-report-card" id="reportForExport">
+                    ${watermarkHtml}
+                    <div class="final-inner">
+                        <div class="final-header">
+                            <h1>${escapeHtml(dynamicTitle)}</h1>
+                            <div class="final-order-number">${escapeHtml(order) || '—'}</div>
+                        </div>
+                        <div class="final-basic-info">
+                            <div class="final-info-grid">
+                                <div class="final-info-column">${leftHtml}</div>
+                                <div class="final-info-column">${rightHtml}</div>
+                            </div>
+                        </div>
+                        <div class="final-content">
+                            <div class="final-section"><h2 class="final-section-title">一、报告概述</h2><p>${escapeHtml(reportOverview).replace(/\n/g,'<br>')}</p></div>
+                            <div class="final-section">
+                                <h2 class="final-section-title">二、学习成果概述</h2>
+                                <div class="final-subsection-title">1. 学习目标回顾</div><div class="final-learning-goal">${escapeHtml(learningGoal).replace(/\n/g,'<br>') || '—'}</div>
+                                <div class="final-subsection-title" style="margin-top:15px;">2. 学习成果总结</div><div>${escapeHtml(achievement).replace(/\n/g,'<br>') || '—'}</div>
+                                ${gradeSectionHtml}
+                            </div>
+                            <div class="final-section">
+                                <h2 class="final-section-title">三、学习表现分析</h2>
+                                <div class="final-performance-grid">
+                                    <div class="final-performance-item"><h3>出勤率</h3><div class="final-performance-value">${escapeHtml(attendance)}</div></div>
+                                    <div class="final-performance-item"><h3>任务完成率</h3><div class="final-performance-value">${escapeHtml(taskRate)}</div></div>
+                                    <div class="final-performance-item"><h3>课堂互动率</h3><div class="final-performance-value">${escapeHtml(interaction)}</div></div>
+                                </div>
+                                <p>${escapeHtml(performanceDesc).replace(/\n/g,'<br>')}</p>
+                            </div>
+                            <div class="final-section">
+                                <h2 class="final-section-title">四、讲师寄语与个性化建议</h2>
+                                <div class="final-subsection-title">1. 讲师寄语</div><div class="final-teacher-review"><p>${escapeHtml(teacherMsg).replace(/\n/g,'<br>') || '—'}</p></div>
+                                ${futureSuggestionsHtml}
+                            </div>
+                            <div class="final-section"><h2 class="final-section-title">五、教辅寄语</h2><div class="final-assistant-review"><p>${escapeHtml(assistantMsg).replace(/\n/g,'<br>') || '—'}</p></div></div>
+                        </div>
+                        ${footerHtml}
+                    </div>
+                </div>
+            `;
+            document.getElementById('previewContainer').innerHTML = html;
+        }
+        
+        function bindInputEvents() { for (let key in fields) if (fields[key]) fields[key].addEventListener('input', renderPreview); }
+        
+        function renderFileList() {
+            const container = document.getElementById('fileList');
+            if (!container) return;
+            fileListUrls.forEach(u => URL.revokeObjectURL(u));
+            fileListUrls = [];
+            const clearBtn = document.getElementById('clearImagesBtn');
+            if (uploadedImages.length === 0) {
+                container.innerHTML = '<div style="color:#94a3b8; text-align:center;">暂无文件</div>';
+                if (clearBtn) clearBtn.disabled = true;
+            } else {
+                let html = '';
+                uploadedImages.forEach((file, idx) => {
+                    const url = URL.createObjectURL(file);
+                    fileListUrls.push(url);
+                    html += `<div class="file-item"><i class="far ${file.type.startsWith('image/') ? 'fa-image' : 'fa-file-pdf'}"></i><span data-url="${url}">${escapeHtml(file.name)} (${formatFileSize(file.size)})</span><i class="fas fa-times" style="cursor:pointer;" data-idx="${idx}"></i></div>`;
+                });
+                container.innerHTML = html;
+                if (clearBtn) clearBtn.disabled = false;
+                container.querySelectorAll('span[data-url]').forEach(span => {
+                    span.addEventListener('click', (e) => { e.stopPropagation(); window.open(span.dataset.url, '_blank'); });
+                });
+                container.querySelectorAll('.fa-times').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const idx = parseInt(btn.dataset.idx, 10);
+                        uploadedImages.splice(idx, 1);
+                        renderFileList();
+                    });
+                });
+            }
+        }
+        
+        function setupImageUpload() {
+            const area = document.getElementById('aiPasteArea');
+            const input = document.getElementById('imageUpload');
+            area.addEventListener('click', () => input.click());
+            input.addEventListener('change', (e) => {
+                if (e.target.files) {
+                    uploadedImages.push(...Array.from(e.target.files));
+                    renderFileList();
+                }
+                input.value = '';
+            });
+            area.addEventListener('dragover', (e) => e.preventDefault());
+            area.addEventListener('drop', (e) => {
+                e.preventDefault();
+                if (e.dataTransfer.files) {
+                    uploadedImages.push(...Array.from(e.dataTransfer.files));
+                    renderFileList();
+                }
+            });
+            document.addEventListener('paste', (e) => {
+                const target = e.target;
+                if (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+                const items = e.clipboardData && e.clipboardData.items;
+                if (!items) return;
+                let imageAdded = false;
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    if (item.type.indexOf('image') !== -1) {
+                        const blob = item.getAsFile();
+                        if (blob) {
+                            const ext = blob.type.split('/')[1] || 'png';
+                            const filename = `pasted-${Date.now()}-${i}.${ext}`;
+                            const file = new File([blob], filename, { type: blob.type });
+                            uploadedImages.push(file);
+                            imageAdded = true;
+                        }
+                    }
+                }
+                if (imageAdded) {
+                    e.preventDefault();
+                    renderFileList();
+                    const statusDiv = document.getElementById('aiStatus');
+                    if (statusDiv) {
+                        statusDiv.innerText = '📋 截图已添加';
+                        setTimeout(() => { if (statusDiv.innerText === '📋 截图已添加') statusDiv.innerText = ''; }, 1500);
+                    }
+                }
+            });
+            document.getElementById('clearImagesBtn').addEventListener('click', () => { uploadedImages = []; renderFileList(); });
+            document.getElementById('aiFillBtn').addEventListener('click', recognizeFinalReportByAI);
+        }
+        
+        async function exportImage() {
+            const el = document.getElementById('reportForExport');
+            if (!el) { alert('请先填写内容生成报告'); return; }
+            try {
+                const canvas = await html2canvas(el, { scale: 2.5, useCORS: true, backgroundColor: '#fff' });
+                const link = document.createElement('a');
+                link.download = '结课报告.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            } catch(e) { alert('导出失败：' + e.message); }
+        }
+        
+        function init() {
+            bindInputEvents();
+            setupImageUpload();
+            renderFileList();
+            fields.reportOverview.value = getDynamicOverview();
+            userEditedOverview = false;
+            document.getElementById('tutorTypeSelect').addEventListener('change', onTutorTypeChange);
+            document.getElementById('themeRedBtn').addEventListener('click', () => applyTheme('red'));
+            document.getElementById('themeBlueBtn').addEventListener('click', () => applyTheme('blue'));
+            document.querySelectorAll('.watermark-option').forEach(btn => btn.addEventListener('click', () => setWatermark(btn.getAttribute('data-watermark'))));
+            document.querySelectorAll('.copyright-option').forEach(btn => btn.addEventListener('click', () => setCopyright(btn.getAttribute('data-copyright'))));
+            setupOverviewEditDetection();
+            
+            // 添加勾选框事件监听器
+            const checkboxIds = ['showMajor', 'showGrade', 'showFinalGrade', 'showGradeComment', 'showFutureSuggestions'];
+            checkboxIds.forEach(id => {
+                const checkbox = document.getElementById(id);
+                if (checkbox) {
+                    checkbox.addEventListener('change', renderPreview);
+                }
+            });
+            
+            applyTheme('red');
+            updateWatermarkActiveClass();
+            updateCopyrightActiveClass();
+            renderPreview();
+            document.getElementById('refreshPreviewBtn').addEventListener('click', renderPreview);
+            document.getElementById('exportImageBtn').addEventListener('click', exportImage);
+        }
+        init();
+    })();
+</script>
+</body>
+</html>

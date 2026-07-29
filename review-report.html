@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>万能班长 · 售后复盘报告</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        body {
+            background: #f5f7fb;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .app {
+            width: 100%;
+            max-width: 1500px;
+            background: white;
+            border-radius: 32px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+            overflow: hidden;
+            min-height: 700px;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .split-layout {
+            display: grid;
+            grid-template-columns: 480px 1fr;
+            flex: 1;
+            min-height: 0;
+        }
+        .editor-pane {
+            background: #fafbfc;
+            border-right: 1px solid #eef2f6;
+            padding: 28px 24px;
+            overflow-y: auto;
+            height: 100%;
+        }
+        .preview-pane {
+            background: #f2f4f8;
+            padding: 24px;
+            overflow-y: auto;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .form-section-title {
+            font-weight: 700;
+            font-size: 18px;
+            margin: 24px 0 16px;
+            color: #1e293b;
+            border-left: 5px solid #BF2A32;
+            padding-left: 14px;
+        }
+        .form-group {
+            margin-bottom: 18px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            font-size: 13px;
+            color: #475569;
+            margin-bottom: 6px;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 14px;
+            background: white;
+            transition: 0.2s;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            border-color: #BF2A32;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(191,42,50,0.08);
+        }
+        .btn {
+            background: white;
+            border: 1px solid #cbd5e1;
+            padding: 10px 18px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-primary {
+            background: #BF2A32;
+            border-color: #BF2A32;
+            color: white;
+        }
+        .btn-primary:hover { background: #a52229; }
+        .btn-block { width: 100%; justify-content: center; }
+
+        .paste-area {
+            border: 2px dashed #BF2A32;
+            border-radius: 20px;
+            padding: 16px;
+            text-align: center;
+            background: #fff5f5;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .paste-area:hover { background: #ffe6e6; }
+        .paste-area i { font-size: 28px; color: #BF2A32; margin-bottom: 6px; }
+        .file-list {
+            margin-top: 12px;
+            text-align: left;
+            max-height: 100px;
+            overflow-y: auto;
+            font-size: 13px;
+        }
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            background: white;
+            border-radius: 20px;
+            margin-bottom: 4px;
+        }
+        .file-item i { font-size: 14px; margin:0; color: #BF2A32; }
+        .file-item span {
+            flex:1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+            color: #1e293b;
+        }
+        .file-item span:hover { text-decoration: underline; color: #BF2A32; }
+
+        /* ========= 报告预览样式 ========= */
+        .report-card {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+            padding: 30px;
+            position: relative;
+        }
+        .watermark-bg {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0.15;
+            pointer-events: none;
+            z-index: 1;
+            background: url('https://i.ibb.co/hxw0GD7L/retouch-2025041613021979.png') no-repeat center 65%;
+            background-size: 60%;
+        }
+        .report-inner {
+            position: relative;
+            z-index: 2;
+        }
+        .report-header {
+            background: #BF2A32;
+            padding: 25px;
+            margin: -30px -30px 30px -30px;
+            border-radius: 12px 12px 0 0;
+            text-align: center;
+            color: white;
+        }
+        .report-header h1 {
+            color: white;
+            font-size: 32px;
+            margin-bottom: 10px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        .order-badge {
+            color: rgba(255,255,255,0.9);
+            font-size: 14px;
+            font-weight: 500;
+            word-break: break-word;
+            max-width: 90%;
+            margin: 0 auto;
+        }
+
+        .info-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 35px;
+        }
+        .info-tile {
+            flex: 1 1 290px;
+            border-radius: 8px;
+            padding: 18px 20px;
+            border-left: 4px solid #BF2A32;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+            background: #fff;
+            transition: transform 0.2s;
+        }
+        .info-tile:hover {
+            transform: translateY(-3px);
+        }
+        .info-tile h3 {
+            color: #BF2A32;
+            margin-bottom: 8px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .info-tile p {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1e2a3e;
+            line-height: 1.3;
+        }
+
+        .footer-note {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 13px;
+        }
+
+        /* ===== 复盘报告专用样式 ===== */
+        .analysis-block {
+            margin-top: 30px;
+        }
+        .analysis-item {
+            margin-bottom: 20px;
+            padding: 18px 20px;
+            border-radius: 8px;
+            border-left: 4px solid #BF2A32;
+            background: #fafbfc;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .analysis-item h4 {
+            color: #BF2A32;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 15px;
+        }
+        .analysis-item p {
+            color: #2c3e44;
+            line-height: 1.75;
+            font-size: 14px;
+        }
+
+        .back-btn {
+            background: transparent;
+            border: none;
+            color: #475569;
+            font-weight: 600;
+            margin-bottom: 16px;
+            cursor: pointer;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+        }
+        .status-tip {
+            font-size: 13px;
+            color: #BF2A32;
+            margin: 5px 0;
+        }
+
+        .helper-text { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+        .inline-option-row { display:flex; align-items:center; gap:10px; margin:8px 0 12px; flex-wrap:wrap; }
+        .mini-tag { font-size:12px; color:#64748b; background:#f8fafc; border:1px solid #e2e8f0; border-radius:999px; padding:4px 10px; }
+        .process-image-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px; margin-top:12px; }
+        .process-image-card { border:1px solid #eee; border-radius:10px; padding:8px; background:rgba(255,255,255,0.9); position:relative; }
+        .process-image-card img { width:100%; height:220px; object-fit:contain; display:block; border-radius:8px; background:#fff; }
+        .process-image-name { font-size:12px; color:#64748b; margin-top:6px; word-break:break-all; }
+        .process-image-delete { position:absolute; top:10px; right:10px; width:26px; height:26px; border:none; border-radius:999px; background:rgba(0,0,0,0.6); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; line-height:1; }
+        .process-image-delete:hover { background:#BF2A32; }
+        .timeline-list { display:flex; flex-direction:column; gap:12px; margin-top:8px; }
+        .timeline-item { position:relative; padding-left:20px; line-height:1.8; color:#2c3e44; }
+        .timeline-item::before { content:''; position:absolute; left:0; top:11px; width:8px; height:8px; background:#BF2A32; border-radius:999px; }
+        .timeline-mode-row { display:flex; align-items:center; gap:10px; margin:8px 0 12px; flex-wrap:wrap; }
+        .paste-area-actions { margin-top:10px; }
+        .ghost-btn { background:white; border:1px solid #cbd5e1; padding:8px 14px; border-radius:999px; font-size:12px; cursor:pointer; }
+    </style>
+</head>
+<body>
+<div class="app" id="app"></div>
+
+<script src="./ai-client.js"></script>
+<script>
+    (function(){
+        "use strict";
+
+        let reviewReasonFiles = [];
+        let reviewProcessFiles = [];
+        let reviewProcessImageFiles = [];
+
+        // 维护预览区图片 URL 以便释放，避免内存泄漏
+        let previewImageUrls = [];
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c] || c);
+        }
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+            return (bytes/(1024*1024)).toFixed(1) + ' MB';
+        }
+
+        function renderApp() {
+            document.getElementById('app').innerHTML = renderReviewReportEditorLayout();
+            bindReviewReportEvents();
+            renderPreview();
+        }
+
+        function renderReviewReportEditorLayout() {
+            return `
+                <div class="split-layout">
+                    <div class="editor-pane">
+                        <a class="back-btn" href="index.html"><i class="fas fa-arrow-left"></i> 返回选择类型</a>
+                        <h3 style="font-size:22px; margin-bottom:20px;"><i class="fas fa-file-signature" style="color:#BF2A32;"></i> 填写复盘报告</h3>
+
+                        <div class="form-section-title"><i class="fas fa-house"></i> 首页关键信息</div>
+                        <div class="form-group">
+                            <label>🏷️ 客诉种类</label>
+                            <input type="text" id="reviewComplaintTypeInp" value="" placeholder="直接粘贴客诉种类">
+                        </div>
+                        <div class="form-group">
+                            <label>🧾 单号</label>
+                            <input type="text" id="reviewTicketNoInp" value="" placeholder="直接粘贴单号">
+                        </div>
+                        <div class="form-group">
+                            <label>⚠️ 问题</label>
+                            <textarea id="reviewIssueInp" placeholder="直接粘贴问题描述"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>🎯 需求</label>
+                            <textarea id="reviewNeedInp" placeholder="直接粘贴需求"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>🛠️ 方案</label>
+                            <textarea id="reviewPlanInp" placeholder="直接粘贴方案"></textarea>
+                        </div>
+
+                        <div class="form-section-title"><i class="fas fa-magnifying-glass-chart"></i> 原因分析</div>
+                        <div class="paste-area" id="reviewReasonPasteArea" tabindex="0">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p style="font-weight:600; margin:5px 0;">📎 这里支持拖拽 / 直接粘贴聊天截图或文件（可多份）</p>
+                            <p style="font-size:13px; color:#64748b;">单击后先聚焦，再按 ⌘V / Ctrl+V 粘贴；如需手动上传，请点下方按钮</p>
+                            <div class="paste-area-actions">
+                                <button type="button" class="ghost-btn upload-trigger" data-input-id="reviewReasonUpload">选择文件上传</button>
+                            </div>
+                            <input type="file" id="reviewReasonUpload" accept="image/*,.pdf,.doc,.docx,.txt,.md" multiple style="display:none;">
+                            <div id="reviewReasonFileList" class="file-list"></div>
+                            <div id="reviewReasonAiStatus" class="status-tip"></div>
+                        </div>
+                        <div style="display:flex; gap:10px; margin:10px 0 12px;">
+                            <button class="btn btn-primary" id="aiReasonRecognizeBtn"><i class="fas fa-robot"></i> AI 识别原因分析</button>
+                            <button class="btn" id="clearReasonFilesBtn" disabled><i class="fas fa-times"></i> 清除材料</button>
+                        </div>
+                        <div class="form-group">
+                            <label>🔍 原因分析</label>
+                            <textarea id="reviewReasonInp" style="min-height:180px;" placeholder="可直接粘贴，也可等待后续接入 AI 自动填充"></textarea>
+                            <div class="helper-text">支持三种方式：直接粘贴 / 上传聊天截图分析 / 上传文件分析。</div>
+                        </div>
+
+                        <div class="form-section-title"><i class="fas fa-timeline"></i> 过程复盘</div>
+                        <div class="paste-area" id="reviewProcessPasteArea" tabindex="0">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p style="font-weight:600; margin:5px 0;">🧾 这里支持拖拽 / 直接粘贴聊天截图或文件（可多份）</p>
+                            <p style="font-size:13px; color:#64748b;">单击后先聚焦，再按 ⌘V / Ctrl+V 粘贴；如需手动上传，请点下方按钮</p>
+                            <div class="paste-area-actions">
+                                <button type="button" class="ghost-btn upload-trigger" data-input-id="reviewProcessUpload">选择文件上传</button>
+                            </div>
+                            <input type="file" id="reviewProcessUpload" accept="image/*,.pdf,.doc,.docx,.txt,.md" multiple style="display:none;">
+                            <div id="reviewProcessFileList" class="file-list"></div>
+                            <div id="reviewProcessAiStatus" class="status-tip"></div>
+                        </div>
+                        <div style="display:flex; gap:10px; margin:10px 0 12px;">
+                            <button class="btn btn-primary" id="aiProcessRecognizeBtn"><i class="fas fa-robot"></i> AI 识别过程复盘</button>
+                            <button class="btn" id="clearProcessFilesBtn" disabled><i class="fas fa-times"></i> 清除材料</button>
+                        </div>
+                        <div class="timeline-mode-row">
+                            <label style="font-weight:600; font-size:14px; color:#475569;">🕒 展示方式</label>
+                            <select id="reviewProcessModeInp" style="max-width:180px;">
+                                <option value="timeline" selected>时间线</option>
+                                <option value="text">普通文本</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>🧭 过程复盘</label>
+                            <textarea id="reviewProcessInp" style="min-height:220px;" placeholder="可直接粘贴文本；如果复制的是图片，也可以直接在这个框内按 ⌘V / Ctrl+V，图片会自动加入报告展示区"></textarea>
+                            <div class="inline-option-row">
+                                <span class="mini-tag">支持直接粘贴文本内容</span>
+                                <span class="mini-tag">在这个输入框内也可直接粘贴图片</span>
+                                <span class="mini-tag">下方区域也可继续粘贴 / 上传图片</span>
+                            </div>
+                            <div class="helper-text">时间线模式建议按"一行一个节点"填写，例如：<br>2026-04-01 学生首次反馈问题<br>2026-04-02 教辅与老师沟通方案<br>2026-04-03 完成补救并回访<br><br>如果你当前复制的是截图，也可以直接在上方输入框里按 ⌘V / Ctrl+V，系统会自动把图片加入报告展示，不走 AI 分析。</div>
+                        </div>
+                        <div class="form-group">
+                            <label>🖼️ 过程复盘图片（可选）</label>
+                            <div class="paste-area" id="reviewProcessImagePasteArea" tabindex="0">
+                                <i class="fas fa-image"></i>
+                                <p style="font-weight:600; margin:5px 0;">这里支持拖拽 / 直接粘贴图片（可多张）</p>
+                                <p style="font-size:13px; color:#64748b;">单击后先聚焦，再按 ⌘V / Ctrl+V 粘贴；如需手动上传，请点下方按钮</p>
+                                <div class="paste-area-actions">
+                                    <button type="button" class="ghost-btn upload-trigger" data-input-id="reviewProcessImageUpload">选择图片上传</button>
+                                </div>
+                                <input type="file" id="reviewProcessImageUpload" accept="image/*" multiple style="display:none;">
+                                <div id="reviewProcessImageFileList" class="file-list"></div>
+                            </div>
+                            <div class="helper-text">这里的图片会随“AI 识别过程复盘”一并发送给后端识别，也会在报告中展示。</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>✅ 复盘结论（可选）</label>
+                            <textarea id="reviewConclusionInp" style="min-height:140px;" placeholder="可选填写：结论、经验沉淀、后续动作"></textarea>
+                        </div>
+
+                        <button class="btn btn-primary btn-block" id="refreshPreviewBtn" style="margin-top:20px;"><i class="fas fa-sync-alt"></i> 刷新预览</button>
+                    </div>
+
+                    <div class="preview-pane">
+                        <div class="preview-header">
+                            <h3><i class="far fa-eye"></i> 实时预览</h3>
+                            <button class="btn btn-primary" id="exportImageBtn"><i class="fas fa-camera"></i> 导出PNG</button>
+                        </div>
+                        <div id="previewContainer"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAttachmentFileList(target, files) {
+            const container = document.getElementById(target);
+            if (!container) return;
+            if (!files.length) {
+                container.innerHTML = '<div style="color:#94a3b8; text-align:center; padding:8px;">暂无材料</div>';
+                return;
+            }
+            container.innerHTML = files.map((file, idx) => `
+                <div class="file-item">
+                    <i class="far ${file.type && file.type.startsWith('image/') ? 'fa-image' : 'fa-file-lines'}"></i>
+                    <span title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>
+                    <i class="fas fa-times" style="cursor:pointer;" data-file-target="${target}" data-file-idx="${idx}"></i>
+                </div>
+            `).join('');
+            container.querySelectorAll('.fa-times').forEach(icon => {
+                icon.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const idx = parseInt(icon.dataset.fileIdx, 10);
+                    if (target === 'reviewReasonFileList') reviewReasonFiles.splice(idx, 1);
+                    if (target === 'reviewProcessFileList') reviewProcessFiles.splice(idx, 1);
+                    if (target === 'reviewProcessImageFileList') {
+                        reviewProcessImageFiles.splice(idx, 1);
+                        renderPreview();
+                    }
+                    renderReviewAttachmentLists();
+                });
+            });
+        }
+
+        function renderReviewAttachmentLists() {
+            renderAttachmentFileList('reviewReasonFileList', reviewReasonFiles);
+            renderAttachmentFileList('reviewProcessFileList', reviewProcessFiles);
+            renderAttachmentFileList('reviewProcessImageFileList', reviewProcessImageFiles);
+            const clearReasonBtn = document.getElementById('clearReasonFilesBtn');
+            const clearProcessBtn = document.getElementById('clearProcessFilesBtn');
+            if (clearReasonBtn) clearReasonBtn.disabled = reviewReasonFiles.length === 0;
+            if (clearProcessBtn) clearProcessBtn.disabled = reviewProcessFiles.length === 0;
+        }
+
+        function addFilesToReviewTarget(fileList, target) {
+            const newFiles = Array.from(fileList || []);
+            if (!newFiles.length) return;
+            if (target === 'reason') reviewReasonFiles = [...reviewReasonFiles, ...newFiles];
+            if (target === 'process') reviewProcessFiles = [...reviewProcessFiles, ...newFiles];
+            if (target === 'processImage') {
+                reviewProcessImageFiles = [...reviewProcessImageFiles, ...newFiles.filter(f => (f.type||'').startsWith('image/'))];
+                renderPreview();
+            }
+            renderReviewAttachmentLists();
+        }
+
+        function setupReviewDropArea(areaId, inputId, target) {
+            const area = document.getElementById(areaId);
+            const input = document.getElementById(inputId);
+            if (!area || !input) return;
+            area.addEventListener('click', (e) => {
+                if (e.target.closest('.upload-trigger')) return;
+                area.focus();
+            });
+            const triggerBtn = area.querySelector('.upload-trigger');
+            if (triggerBtn) {
+                triggerBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    input.click();
+                });
+            }
+            input.addEventListener('change', () => {
+                addFilesToReviewTarget(input.files, target);
+                input.value = '';
+            });
+            area.addEventListener('dragover', e => { e.preventDefault(); area.style.background = '#ffe6e6'; });
+            area.addEventListener('dragleave', () => { area.style.background = '#fff5f5'; });
+            area.addEventListener('drop', e => {
+                e.preventDefault();
+                area.style.background = '#fff5f5';
+                addFilesToReviewTarget(e.dataTransfer.files, target);
+            });
+            area.addEventListener('paste', e => {
+                const items = e.clipboardData?.items;
+                if (!items) return;
+                const pastedFiles = [];
+                for (let item of items) {
+                    if (item.kind === 'file') {
+                        const f = item.getAsFile();
+                        if (f) pastedFiles.push(f);
+                    }
+                }
+                if (pastedFiles.length) {
+                    e.preventDefault();
+                    addFilesToReviewTarget(pastedFiles, target);
+                    const statusTarget = target === 'reason' ? document.getElementById('reviewReasonAiStatus') : document.getElementById('reviewProcessAiStatus');
+                    if (statusTarget && target !== 'processImage') {
+                        statusTarget.innerText = `已粘贴 ${pastedFiles.length} 个文件`;
+                        setTimeout(() => statusTarget.innerText = '', 1800);
+                    }
+                }
+            });
+        }
+
+        function renderPreview() {
+            const container = document.getElementById('previewContainer');
+            if (!container) return;
+
+            const complaintType = document.getElementById('reviewComplaintTypeInp')?.value || '待填写';
+            const ticketNo = document.getElementById('reviewTicketNoInp')?.value || '待填写';
+            const issue = document.getElementById('reviewIssueInp')?.value || '待填写';
+            const need = document.getElementById('reviewNeedInp')?.value || '待填写';
+            const plan = document.getElementById('reviewPlanInp')?.value || '待填写';
+            const reason = document.getElementById('reviewReasonInp')?.value || '待填写';
+            const process = document.getElementById('reviewProcessInp')?.value || '待填写';
+            const conclusion = document.getElementById('reviewConclusionInp')?.value || '';
+            const processMode = document.getElementById('reviewProcessModeInp')?.value || 'timeline';
+
+            const reasonHtml = escapeHtml(reason).replace(/\n/g, '<br>');
+            const processLines = process.split(/\n+/).map(line => line.trim()).filter(Boolean);
+            const processHtml = processMode === 'timeline'
+                ? `<div class="timeline-list">${(processLines.length ? processLines : ['待填写']).map(line => `<div class="timeline-item">${escapeHtml(line)}</div>`).join('')}</div>`
+                : `<p>${escapeHtml(process).replace(/\n/g, '<br>')}</p>`;
+
+            // 释放上一次预览里的 blob URL
+            previewImageUrls.forEach(u => URL.revokeObjectURL(u));
+            previewImageUrls = [];
+
+            const processImageHtml = reviewProcessImageFiles.length ? `
+                <div class="process-image-grid">
+                    ${reviewProcessImageFiles.map((file, idx) => {
+                        const u = URL.createObjectURL(file);
+                        previewImageUrls.push(u);
+                        return `<div class="process-image-card"><button type="button" class="process-image-delete" data-image-idx="${idx}" title="删除图片">×</button><img src="${u}" alt="${escapeHtml(file.name)}"><div class="process-image-name">${escapeHtml(file.name)}</div></div>`;
+                    }).join('')}
+                </div>
+            ` : '';
+
+            container.innerHTML = `
+                <div class="report-card" id="reportForExport">
+                    <div class="watermark-bg"></div>
+                    <div class="report-inner">
+                        <div class="report-header">
+                            <h1>售后复盘报告</h1>
+                            <div class="order-badge">单号：${escapeHtml(ticketNo)}</div>
+                        </div>
+
+                        <div class="info-grid" style="margin-bottom:20px;">
+                            <div class="info-tile"><h3><i class="fas fa-tags"></i> 客诉种类</h3><p>${escapeHtml(complaintType)}</p></div>
+                            <div class="info-tile"><h3><i class="fas fa-circle-exclamation"></i> 问题</h3><p>${escapeHtml(issue)}</p></div>
+                            <div class="info-tile"><h3><i class="fas fa-bullseye"></i> 需求</h3><p>${escapeHtml(need)}</p></div>
+                        </div>
+
+                        <div class="analysis-block" style="margin-top:0;">
+                            <h2 style="color:#BF2A32; margin-bottom:20px; padding-bottom:8px; border-bottom:1px solid #eee;"><i class="fas fa-screwdriver-wrench"></i> 方案</h2>
+                            <div class="analysis-item">
+                                <h4><i class="fas fa-file-signature"></i> 方案说明</h4>
+                                <p>${escapeHtml(plan).replace(/\n/g, '<br>')}</p>
+                            </div>
+                        </div>
+
+                        <div class="analysis-block">
+                            <h2 style="color:#BF2A32; margin-bottom:20px; padding-bottom:8px; border-bottom:1px solid #eee;"><i class="fas fa-magnifying-glass-chart"></i> 原因分析</h2>
+                            <div class="analysis-item">
+                                <h4><i class="fas fa-diagram-project"></i> 核心分析</h4>
+                                <p>${reasonHtml}</p>
+                            </div>
+                        </div>
+
+                        <div class="analysis-block">
+                            <h2 style="color:#BF2A32; margin-bottom:20px; padding-bottom:8px; border-bottom:1px solid #eee;"><i class="fas fa-timeline"></i> 过程复盘</h2>
+                            <div class="analysis-item">
+                                <h4><i class="fas fa-list-check"></i> ${processMode === 'timeline' ? '关键时间线' : '事件过程'}</h4>
+                                ${processHtml}
+                                ${processImageHtml}
+                            </div>
+                        </div>
+
+                        ${conclusion ? `
+                        <div class="analysis-block">
+                            <h2 style="color:#BF2A32; margin-bottom:20px; padding-bottom:8px; border-bottom:1px solid #eee;"><i class="fas fa-flag-checkered"></i> 复盘结论</h2>
+                            <div class="analysis-item">
+                                <h4><i class="fas fa-lightbulb"></i> 结论与建议</h4>
+                                <p>${escapeHtml(conclusion).replace(/\n/g, '<br>')}</p>
+                            </div>
+                        </div>` : ''}
+
+                        <div class="footer-note">© 万能班长 留学生学术成长赋能平台</div>
+                    </div>
+                </div>
+            `;
+            bindReviewPreviewImageDeleteEvents();
+        }
+
+        function bindReviewPreviewImageDeleteEvents() {
+            document.querySelectorAll('.process-image-delete').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const idx = parseInt(btn.dataset.imageIdx, 10);
+                    if (!Number.isNaN(idx)) {
+                        reviewProcessImageFiles.splice(idx, 1);
+                        renderReviewAttachmentLists();
+                        renderPreview();
+                    }
+                });
+            });
+        }
+
+        async function recognizeReviewReason() {
+            const status = document.getElementById('reviewReasonAiStatus');
+            const existingReason = document.getElementById('reviewReasonInp')?.value || '';
+            if (!reviewReasonFiles.length && !existingReason.trim()) {
+                alert('请先上传材料或填写原因分析文本');
+                return;
+            }
+
+            status.innerText = '⏳ AI 识别中...';
+            try {
+                const prepared = await window.aiClient.prepareFiles(reviewReasonFiles, {
+                    maxImages: 8,
+                    maxTextFiles: 6
+                });
+                const result = await window.aiClient.request('/api/ai/review-report/reason', {
+                    images: prepared.images,
+                    textBlocks: prepared.textBlocks,
+                    skippedFiles: prepared.skipped,
+                    context: {
+                        complaintType: document.getElementById('reviewComplaintTypeInp')?.value || '',
+                        ticketNo: document.getElementById('reviewTicketNoInp')?.value || '',
+                        issue: document.getElementById('reviewIssueInp')?.value || '',
+                        need: document.getElementById('reviewNeedInp')?.value || '',
+                        plan: document.getElementById('reviewPlanInp')?.value || '',
+                        existingReason
+                    }
+                });
+                if (result.reason) {
+                    document.getElementById('reviewReasonInp').value = result.reason;
+                    renderPreview();
+                }
+                status.innerText = '✅ 完成';
+            } catch (err) {
+                status.innerText = `❌ ${err.message || 'AI 识别失败'}`;
+            }
+            setTimeout(() => status.innerText = '', 2500);
+        }
+
+        async function recognizeReviewProcess() {
+            const status = document.getElementById('reviewProcessAiStatus');
+            const existingProcess = document.getElementById('reviewProcessInp')?.value || '';
+            const allProcessFiles = [...reviewProcessFiles, ...reviewProcessImageFiles];
+            if (!allProcessFiles.length && !existingProcess.trim()) {
+                alert('请先上传材料或填写过程复盘文本');
+                return;
+            }
+
+            status.innerText = '⏳ AI 识别中...';
+            try {
+                const prepared = await window.aiClient.prepareFiles(allProcessFiles, {
+                    maxImages: 8,
+                    maxTextFiles: 6
+                });
+                const result = await window.aiClient.request('/api/ai/review-report/process', {
+                    images: prepared.images,
+                    textBlocks: prepared.textBlocks,
+                    skippedFiles: prepared.skipped,
+                    context: {
+                        complaintType: document.getElementById('reviewComplaintTypeInp')?.value || '',
+                        ticketNo: document.getElementById('reviewTicketNoInp')?.value || '',
+                        issue: document.getElementById('reviewIssueInp')?.value || '',
+                        need: document.getElementById('reviewNeedInp')?.value || '',
+                        plan: document.getElementById('reviewPlanInp')?.value || '',
+                        existingProcess,
+                        processMode: document.getElementById('reviewProcessModeInp')?.value || 'timeline'
+                    }
+                });
+                if (result.process) {
+                    document.getElementById('reviewProcessInp').value = result.process;
+                }
+                if (result.conclusion && !document.getElementById('reviewConclusionInp').value.trim()) {
+                    document.getElementById('reviewConclusionInp').value = result.conclusion;
+                }
+                renderPreview();
+                status.innerText = '✅ 完成';
+            } catch (err) {
+                status.innerText = `❌ ${err.message || 'AI 识别失败'}`;
+            }
+            setTimeout(() => status.innerText = '', 2500);
+        }
+
+        function bindReviewReportEvents() {
+            [
+                'reviewComplaintTypeInp','reviewTicketNoInp','reviewIssueInp','reviewNeedInp',
+                'reviewPlanInp','reviewReasonInp','reviewProcessInp','reviewConclusionInp'
+            ].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('input', renderPreview);
+            });
+            const reviewProcessTextarea = document.getElementById('reviewProcessInp');
+            if (reviewProcessTextarea) {
+                reviewProcessTextarea.addEventListener('paste', (e) => {
+                    const items = e.clipboardData?.items;
+                    if (!items) return;
+                    const imageFiles = [];
+                    for (const item of items) {
+                        if ((item.type || '').startsWith('image/')) {
+                            const file = item.getAsFile();
+                            if (file) imageFiles.push(file);
+                        }
+                    }
+                    if (imageFiles.length) {
+                        e.preventDefault();
+                        reviewProcessImageFiles = [...reviewProcessImageFiles, ...imageFiles];
+                        renderReviewAttachmentLists();
+                        renderPreview();
+                    }
+                });
+            }
+            const modeEl = document.getElementById('reviewProcessModeInp');
+            if (modeEl) modeEl.addEventListener('change', renderPreview);
+
+            setupReviewDropArea('reviewReasonPasteArea', 'reviewReasonUpload', 'reason');
+            setupReviewDropArea('reviewProcessPasteArea', 'reviewProcessUpload', 'process');
+            setupReviewDropArea('reviewProcessImagePasteArea', 'reviewProcessImageUpload', 'processImage');
+            renderReviewAttachmentLists();
+
+            document.getElementById('clearReasonFilesBtn').addEventListener('click', () => {
+                reviewReasonFiles = [];
+                renderReviewAttachmentLists();
+            });
+            document.getElementById('clearProcessFilesBtn').addEventListener('click', () => {
+                reviewProcessFiles = [];
+                renderReviewAttachmentLists();
+            });
+
+            document.getElementById('aiReasonRecognizeBtn').addEventListener('click', recognizeReviewReason);
+            document.getElementById('aiProcessRecognizeBtn').addEventListener('click', recognizeReviewProcess);
+
+            document.getElementById('refreshPreviewBtn').addEventListener('click', renderPreview);
+            document.getElementById('exportImageBtn').addEventListener('click', exportCurrentReport);
+        }
+
+        async function exportCurrentReport() {
+            const el = document.getElementById('reportForExport');
+            if (!el) return;
+            const deleteBtns = Array.from(el.querySelectorAll('.process-image-delete'));
+            const oldDisplays = deleteBtns.map(btn => btn.style.display);
+            deleteBtns.forEach(btn => btn.style.display = 'none');
+            try {
+                const canvas = await html2canvas(el, { scale:2.5, useCORS:true, backgroundColor:'#fff' });
+                const link = document.createElement('a');
+                link.download = '售后复盘报告.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            } catch(e) {
+                alert('导出失败');
+            } finally {
+                deleteBtns.forEach((btn, i) => btn.style.display = oldDisplays[i]);
+            }
+        }
+
+        renderApp();
+    })();
+</script>
+</body>
+</html>
