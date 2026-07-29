@@ -55,14 +55,26 @@
     }
 
     async function parseFileOnServer(file) {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('filename', file.name);
-        formData.append('fileType', file.type || '');
+        // Convert file to base64 for Vercel Serverless compatibility
+        // (multipart/form-data is not well supported in Vercel Serverless Functions)
+        const base64 = await fileToBase64(file);
+        
+        const fileSizeBytes = file.size || 0;
+        const maxSizeBytes = 3 * 1024 * 1024; // 3MB limit for Vercel Hobby plan
+        if (fileSizeBytes > maxSizeBytes) {
+            throw new Error(`文件过大（${(fileSizeBytes / 1024 / 1024).toFixed(1)}MB），Vercel 免费版限制 3MB，请压缩后重试`);
+        }
         
         const response = await fetch(getApiUrl('/api/parse-file'), {
             method: 'POST',
-            body: formData
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                file: base64,
+                filename: file.name,
+                fileType: file.type || ''
+            })
         });
         if (!response.ok) {
             const err = await response.json().catch(() => ({}));

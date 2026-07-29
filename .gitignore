@@ -77,6 +77,10 @@ ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 
+# Vercel
+.vercel/
+.vercel
+
 # Project specific
 backups/
 *.bak
