@@ -3,8 +3,8 @@
     const PARSEABLE_FILE_EXTENSIONS = ['.pdf'];
 
     // API base URL configuration
-    // Set to your backend URL when deploying frontend to Cloudflare Pages
-    // Example: window.__API_BASE__ = 'https://your-backend.up.railway.app';
+    // EdgeOne Pages: Set to empty string '' when deploying to EdgeOne Pages (same-origin)
+    // Example: window.__API_BASE__ = 'https://your-project.edgeone.app';
     let apiBaseUrl = window.__API_BASE__ || '';
 
     function getApiUrl(path) {
@@ -55,14 +55,13 @@
     }
 
     async function parseFileOnServer(file) {
-        // Convert file to base64 for Vercel Serverless compatibility
-        // (multipart/form-data is not well supported in Vercel Serverless Functions)
+        // Convert file to base64 for Serverless compatibility
         const base64 = await fileToBase64(file);
         
         const fileSizeBytes = file.size || 0;
-        const maxSizeBytes = 3 * 1024 * 1024; // 3MB limit for Vercel Hobby plan
+        const maxSizeBytes = 3 * 1024 * 1024; // 3MB limit for free tier
         if (fileSizeBytes > maxSizeBytes) {
-            throw new Error(`文件过大（${(fileSizeBytes / 1024 / 1024).toFixed(1)}MB），Vercel 免费版限制 3MB，请压缩后重试`);
+            throw new Error(`文件过大（${(fileSizeBytes / 1024 / 1024).toFixed(1)}MB），免费版限制 3MB，请压缩后重试`);
         }
         
         const response = await fetch(getApiUrl('/api/parse-file'), {

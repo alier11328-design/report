@@ -1,0 +1,19 @@
+{
+  "framework": "static",
+  "buildCommand": "npm install",
+  "outputDirectory": ".",
+  "installCommand": "npm install",
+  "routes": [
+    {
+      "path": "/api/*",
+      "target": "/node-functions/api/*"
+    }
+  ],
+  "headers": {
+    "/api/*": {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization"
+    }
+  }
+}

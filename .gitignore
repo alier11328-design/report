@@ -81,6 +81,9 @@ $RECYCLE.BIN/
 .vercel/
 .vercel
 
+# EdgeOne Pages
+.edgeone/
+
 # Project specific
 backups/
 *.bak
