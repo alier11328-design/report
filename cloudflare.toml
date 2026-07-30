@@ -1,0 +1,4 @@
+# Cloudflare Pages 部署配置
+build:
+  command: "npm install"
+  output: "."

@@ -3,7 +3,7 @@
 .env.local
 .env.*.local
 
-# Dependencies
+# Dependencies (CRITICAL: Don't deploy node_modules to Cloudflare Pages)
 node_modules/
 .pnpm-store/
 
@@ -77,15 +77,13 @@ ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 
-# Vercel
+# Platform specific
 .vercel/
-.vercel
-
-# EdgeOne Pages
 .edgeone/
-
-# Netlify
 .netlify/
+.cloudflare/
+.wrangler/
+wrangler.toml
 
 # Project specific
 backups/

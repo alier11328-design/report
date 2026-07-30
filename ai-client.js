@@ -54,34 +54,63 @@
         });
     }
 
-    async function parseFileOnServer(file) {
-        // Convert file to base64 for Serverless compatibility
-        const base64 = await fileToBase64(file);
-        
-        const fileSizeBytes = file.size || 0;
-        const maxSizeBytes = 3 * 1024 * 1024; // 3MB limit for free tier
-        if (fileSizeBytes > maxSizeBytes) {
-            throw new Error(`文件过大（${(fileSizeBytes / 1024 / 1024).toFixed(1)}MB），免费版限制 3MB，请压缩后重试`);
-        }
-        
-        const response = await fetch(getApiUrl('/api/parse-file'), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                file: base64,
-                filename: file.name,
-                fileType: file.type || ''
-            })
-        });
-        if (!response.ok) {
-            const err = await response.json().catch(() => ({}));
-            throw new Error(err.error || '文件解析失败');
-        }
-        const result = await response.json();
-        return result.text;
+    // 客户端 PDF 解析 - 使用 pdfjs-dist 浏览器版
+// 从 CDN 加载
+let pdfjsLib = null;
+
+async function loadPdfJs() {
+    if (pdfjsLib) return pdfjsLib;
+    if (typeof window['pdfjsLib'] !== 'undefined') {
+        pdfjsLib = window['pdfjsLib'];
+        return pdfjsLib;
     }
+    // 动态加载
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    script.onload = () => {
+        pdfjsLib = window['pdfjsLib'];
+    };
+    document.head.appendChild(script);
+    // 等待加载
+    while (!pdfjsLib) {
+        await new Promise(r => setTimeout(r, 50));
+    }
+    return pdfjsLib;
+}
+
+async function parsePdfClientSide(file) {
+    try {
+        const pdfjsLib = await loadPdfJs();
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items.map(item => item.str).join(' ');
+            fullText += pageText + '\n';
+        }
+        return fullText;
+    } catch (err) {
+        throw new Error(`PDF 解析失败: ${err.message}`);
+    }
+}
+
+async function parseFileOnServer(file) {
+    const fileSizeBytes = file.size || 0;
+    const maxSizeBytes = 10 * 1024 * 1024; // 10MB for client-side parsing
+    if (fileSizeBytes > maxSizeBytes) {
+        throw new Error(`文件过大（${(fileSizeBytes / 1024 / 1024).toFixed(1)}MB），请压缩后重试`);
+    }
+    
+    // PDF 文件在客户端解析
+    if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+        return await parsePdfClientSide(file);
+    }
+    
+    // 其他文件类型返回错误
+    throw new Error('仅支持 PDF 文件解析');
+}
 
     async function prepareFiles(files, options = {}) {
         const maxImages = options.maxImages || 8;
