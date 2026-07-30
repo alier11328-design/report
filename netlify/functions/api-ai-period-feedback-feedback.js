@@ -1,22 +1,15 @@
-import { createResponse, createError, parseBody, askQwenForJson, normalizeString } from '../../utils.js';
+import { createResponse, createError, parseBody, askQwenForJson, normalizeString } from './_shared/utils.js';
 
 export default async function handler(event, context) {
-    if (event.httpMethod === 'OPTIONS') {
-        return createResponse({ ok: true });
-    }
-
-    if (event.httpMethod !== 'POST') {
-        return createError('Method not allowed', 405);
-    }
+    if (event.httpMethod === 'OPTIONS') return createResponse({ ok: true });
+    if (event.httpMethod !== 'POST') return createError('Method not allowed', 405);
 
     try {
         const body = parseBody(event);
         const images = Array.isArray(body?.images) ? body.images : [];
         const textBlocks = Array.isArray(body?.textBlocks) ? body.textBlocks : [];
 
-        if (!images.length && !textBlocks.length) {
-            return createError('请先上传反馈截图或PDF文件', 400);
-        }
+        if (!images.length && !textBlocks.length) return createError('请先上传反馈截图或PDF文件', 400);
 
         const prompt = `
 请根据这些课堂反馈/聊天截图或PDF文件，整理成阶段性反馈报告中的四段文字。
@@ -51,6 +44,4 @@ ${JSON.stringify(body?.context || {}, null, 2)}
     }
 }
 
-export const config = {
-    path: '/api/ai/period-feedback/feedback'
-};
+export const config = { path: '/api/ai/period-feedback/feedback' };

@@ -7,11 +7,9 @@ let openai = null;
 
 function getOpenai(context) {
     if (openai) return openai;
-    
     const apiKey = process.env.DASHSCOPE_API_KEY;
     const baseUrl = process.env.DASHSCOPE_BASE_URL;
     const model = process.env.DASHSCOPE_MODEL;
-    
     if (apiKey) {
         openai = new OpenAI({
             apiKey,
@@ -47,25 +45,14 @@ export function createError(message, statusCode = 500) {
 }
 
 export function parseBody(event) {
-    if (event.httpMethod === 'OPTIONS') {
-        return null;
-    }
-    if (event.httpMethod === 'GET') {
-        return null;
-    }
-    if (!event.body) {
-        return null;
-    }
+    if (event.httpMethod === 'OPTIONS') return null;
+    if (event.httpMethod === 'GET') return null;
+    if (!event.body) return null;
     try {
         return JSON.parse(event.body);
     } catch {
         return null;
     }
-}
-
-export function getEnv(context, key) {
-    const env = context?.clientContext?.custom?.env || process.env;
-    return env[key];
 }
 
 export function normalizeString(value) {
@@ -124,10 +111,7 @@ export function formatTextBlocks(textBlocks = []) {
 }
 
 function extractJsonObject(text) {
-    if (!text) {
-        throw new Error('AI 未返回内容');
-    }
-
+    if (!text) throw new Error('AI 未返回内容');
     const trimmed = text.trim();
     try {
         return JSON.parse(trimmed);
@@ -136,7 +120,6 @@ function extractJsonObject(text) {
         if (fenceMatch) {
             return JSON.parse(fenceMatch[1].trim());
         }
-
         const firstBrace = trimmed.indexOf('{');
         const lastBrace = trimmed.lastIndexOf('}');
         if (firstBrace >= 0 && lastBrace > firstBrace) {
@@ -189,7 +172,7 @@ export async function askQwenForJson(context, { prompt, images = [], textBlocks 
     });
 
     const completion = await client.chat.completions.create({
-        model: MODEL,
+        model: process.env.DASHSCOPE_MODEL || MODEL,
         temperature: 0.2,
         messages: [
             { role: 'system', content: JSON_ONLY_SYSTEM_PROMPT },

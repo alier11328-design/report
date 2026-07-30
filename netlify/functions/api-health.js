@@ -1,17 +1,12 @@
-import { MODEL, createResponse } from './utils.js';
+import { MODEL, createResponse } from './_shared/utils.js';
 
 export default async function handler(event, context) {
-    if (event.httpMethod === 'OPTIONS') {
-        return createResponse({ ok: true });
-    }
-
-    if (event.httpMethod !== 'GET') {
-        return createResponse({ error: 'Method not allowed' }, 405);
-    }
+    if (event.httpMethod === 'OPTIONS') return createResponse({ ok: true });
+    if (event.httpMethod !== 'GET') return createResponse({ error: 'Method not allowed' }, 405);
 
     return createResponse({
         ok: true,
-        model: MODEL,
+        model: process.env.DASHSCOPE_MODEL || MODEL,
         configured: Boolean(process.env.DASHSCOPE_API_KEY),
         envCheck: {
             hasApiKey: Boolean(process.env.DASHSCOPE_API_KEY),
@@ -21,6 +16,4 @@ export default async function handler(event, context) {
     });
 }
 
-export const config = {
-    path: '/api/health'
-};
+export const config = { path: '/api/health' };

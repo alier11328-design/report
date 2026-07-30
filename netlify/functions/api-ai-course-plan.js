@@ -1,21 +1,13 @@
-import { createResponse, createError, parseBody, askQwenForJson, normalizeString, normalizeStringArray, normalizeAssessmentArray, normalizeWeekPlans } from '../utils.js';
+import { createResponse, createError, parseBody, askQwenForJson, normalizeString, normalizeStringArray, normalizeAssessmentArray, normalizeWeekPlans } from './_shared/utils.js';
 
 export default async function handler(event, context) {
-    if (event.httpMethod === 'OPTIONS') {
-        return createResponse({ ok: true });
-    }
-
-    if (event.httpMethod !== 'POST') {
-        return createError('Method not allowed', 405);
-    }
+    if (event.httpMethod === 'OPTIONS') return createResponse({ ok: true });
+    if (event.httpMethod !== 'POST') return createError('Method not allowed', 405);
 
     try {
         const body = parseBody(event);
         const extractedText = normalizeString(body?.extractedText);
-        
-        if (!extractedText) {
-            return createError('缺少大纲文本内容', 400);
-        }
+        if (!extractedText) return createError('缺少大纲文本内容', 400);
 
         const prompt = `
 请根据下面的课程大纲/课程说明内容，提炼并补全课程规划表单。
@@ -90,6 +82,4 @@ ${extractedText.slice(0, 20000)}
     }
 }
 
-export const config = {
-    path: '/api/ai/course-plan'
-};
+export const config = { path: '/api/ai/course-plan' };

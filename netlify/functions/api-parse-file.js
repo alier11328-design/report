@@ -1,29 +1,19 @@
-import { createResponse, createError, parseBody } from './utils.js';
+import { createResponse, createError, parseBody } from './_shared/utils.js';
 import { Buffer } from 'buffer';
 import pdfParse from 'pdf-parse';
 
 export default async function handler(event, context) {
-    if (event.httpMethod === 'OPTIONS') {
-        return createResponse({ ok: true });
-    }
-
-    if (event.httpMethod !== 'POST') {
-        return createError('Method not allowed', 405);
-    }
+    if (event.httpMethod === 'OPTIONS') return createResponse({ ok: true });
+    if (event.httpMethod !== 'POST') return createError('Method not allowed', 405);
 
     try {
         const body = parseBody(event);
-        
-        if (!body || !body.file || !body.filename) {
-            return createError('缺少文件数据或文件名', 400);
-        }
+        if (!body || !body.file || !body.filename) return createError('缺少文件数据或文件名', 400);
 
         const { file: base64File, filename, fileType } = body;
         const buffer = Buffer.from(base64File, 'base64');
 
-        if (buffer.length > 3 * 1024 * 1024) {
-            return createError('文件过大，限制约 3MB', 413);
-        }
+        if (buffer.length > 3 * 1024 * 1024) return createError('文件过大，限制约 3MB', 413);
 
         const path = await import('path');
         const ext = path.extname(filename).toLowerCase();
@@ -50,6 +40,4 @@ export default async function handler(event, context) {
     }
 }
 
-export const config = {
-    path: '/api/parse-file'
-};
+export const config = { path: '/api/parse-file' };

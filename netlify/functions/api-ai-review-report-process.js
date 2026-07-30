@@ -1,13 +1,8 @@
-import { createResponse, createError, parseBody, askQwenForJson, normalizeString, normalizeStringArray, formatTextBlocks } from '../../utils.js';
+import { createResponse, createError, parseBody, askQwenForJson, normalizeString, normalizeStringArray, formatTextBlocks } from './_shared/utils.js';
 
 export default async function handler(event, context) {
-    if (event.httpMethod === 'OPTIONS') {
-        return createResponse({ ok: true });
-    }
-
-    if (event.httpMethod !== 'POST') {
-        return createError('Method not allowed', 405);
-    }
+    if (event.httpMethod === 'OPTIONS') return createResponse({ ok: true });
+    if (event.httpMethod !== 'POST') return createError('Method not allowed', 405);
 
     try {
         const body = parseBody(event);
@@ -17,9 +12,7 @@ export default async function handler(event, context) {
         const existingProcess = normalizeString(body?.context?.existingProcess);
         const mode = normalizeString(body?.context?.processMode) || 'timeline';
 
-        if (!images.length && !textBlocks && !existingProcess) {
-            return createError('请先提供过程材料或文本', 400);
-        }
+        if (!images.length && !textBlocks && !existingProcess) return createError('请先提供过程材料或文本', 400);
 
         const prompt = `
 请根据售后复盘材料，生成"过程复盘"内容。
@@ -62,6 +55,4 @@ ${skippedFiles.join('；') || '无'}
     }
 }
 
-export const config = {
-    path: '/api/ai/review-report/process'
-};
+export const config = { path: '/api/ai/review-report/process' };

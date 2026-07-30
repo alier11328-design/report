@@ -1,22 +1,15 @@
-import { createResponse, createError, parseBody, askQwenForJson, normalizeString, normalizeScheduleRows } from '../../utils.js';
+import { createResponse, createError, parseBody, askQwenForJson, normalizeString, normalizeScheduleRows } from './_shared/utils.js';
 
 export default async function handler(event, context) {
-    if (event.httpMethod === 'OPTIONS') {
-        return createResponse({ ok: true });
-    }
-
-    if (event.httpMethod !== 'POST') {
-        return createError('Method not allowed', 405);
-    }
+    if (event.httpMethod === 'OPTIONS') return createResponse({ ok: true });
+    if (event.httpMethod !== 'POST') return createError('Method not allowed', 405);
 
     try {
         const body = parseBody(event);
         const images = Array.isArray(body?.images) ? body.images : [];
         const textBlocks = Array.isArray(body?.textBlocks) ? body.textBlocks : [];
 
-        if (!images.length && !textBlocks.length) {
-            return createError('请先上传排课截图或PDF文件', 400);
-        }
+        if (!images.length && !textBlocks.length) return createError('请先上传排课截图或PDF文件', 400);
 
         const prompt = `
 请从这些排课截图或PDF文件中提取排课记录，返回 JSON：
@@ -40,12 +33,10 @@ ${JSON.stringify(body?.context || {}, null, 2)}
 3. 不要补造不存在的排课记录。`;
 
         const result = await askQwenForJson(context, { prompt, images, textBlocks });
-        return createResponse({ data: { rows: normalizeScheduleRows(result.rows) } });
+        return createResponse({ data: { rows: normalizeScheduleRows(result.rows) });
     } catch (error) {
         return createError(error.message || 'AI 识别失败', error.statusCode || 500);
     }
 }
 
-export const config = {
-    path: '/api/ai/period-feedback/schedule'
-};
+export const config = { path: '/api/ai/period-feedback/schedule' };
