@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>万能班长 · 周期反馈报告</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-   <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="ai-client.js"></script>
    <style>
         * {
@@ -1156,15 +1156,37 @@
 
         async function exportCurrentReport() {
             const el = document.getElementById('reportForExport');
-            if (!el) return;
+            if (!el) { alert('请先生成报告预览'); return; }
+            const btn = document.getElementById('exportImageBtn');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 导出中...';
             try {
-                const canvas = await html2canvas(el, { scale: 2.5, useCORS: true, backgroundColor: '#fff' });
+                const canvas = await html2canvas(el, { 
+                    scale: 2, 
+                    useCORS: true, 
+                    backgroundColor: '#ffffff',
+                    logging: true,
+                    allowTaint: true,
+                    foreignObjectRendering: false,
+                    ignoreElements: function(element) {
+                        return element.classList && element.classList.contains('paste-area');
+                    }
+                });
                 const link = document.createElement('a');
                 const studentVal = document.getElementById('studentNameInp')?.value || '报告';
                 link.download = `${studentVal}_反馈报告.png`;
                 link.href = canvas.toDataURL('image/png');
+                document.body.appendChild(link);
                 link.click();
-            } catch(e) { alert('导出失败'); }
+                document.body.removeChild(link);
+            } catch(e) { 
+                console.error('导出错误:', e);
+                alert('导出失败：' + (e.message || '未知错误，请刷新页面后重试')); 
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
         }
 
         function bindEditorEvents() {

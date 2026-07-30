@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>万能班长 · 结课报告生成器</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <!-- PDF.js 库，用于提取 PDF 文本 -->
    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script src="ai-client.js"></script>
@@ -625,7 +625,6 @@
                     images: prepared.images,
                     context: context
                 });
-                if (result.reportOverview !== undefined) { fields.reportOverview.value = result.reportOverview; userEditedOverview = true; }
                 if (result.learningGoal !== undefined) fields.learningGoal.value = result.learningGoal;
                 if (result.achievementSummary !== undefined) fields.achievementSummary.value = result.achievementSummary;
                 if (result.finalGrade !== undefined) fields.finalGrade.value = result.finalGrade;

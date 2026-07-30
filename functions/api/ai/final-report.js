@@ -106,7 +106,6 @@ ${pdfExtraText ? `以下是 PDF 文档提取的文本内容（请以其为主要
 
 请输出 JSON，必须包含所有字段且每个字段都必须有具体内容（不能为空字符串）：
 {
-  "reportOverview": "报告综述",
   "learningGoal": "学习目标",
   "achievementSummary": "学习成果总结（至少50字）",
   "finalGrade": "总成绩",
@@ -127,7 +126,6 @@ ${pdfExtraText ? `以下是 PDF 文档提取的文本内容（请以其为主要
         const result = await callAI({ prompt, images }, env);
         return createResponse({
             data: {
-                reportOverview: result.reportOverview || '',
                 learningGoal: result.learningGoal || '',
                 achievementSummary: result.achievementSummary || '',
                 finalGrade: result.finalGrade || '',

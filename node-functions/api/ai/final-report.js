@@ -30,7 +30,6 @@ ${pdfExtraText ? `以下是 PDF 文档提取的文本内容（请以其为主要
 
 请输出 JSON：
 {
-  "reportOverview": "",
   "learningGoal": "",
   "achievementSummary": "",
   "finalGrade": "",
@@ -53,7 +52,6 @@ ${pdfExtraText ? `以下是 PDF 文档提取的文本内容（请以其为主要
 
         return createResponse({
             data: {
-                reportOverview: normalizeString(result.reportOverview),
                 learningGoal: normalizeString(result.learningGoal),
                 achievementSummary: normalizeString(result.achievementSummary),
                 finalGrade: normalizeString(result.finalGrade),

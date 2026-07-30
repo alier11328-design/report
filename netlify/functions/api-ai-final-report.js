@@ -21,7 +21,6 @@ ${pdfExtraText ? `以下是 PDF 文档提取的文本内容（请以其为主要
 
 请输出 JSON，必须包含所有字段且每个字段都必须有具体内容（不能为空字符串）：
 {
-  "reportOverview": "报告综述：概述学生的学习历程和整体表现",
   "learningGoal": "学习目标：描述学生本课程的学习目标",
   "achievementSummary": "学习成果总结：总结学生取得的学习成果和进步",
   "finalGrade": "总成绩：从材料中提取成绩，若无则写'良好'或'合格'",
@@ -48,7 +47,6 @@ ${pdfExtraText ? `以下是 PDF 文档提取的文本内容（请以其为主要
 
         return createResponse({
             data: {
-                reportOverview: normalizeString(result.reportOverview),
                 learningGoal: normalizeString(result.learningGoal),
                 achievementSummary: normalizeString(result.achievementSummary),
                 finalGrade: normalizeString(result.finalGrade),
