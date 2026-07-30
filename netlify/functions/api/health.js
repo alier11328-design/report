@@ -9,17 +9,14 @@ export default async function handler(event, context) {
         return createResponse({ error: 'Method not allowed' }, 405);
     }
 
-    // Netlify: get env vars from Netlify.env.get() or process.env
-    const apiKey = (typeof Netlify !== 'undefined' && Netlify.env?.get?.('DASHSCOPE_API_KEY')) || process.env.DASHSCOPE_API_KEY;
-    
     return createResponse({
         ok: true,
         model: MODEL,
-        configured: Boolean(apiKey),
+        configured: Boolean(process.env.DASHSCOPE_API_KEY),
         envCheck: {
-            hasApiKey: Boolean(apiKey),
-            hasBaseUrl: Boolean((typeof Netlify !== 'undefined' && Netlify.env?.get?.('DASHSCOPE_BASE_URL')) || process.env.DASHSCOPE_BASE_URL),
-            hasModel: Boolean((typeof Netlify !== 'undefined' && Netlify.env?.get?.('DASHSCOPE_MODEL')) || process.env.DASHSCOPE_MODEL)
+            hasApiKey: Boolean(process.env.DASHSCOPE_API_KEY),
+            hasBaseUrl: Boolean(process.env.DASHSCOPE_BASE_URL),
+            hasModel: Boolean(process.env.DASHSCOPE_MODEL)
         }
     });
 }

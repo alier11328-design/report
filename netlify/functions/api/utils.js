@@ -8,17 +8,9 @@ let openai = null;
 function getOpenai(context) {
     if (openai) return openai;
     
-    // Netlify: get env vars using Netlify global or process.env
-    const getEnv = (key) => {
-        if (typeof Netlify !== 'undefined' && Netlify.env?.get) {
-            return Netlify.env.get(key);
-        }
-        return process.env[key];
-    };
-    
-    const apiKey = getEnv('DASHSCOPE_API_KEY');
-    const baseUrl = getEnv('DASHSCOPE_BASE_URL');
-    const model = getEnv('DASHSCOPE_MODEL');
+    const apiKey = process.env.DASHSCOPE_API_KEY;
+    const baseUrl = process.env.DASHSCOPE_BASE_URL;
+    const model = process.env.DASHSCOPE_MODEL;
     
     if (apiKey) {
         openai = new OpenAI({
