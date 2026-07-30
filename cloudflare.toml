@@ -1,4 +1,4 @@
-# Cloudflare Pages 部署配置
-build:
-  command: "npm install"
-  output: "."
+# Cloudflare Pages 配置
+# Pages Functions 会自动识别 functions/ 目录
+
+# 不要在这里配置 wrangler，Pages 会自动处理 Functions
