@@ -51,3 +51,7 @@ ${skippedFiles.join('；') || '无'}
         return createError(error.message || 'AI 识别失败', error.statusCode || 500);
     }
 }
+
+export const config = {
+    path: '/api/ai/review-report/reason'
+};

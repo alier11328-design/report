@@ -89,3 +89,7 @@ ${extractedText.slice(0, 20000)}
         return createError(error.message || 'AI 识别失败', error.statusCode || 500);
     }
 }
+
+export const config = {
+    path: '/api/ai/course-plan'
+};

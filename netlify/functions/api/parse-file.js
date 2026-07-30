@@ -49,3 +49,7 @@ export default async function handler(event, context) {
         return createError(error.message || '文件解析失败', 500);
     }
 }
+
+export const config = {
+    path: '/api/parse-file'
+};

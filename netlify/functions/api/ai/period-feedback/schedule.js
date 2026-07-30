@@ -45,3 +45,7 @@ ${JSON.stringify(body?.context || {}, null, 2)}
         return createError(error.message || 'AI 识别失败', error.statusCode || 500);
     }
 }
+
+export const config = {
+    path: '/api/ai/period-feedback/schedule'
+};

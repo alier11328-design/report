@@ -66,3 +66,7 @@ ${pdfExtraText ? `以下是 PDF 文档提取的文本内容（请以其为主要
         return createError(error.message || 'AI 识别失败', error.statusCode || 500);
     }
 }
+
+export const config = {
+    path: '/api/ai/final-report'
+};
