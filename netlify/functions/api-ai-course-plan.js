@@ -57,7 +57,7 @@ ${extractedText.slice(0, 20000)}
 4. weekPlans 可基于课程节奏合理整理为最多 12 周的周计划。
 5. 不要输出结构外字段。`;
 
-        const result = await askQwenForJson(context, { prompt });
+        const result = await askQwenForJson({ prompt });
 
         return createResponse({
             data: {

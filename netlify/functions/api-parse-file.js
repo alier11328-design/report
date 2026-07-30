@@ -1,6 +1,5 @@
 import { createResponse, createError, parseBody } from './_shared/utils.js';
 import { Buffer } from 'buffer';
-import pdfParse from 'pdf-parse';
 
 export default async function handler(request, context) {
     if (request.method === 'OPTIONS') return createResponse({ ok: true });
@@ -21,6 +20,7 @@ export default async function handler(request, context) {
 
         if (fileType === 'application/pdf' || ext === '.pdf') {
             try {
+                const { default: pdfParse } = await import('pdf-parse');
                 const data = await pdfParse(buffer);
                 text = data.text;
             } catch (pdfError) {

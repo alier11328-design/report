@@ -38,7 +38,7 @@ ${skippedFiles.join('；') || '无'}
 2. 使用 2-5 段、适合正式复盘报告。
 3. 不要输出结构外字段。`;
 
-        const result = await askQwenForJson(context, { prompt, images });
+        const result = await askQwenForJson({ prompt, images });
         return createResponse({ data: { reason: normalizeString(result.reason) } });
     } catch (error) {
         return createError(error.message || 'AI 识别失败', error.statusCode || 500);

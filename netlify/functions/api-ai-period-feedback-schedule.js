@@ -32,7 +32,7 @@ ${JSON.stringify(body?.context || {}, null, 2)}
 2. 无法识别的字段留空字符串。
 3. 不要补造不存在的排课记录。`;
 
-        const result = await askQwenForJson(context, { prompt, images, textBlocks });
+        const result = await askQwenForJson({ prompt, images, textBlocks });
         return createResponse({ data: { rows: normalizeScheduleRows(result.rows) } });
     } catch (error) {
         return createError(error.message || 'AI 识别失败', error.statusCode || 500);

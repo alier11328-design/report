@@ -30,7 +30,7 @@ ${JSON.stringify(body?.context || {}, null, 2)}
 2. 每个字段 1-3 句话为宜。
 3. 不要编造截图中没有体现的具体成绩或时长。`;
 
-        const result = await askQwenForJson(context, { prompt, images, textBlocks });
+        const result = await askQwenForJson({ prompt, images, textBlocks });
         return createResponse({
             data: {
                 performance: normalizeString(result.performance),

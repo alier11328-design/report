@@ -44,7 +44,7 @@ ${pdfExtraText ? `以下是 PDF 文档提取的文本内容（请以其为主要
 9. ${pdfExtraText ? '优先根据 PDF 文本内容分析，截图和 PDF 信息冲突时以 PDF 为准。' : '根据截图内容分析生成。'}
 `;
 
-        const result = await askQwenForJson(context, { prompt, images });
+        const result = await askQwenForJson({ prompt, images });
 
         return createResponse({
             data: {

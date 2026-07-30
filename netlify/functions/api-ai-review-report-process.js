@@ -43,7 +43,7 @@ ${skippedFiles.join('；') || '无'}
 3. conclusion 输出复盘结论与后续建议，没有把握可留空。
 4. 不要输出结构外字段。`;
 
-        const result = await askQwenForJson(context, { prompt, images });
+        const result = await askQwenForJson({ prompt, images });
         return createResponse({
             data: {
                 process: normalizeString(result.process),

@@ -1,22 +1,23 @@
-import OpenAI from 'openai';
-
 const MODEL = 'doubao-seed-2-0-lite';
 const BASE_URL = 'https://ark.cn-beijing.volces.com/api/plan/v3';
 
-let openai = null;
+let openaiPromise = null;
 
-function getOpenai(context) {
-    if (openai) return openai;
-    const apiKey = process.env.DASHSCOPE_API_KEY;
-    const baseUrl = process.env.DASHSCOPE_BASE_URL;
-    const model = process.env.DASHSCOPE_MODEL;
-    if (apiKey) {
-        openai = new OpenAI({
+async function getOpenai() {
+    if (openaiPromise) return openaiPromise;
+    openaiPromise = (async () => {
+        const { default: OpenAI } = await import('openai');
+        const apiKey = process.env.DASHSCOPE_API_KEY;
+        const baseUrl = process.env.DASHSCOPE_BASE_URL;
+        if (!apiKey) return null;
+        return new OpenAI({
             apiKey,
-            baseURL: baseUrl || BASE_URL
+            baseURL: baseUrl || BASE_URL,
+            timeout: 8000,
+            maxRetries: 1
         });
-    }
-    return openai;
+    })();
+    return openaiPromise;
 }
 
 const JSON_ONLY_SYSTEM_PROMPT = [
@@ -144,8 +145,8 @@ function toMessageText(value) {
     return '';
 }
 
-export async function askQwenForJson(context, { prompt, images = [], textBlocks = [] }) {
-    const client = getOpenai(context);
+export async function askQwenForJson({ prompt, images = [], textBlocks = [] }) {
+    const client = await getOpenai();
     if (!client) {
         const error = new Error('服务端缺少 DASHSCOPE_API_KEY，请先配置环境变量。');
         error.statusCode = 500;
@@ -170,7 +171,7 @@ export async function askQwenForJson(context, { prompt, images = [], textBlocks 
         }
     });
 
-    const completion = await client.chat.completions.create({
+    const apiPromise = client.chat.completions.create({
         model: process.env.DASHSCOPE_MODEL || MODEL,
         temperature: 0.2,
         messages: [
@@ -178,6 +179,16 @@ export async function askQwenForJson(context, { prompt, images = [], textBlocks 
             { role: 'user', content }
         ]
     });
+
+    const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+            const error = new Error('AI 响应超时，请稍后重试或使用更快的模型');
+            error.statusCode = 504;
+            reject(error);
+        }, 7000);
+    });
+
+    const completion = await Promise.race([apiPromise, timeoutPromise]);
 
     return extractJsonObject(toMessageText(completion.choices?.[0]?.message?.content));
 }
