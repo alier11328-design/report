@@ -2,12 +2,12 @@ import { createResponse, createError, parseBody } from './_shared/utils.js';
 import { Buffer } from 'buffer';
 import pdfParse from 'pdf-parse';
 
-export default async function handler(event, context) {
-    if (event.httpMethod === 'OPTIONS') return createResponse({ ok: true });
-    if (event.httpMethod !== 'POST') return createError('Method not allowed', 405);
+export default async function handler(request, context) {
+    if (request.method === 'OPTIONS') return createResponse({ ok: true });
+    if (request.method !== 'POST') return createError('Method not allowed', 405);
 
     try {
-        const body = parseBody(event);
+        const body = await parseBody(request);
         if (!body || !body.file || !body.filename) return createError('缺少文件数据或文件名', 400);
 
         const { file: base64File, filename, fileType } = body;

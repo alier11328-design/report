@@ -1,11 +1,11 @@
 import { createResponse, createError, parseBody, askQwenForJson, normalizeString, normalizeStringArray, formatTextBlocks } from './_shared/utils.js';
 
-export default async function handler(event, context) {
-    if (event.httpMethod === 'OPTIONS') return createResponse({ ok: true });
-    if (event.httpMethod !== 'POST') return createError('Method not allowed', 405);
+export default async function handler(request, context) {
+    if (request.method === 'OPTIONS') return createResponse({ ok: true });
+    if (request.method !== 'POST') return createError('Method not allowed', 405);
 
     try {
-        const body = parseBody(event);
+        const body = await parseBody(request);
         const images = Array.isArray(body?.images) ? body.images : [];
         const textBlocks = formatTextBlocks(body?.textBlocks);
         const skippedFiles = normalizeStringArray(body?.skippedFiles);

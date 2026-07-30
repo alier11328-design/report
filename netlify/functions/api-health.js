@@ -1,8 +1,8 @@
 import { MODEL, createResponse } from './_shared/utils.js';
 
-export default async function handler(event, context) {
-    if (event.httpMethod === 'OPTIONS') return createResponse({ ok: true });
-    if (event.httpMethod !== 'GET') return createResponse({ error: 'Method not allowed' }, 405);
+export default async function handler(request, context) {
+    if (request.method === 'OPTIONS') return createResponse({ ok: true });
+    if (request.method !== 'GET') return createResponse({ error: 'Method not allowed' }, 405);
 
     return createResponse({
         ok: true,

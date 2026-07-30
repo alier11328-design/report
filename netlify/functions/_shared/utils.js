@@ -28,28 +28,27 @@ const JSON_ONLY_SYSTEM_PROMPT = [
 ].join('');
 
 export function createResponse(data, statusCode = 200) {
-    return {
-        statusCode,
+    return new Response(JSON.stringify(data), {
+        status: statusCode,
         headers: {
             'Content-Type': 'application/json; charset=utf-8',
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-        },
-        body: JSON.stringify(data)
-    };
+        }
+    });
 }
 
 export function createError(message, statusCode = 500) {
     return createResponse({ error: message }, statusCode);
 }
 
-export function parseBody(event) {
-    if (event.httpMethod === 'OPTIONS') return null;
-    if (event.httpMethod === 'GET') return null;
-    if (!event.body) return null;
+export async function parseBody(request) {
+    if (request.method === 'OPTIONS') return null;
+    if (request.method === 'GET') return null;
     try {
-        return JSON.parse(event.body);
+        const text = await request.text();
+        return JSON.parse(text);
     } catch {
         return null;
     }
