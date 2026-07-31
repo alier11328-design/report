@@ -745,6 +745,8 @@
             let currentWatermark = 'w1';
             let currentCopyright = 'c1';
             let currentTutorType = '包课辅导';
+            let currentPlannedHours = '15小时';
+            let currentLessonCount = 12;
 
             let showAssessment = true;
             let showAdvice = true;
@@ -781,7 +783,9 @@
                 none: null };
             const copyrightMap = { c1: "© 万能班长 留学生学术成长赋能平台", c2: "© 留学云伴 · 学业护航", none: null };
             const copyrightNameMap = { c1: '万能班长', c2: '留学云伴', none: '' };
-            const tutorTypeOptions = ['包课辅导', '定制辅导', '学期辅导', '课时卡辅导', '包课辅导（不限课时）'];
+            const tutorTypeOptions = ['包课辅导', '定制辅导', '学期辅导', '课时卡辅导', '包课辅导（不限课时）', '考前突击'];
+            const plannedHoursOptions = ['7小时', '10小时', '15小时', '20小时'];
+            const hoursToLessons = { '7小时': 5, '10小时': 8, '15小时': 12, '20小时': 15 };
 
             function hexMix(hex1, hex2, ratio) {
                 const r1 = parseInt(hex1.slice(1, 3), 16),
@@ -847,6 +851,26 @@
                 renderPreview();
             }
 
+            function setPlannedHours(val) {
+                currentPlannedHours = val;
+                currentLessonCount = hoursToLessons[val] || 12;
+                const sel = document.getElementById('plannedHoursSelect');
+                if (sel) sel.value = val;
+                adjustPlanRows(currentLessonCount);
+                renderPreview();
+            }
+
+            function adjustPlanRows(targetCount) {
+                if (!Array.isArray(planData)) planData = [];
+                while (planData.length < targetCount) {
+                    planData.push({ session: String(planData.length + 1), content: '', goal: '', hours: '1h' });
+                }
+                if (planData.length > targetCount) {
+                    planData = planData.slice(0, targetCount);
+                }
+                renderPlanTable();
+            }
+
             function escapeHtml(t) { if (!t) return ''; return String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;',
                     '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] || c); }
 
@@ -857,6 +881,8 @@
             function renderApp() {
                 const tutorOpts = tutorTypeOptions.map(t =>
                     `<option value="${t}" ${t===currentTutorType?'selected':''}>${t}</option>`).join('');
+                const hoursOpts = plannedHoursOptions.map(h =>
+                    `<option value="${h}" ${h===currentPlannedHours?'selected':''}>${h}</option>`).join('');
 
                 document.getElementById('app').innerHTML = `
                 <div class="split-layout">
@@ -891,6 +917,14 @@
                             <div class="theme-options">
                                 <select id="tutorTypeSelect" onchange="window.setTutorType(this.value)">
                                     ${tutorOpts}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="theme-row">
+                            <span class="theme-label"><i class="fas fa-clock"></i> 规划课时</span>
+                            <div class="theme-options">
+                                <select id="plannedHoursSelect" onchange="window.setPlannedHours(this.value)">
+                                    ${hoursOpts}
                                 </select>
                             </div>
                         </div>
@@ -969,6 +1003,7 @@
                 window.setWatermark = setWatermark;
                 window.setCopyright = setCopyright;
                 window.setTutorType = setTutorType;
+                window.setPlannedHours = setPlannedHours;
                 window.toggleAssessment = function(v) { showAssessment = v;
                     renderPreview(); };
                 window.toggleAdvice = function(v) { showAdvice = v;
@@ -1195,10 +1230,18 @@
                 const showAssess = document.getElementById('showAssessmentChk')?.checked !== false;
                 const showAdviceBlock = document.getElementById('showAdviceChk')?.checked !== false;
 
+                // 动态计算序号
+                const cnNums = ['一', '二', '三', '四', '五'];
+                let secIdx = 0;
+                const introNum = cnNums[secIdx++];            // 课程简介（始终显示）
+                const assessNum = showAssess ? cnNums[secIdx++] : '';
+                const planNum = cnNums[secIdx++];              // 辅导规划（始终显示）
+                const adviceNum = showAdviceBlock ? cnNums[secIdx++] : '';
+
                 let assessSection = '';
                 if (showAssess) {
                     assessSection = `
-                        <div class="section-title"><span class="badge">二</span> 考核项</div>
+                        <div class="section-title"><span class="badge">${assessNum}</span> 考核项</div>
                         <div class="table-wrap">
                             <table>
                                 <thead><tr><th style="width:48px;">序号</th><th style="min-width:140px;">考核名称（英文）</th><th style="min-width:200px;">详情</th><th style="width:64px;">占比</th><th style="min-width:120px;">DDL</th></tr></thead>
@@ -1211,7 +1254,7 @@
                 let adviceSection = '';
                 if (showAdviceBlock) {
                     adviceSection = `
-                        <div class="section-title"><span class="badge">四</span> 学习建议</div>
+                        <div class="section-title"><span class="badge">${adviceNum}</span> 学习建议</div>
                         <div class="advice-list">${adviceItems || '<div class="advice-item"><span>暂无建议</span></div>'}</div>
                     `;
                 }
@@ -1224,7 +1267,7 @@
                         <div class="doc-title">📘 ${escapeHtml(title)}</div>
 
                         <div class="course-intro">
-                            <div class="section-title"><span class="badge">一</span> 课程简介</div>
+                            <div class="section-title"><span class="badge">${introNum}</span> 课程简介</div>
                             <div class="course-meta">
                                 <span class="course-meta-item"><strong>课程代码：</strong>${escapeHtml(code) || '未填写'}</span>
                                 <span class="course-meta-item"><strong>课程名：</strong>${escapeHtml(name) || '未填写'}</span>
@@ -1247,7 +1290,7 @@
 
                         ${assessSection}
 
-                        <div class="section-title"><span class="badge">三</span> 辅导规划</div>
+                        <div class="section-title"><span class="badge">${planNum}</span> 辅导规划</div>
                         <div class="table-wrap">
                             <table>
                                 <thead><tr><th style="width:58px;">课次</th><th style="min-width:180px;">课程内容</th><th style="min-width:150px;">目标</th><th style="width:70px;">预计课时</th></tr></thead>
@@ -1335,6 +1378,8 @@
                             textBlocks: prepared.textBlocks,
                             context: {
                                 tutorType: currentTutorType,
+                                plannedHours: currentPlannedHours,
+                                lessonCount: currentLessonCount,
                                 courseCode: document.getElementById('codeInput')?.value || '',
                                 courseName: document.getElementById('nameInput')?.value || ''
                             }
