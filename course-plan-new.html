@@ -171,6 +171,11 @@
             background: white;
             border-radius: 20px;
             margin-bottom: 3px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .file-item:hover {
+            background: var(--primary-bg-soft);
         }
         .file-item i {
             font-size: 14px;
@@ -298,12 +303,13 @@
             border: none;
             color: #475569;
             font-weight: 600;
-            margin-bottom: 12px;
+            margin-bottom: 16px;
             cursor: pointer;
             font-size: 14px;
             display: inline-flex;
             align-items: center;
             gap: 6px;
+            text-decoration: none;
         }
 
         /* ===== 可编辑表格 ===== */
@@ -650,10 +656,73 @@
                 padding: 10px 14px;
             }
         }
+
+        /* 文件预览弹窗 */
+        .preview-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        .preview-modal.active { display: flex; }
+        .preview-modal-close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 28px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.2);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        .preview-modal-close:hover { background: rgba(255,255,255,0.4); }
+        .preview-modal-content {
+            max-width: 90vw;
+            max-height: 85vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .preview-modal-content img {
+            max-width: 90vw;
+            max-height: 85vh;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+        .preview-modal-content iframe {
+            width: 85vw;
+            height: 85vh;
+            border: none;
+            border-radius: 8px;
+            background: white;
+        }
+        .preview-modal-title {
+            color: white;
+            margin-top: 12px;
+            font-size: 14px;
+            opacity: 0.8;
+        }
     </style>
 </head>
 <body>
     <div class="app" id="app"></div>
+
+    <!-- 文件预览弹窗 -->
+    <div class="preview-modal" id="previewModal">
+        <div class="preview-modal-close" id="previewClose">×</div>
+        <div class="preview-modal-content" id="previewContent"></div>
+        <div class="preview-modal-title" id="previewTitle"></div>
+    </div>
 
     <script>
         (function() {
@@ -792,7 +861,7 @@
                 document.getElementById('app').innerHTML = `
                 <div class="split-layout">
                     <div class="editor-pane">
-                        <a class="back-btn" href="#"><i class="fas fa-arrow-left"></i> 返回</a>
+                        <a class="back-btn" href="index.html"><i class="fas fa-arrow-left"></i> 返回选择类型</a>
 
                         <div class="theme-row">
                             <span class="theme-label"><i class="fas fa-palette"></i> 主题</span>
@@ -955,24 +1024,74 @@
                     document.getElementById('clearFilesBtn').disabled = true; return; }
                 let html = '';
                 uploadedFiles.forEach((f, idx) => {
-                    const icon = (f.type || '').startsWith('image/') ? 'far fa-image' : 'fas fa-file-pdf';
+                    const isImage = (f.type || '').startsWith('image/');
+                    const icon = isImage ? 'far fa-image' : 'fas fa-file-pdf';
                     let url = null;
-                    if ((f.type || '').startsWith('image/')) { url = URL.createObjectURL(f);
+                    if (isImage) { url = URL.createObjectURL(f);
                         fileUrls.push(url); }
                     html +=
-                        `<div class="file-item"><i class="${icon}"></i><span>${escapeHtml(f.name)} (${formatFileSize(f.size)})</span><i class="fas fa-times" style="cursor:pointer;" data-idx="${idx}"></i></div>`;
+                        `<div class="file-item" data-preview-idx="${idx}"><i class="${icon}"></i><span>${escapeHtml(f.name)} (${formatFileSize(f.size)})</span><i class="fas fa-times" style="cursor:pointer;" data-idx="${idx}"></i></div>`;
                 });
                 container.innerHTML = html;
                 document.getElementById('clearFilesBtn').disabled = false;
+
+                // 删除按钮
                 container.querySelectorAll('.fa-times').forEach(el => {
                     el.addEventListener('click', (e) => {
+                        e.stopPropagation();
                         const idx = parseInt(el.dataset.idx, 10);
                         uploadedFiles.splice(idx, 1);
                         renderFileList();
                         renderPreview();
                     });
                 });
+
+                // 点击预览
+                container.querySelectorAll('[data-preview-idx]').forEach(el => {
+                    el.addEventListener('click', () => {
+                        const idx = parseInt(el.dataset.previewIdx, 10);
+                        previewFile(idx);
+                    });
+                });
             }
+
+            // 文件预览功能
+            let previewUrls = [];
+            function previewFile(idx) {
+                const f = uploadedFiles[idx];
+                if (!f) return;
+                const modal = document.getElementById('previewModal');
+                const content = document.getElementById('previewContent');
+                const title = document.getElementById('previewTitle');
+                content.innerHTML = '';
+                title.textContent = f.name;
+
+                const isImage = (f.type || '').startsWith('image/');
+                const url = URL.createObjectURL(f);
+                previewUrls.push(url);
+
+                if (isImage) {
+                    content.innerHTML = `<img src="${url}" alt="${escapeHtml(f.name)}">`;
+                } else {
+                    content.innerHTML = `<iframe src="${url}" title="${escapeHtml(f.name)}"></iframe>`;
+                }
+                modal.classList.add('active');
+            }
+
+            function closePreview() {
+                const modal = document.getElementById('previewModal');
+                modal.classList.remove('active');
+                previewUrls.forEach(u => URL.revokeObjectURL(u));
+                previewUrls = [];
+            }
+
+            document.getElementById('previewClose').addEventListener('click', closePreview);
+            document.getElementById('previewModal').addEventListener('click', (e) => {
+                if (e.target.id === 'previewModal') closePreview();
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') closePreview();
+            });
 
             // ============================================================
             // 核心预览渲染 — 使用CSS变量控制颜色
@@ -1031,7 +1150,7 @@
                             <td class="col-name">${escapeHtml(r.name)}</td>
                             <td class="col-detail">${escapeHtml(r.detail)}</td>
                             <td class="col-weight">${escapeHtml(r.weight)}</td>
-                            <td class="col-ddl">${escapeHtml(r.ddl)}</td>
+                            <td class="col-ddl">${escapeHtml(r.ddl || 'TBD')}</td>
                         </tr>`;
                     });
                 } else {
@@ -1049,11 +1168,11 @@
                             <td class="col-session">${escapeHtml(r.session)}</td>
                             <td class="col-content">${escapeHtml(r.content)}</td>
                             <td class="col-goal">${escapeHtml(r.goal)}</td>
-                            <td class="col-hours">${escapeHtml(r.hours)}</td>
+                            <td class="col-hours">${escapeHtml(r.hours || '1h')}</td>
                         </tr>`;
                     });
                     planHtml += `<tr class="total-row">
-                        <td colspan="4" style="text-align:center;font-weight:bold;color:var(--primary-color);font-size:16px;">合计：${totalHours.toFixed(1)}h</td>
+                        <td colspan="4" style="text-align:center;font-weight:bold;color:var(--primary-color);font-size:16px;">合计：${totalHours}h</td>
                     </tr>`;
                 } else {
                     planHtml = '<tr><td colspan="4" style="padding:12px;text-align:center;color:#94a3b8;">暂无数据</td></tr>';
