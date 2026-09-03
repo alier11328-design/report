@@ -55,8 +55,35 @@
     }
 
     // 客户端 PDF 解析 - 使用 pdfjs-dist 浏览器版
-// 从 CDN 加载
+// 从 CDN 加载（多 CDN 备用，避免单一 CDN 失败导致卡死）
 let pdfjsLib = null;
+
+// 备用 CDN 列表：main 为主库，worker 为解析所需的 worker 线程库
+const PDFJS_CDN_SOURCES = [
+    {
+        main: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js',
+        worker: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'
+    },
+    {
+        main: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
+        worker: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+    },
+    {
+        main: 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js',
+        worker: 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js'
+    }
+];
+
+// 从单个地址加载脚本：成功返回 true，失败返回 false（不抛错，交给上层决定是否换源）
+function loadScriptOnce(src) {
+    return new Promise((resolve) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.head.appendChild(script);
+    });
+}
 
 async function loadPdfJs() {
     if (pdfjsLib) return pdfjsLib;
@@ -64,18 +91,18 @@ async function loadPdfJs() {
         pdfjsLib = window['pdfjsLib'];
         return pdfjsLib;
     }
-    // 动态加载
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-    script.onload = () => {
-        pdfjsLib = window['pdfjsLib'];
-    };
-    document.head.appendChild(script);
-    // 等待加载
-    while (!pdfjsLib) {
-        await new Promise(r => setTimeout(r, 50));
+    // 依次尝试各 CDN，加载失败立即换下一个，避免无限等待
+    for (const src of PDFJS_CDN_SOURCES) {
+        const ok = await loadScriptOnce(src.main);
+        if (ok && typeof window['pdfjsLib'] !== 'undefined') {
+            pdfjsLib = window['pdfjsLib'];
+            // 关键：必须指定 worker 地址，否则 getDocument 会报
+            // “No GlobalWorkerOptions.workerSrc specified”
+            pdfjsLib.GlobalWorkerOptions.workerSrc = src.worker;
+            return pdfjsLib;
+        }
     }
-    return pdfjsLib;
+    throw new Error('PDF 解析库加载失败，请检查网络后重试');
 }
 
 async function parsePdfClientSide(file) {
@@ -90,7 +117,25 @@ async function parsePdfClientSide(file) {
             const pageText = textContent.items.map(item => item.str).join(' ');
             fullText += pageText + '\n';
         }
-        return fullText;
+
+        // 首页（封面）通常含校名校徽 logo，是图片而非文字层。
+        // 把首页渲染成图片，让 AI 走视觉识别校名等文字层缺失的信息。
+        const pageImages = [];
+        try {
+            const firstPage = await pdf.getPage(1);
+            const viewport = firstPage.getViewport({ scale: 2 });
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            const ctx = canvas.getContext('2d');
+            await firstPage.render({ canvasContext: ctx, viewport }).promise;
+            pageImages.push(canvas.toDataURL('image/jpeg', 0.9));
+        } catch (renderErr) {
+            // 渲染失败不影响文字提取，仅记录日志
+            console.warn('PDF 首页渲染失败:', renderErr);
+        }
+
+        return { text: fullText, pageImages };
     } catch (err) {
         throw new Error(`PDF 解析失败: ${err.message}`);
     }
@@ -116,6 +161,7 @@ async function parseFileOnServer(file) {
         const maxImages = options.maxImages || 8;
         const maxTextFiles = options.maxTextFiles || 6;
         const imageFiles = [];
+        const pdfImages = [];
         const textBlocks = [];
         const skipped = [];
 
@@ -132,7 +178,8 @@ async function parseFileOnServer(file) {
             if (isParseableFile(file)) {
                 if (textBlocks.length < maxTextFiles) {
                     try {
-                        const text = await parseFileOnServer(file);
+                        const parsed = await parseFileOnServer(file);
+                        const text = (parsed && parsed.text) || parsed || '';
                         if (text && text.trim()) {
                             textBlocks.push({
                                 name: file.name,
@@ -140,6 +187,10 @@ async function parseFileOnServer(file) {
                             });
                         } else {
                             skipped.push(`${file.name}（文件内容为空）`);
+                        }
+                        // 收集 PDF 渲染出的首页图（含校名 logo），供 AI 视觉识别校名等信息
+                        if (parsed && Array.isArray(parsed.pageImages)) {
+                            pdfImages.push(...parsed.pageImages);
                         }
                     } catch (err) {
                         skipped.push(`${file.name}（解析失败：${err.message}）`);
@@ -169,7 +220,7 @@ async function parseFileOnServer(file) {
         }
 
         return {
-            images: await Promise.all(imageFiles.map(fileToDataUrl)),
+            images: [...pdfImages, ...(await Promise.all(imageFiles.map(fileToDataUrl)))],
             textBlocks,
             skipped
         };

@@ -8,7 +8,7 @@ import mammoth from 'mammoth';
 import { Buffer } from 'buffer';
 import multer from 'multer';
 
-dotenv.config();
+dotenv.config({ override: true });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -105,8 +105,16 @@ function extractJsonObject(text) {
     }
 }
 
+// 不可见字符全量清理：所有控制符(\p{Cc})、格式符(\p{Cf}，含零宽空格/双向控制/BOM/标签字符)、
+// 变体选择符(\uFE00-\uFE0F)。这类字符 trim() 无法去除，整行只含它们时会渲染成「幽灵空行」。
+// 保留 \n \r \t（换行与缩进语义），其余一律剥离。
+const INVISIBLE_CHARS_RE = /[\p{Cc}\p{Cf}\uFE00-\uFE0F]/gu;
+function stripInvisibleChars(value) {
+    return String(value).replace(INVISIBLE_CHARS_RE, ch => (ch === '\n' || ch === '\r' || ch === '\t') ? ch : '');
+}
+
 function normalizeString(value) {
-    return typeof value === 'string' ? value.trim() : '';
+    return typeof value === 'string' ? stripInvisibleChars(value).trim() : '';
 }
 
 function normalizeStringArray(items) {
@@ -160,12 +168,116 @@ function formatTextBlocks(textBlocks = []) {
         : '';
 }
 
+// 多行字段：AI 可能返回数组或字符串，统一规整为「每行一条」的换行字符串
+function normalizeMultiLine(value) {
+    if (Array.isArray(value)) return value.map(normalizeString).filter(Boolean).join('\n');
+    return normalizeString(value);
+}
+
+// 模板①「学习指南」字段规整
+function normalizeStudyPlanGuide(data = {}) {
+    return {
+        schoolZh: normalizeString(data.schoolZh),
+        schoolEn: normalizeString(data.schoolEn),
+        schoolAbbr: normalizeString(data.schoolAbbr),
+        majorZh: normalizeString(data.majorZh),
+        majorEn: normalizeString(data.majorEn),
+        courseAbbr: normalizeString(data.courseAbbr),
+        courseCode: normalizeString(data.courseCode),
+        admissionCode: normalizeString(data.admissionCode),
+        mode: normalizeString(data.mode),
+        language: normalizeString(data.language),
+        credits: normalizeString(data.credits),
+        fieldTrip: normalizeString(data.fieldTrip),
+        internship: normalizeString(data.internship),
+        intro: Array.isArray(data.intro)
+            ? data.intro.map(r => ({ title: normalizeString(r?.title), content: normalizeMultiLine(r?.content) })).filter(r => r.title || r.content)
+            : (normalizeString(data.intro) ? [{ title: '', content: normalizeString(data.intro) }] : []),
+        structureDesc: normalizeString(data.structureDesc),
+        structureRows: Array.isArray(data.structureRows)
+            ? data.structureRows.map(r => ({ category: normalizeString(r?.category), credits: normalizeString(r?.credits) })).filter(r => r.category || r.credits)
+            : [],
+        specializations: Array.isArray(data.specializations)
+            ? data.specializations.map(r => ({ name: normalizeString(r?.name), content: normalizeString(r?.content) })).filter(r => r.name || r.content)
+            : [],
+        coreGroups: Array.isArray(data.coreGroups)
+            ? data.coreGroups.map(g => ({
+                grade: normalizeString(g?.grade),
+                courses: Array.isArray(g?.courses)
+                    ? g.courses.map(c => ({
+                        code: normalizeString(c?.code),
+                        name: normalizeString(c?.name),
+                        desc: normalizeString(c?.desc),
+                        meta: normalizeString(c?.meta)
+                    })).filter(c => c.code || c.name || c.desc)
+                    : []
+            })).filter(g => g.grade || g.courses.length)
+            : [],
+        specializationOptions: Array.isArray(data.specializationOptions)
+            ? data.specializationOptions.map(r => ({ direction: normalizeString(r?.direction), suitableFor: normalizeString(r?.suitableFor), development: normalizeString(r?.development) })).filter(r => r.direction || r.suitableFor || r.development)
+            : [],
+        internshipCredits: normalizeString(data.internshipCredits),
+        internshipYear1: normalizeString(data.internshipYear1),
+        internshipSenior: normalizeString(data.internshipSenior),
+        internshipAdvice: normalizeString(data.internshipAdvice),
+        crossSchoolCourses: normalizeMultiLine(data.crossSchoolCourses),
+        resources: normalizeMultiLine(data.resources),
+        advice: Array.isArray(data.advice)
+            ? data.advice.map(a => ({ title: normalizeString(a?.title), content: normalizeMultiLine(a?.content) })).filter(a => a.title || a.content)
+            : [],
+        prospectTable: Array.isArray(data.prospectTable)
+            ? data.prospectTable.map(r => ({ field: normalizeString(r?.field), direction: normalizeString(r?.direction) })).filter(r => r.field || r.direction)
+            : [],
+        furtherStudy: normalizeMultiLine(data.furtherStudy),
+        qualification: normalizeString(data.qualification),
+        furtherStudyAdvice: normalizeMultiLine(data.furtherStudyAdvice)
+    };
+}
+
+// 模板②「课程规划方案」字段规整
+function normalizeStudyPlanPlan(data = {}) {
+    const course = (c) => {
+        const introVal = normalizeMultiLine(c?.intro);
+        let analysisVal = normalizeMultiLine(c?.analysis);
+        // 兼容：若 AI 仍返回 intro（旧格式/不遵守提示词），将其并入 analysis
+        if (introVal) {
+            analysisVal = analysisVal ? `${introVal}\n${analysisVal}` : introVal;
+        }
+        return {
+            code: normalizeString(c?.code),
+            name: normalizeString(c?.name),
+            credits: normalizeString(c?.credits),
+            analysis: analysisVal,
+            keyPoints: normalizeMultiLine(c?.keyPoints),
+            assessment: normalizeMultiLine(c?.assessment),
+            other: normalizeMultiLine(c?.other),
+            recommend: normalizeMultiLine(c?.recommend)
+        };
+    };
+    return {
+        schoolZh: normalizeString(data.schoolZh),
+        schoolEn: normalizeString(data.schoolEn),
+        schoolAbbr: normalizeString(data.schoolAbbr),
+        majorFullName: normalizeString(data.majorFullName),
+        degreeName: normalizeString(data.degreeName),
+        intro: Array.isArray(data.intro)
+            ? data.intro.map(r => ({ title: normalizeString(r?.title), content: normalizeMultiLine(r?.content) })).filter(r => r.title || r.content)
+            : (normalizeString(data.intro) ? [{ title: '', content: normalizeString(data.intro) }] : []),
+        requirement: Array.isArray(data.requirement)
+            ? data.requirement.map(r => ({ title: normalizeString(r?.title), content: normalizeMultiLine(r?.content) })).filter(r => r.title || r.content)
+            : (normalizeString(data.requirement) ? [{ title: '', content: normalizeString(data.requirement) }] : []),
+        coreCourses: Array.isArray(data.coreCourses) ? data.coreCourses.map(course).filter(c => c.code || c.name) : [],
+        electiveCourses: Array.isArray(data.electiveCourses) ? data.electiveCourses.map(course).filter(c => c.code || c.name) : [],
+        advice: Array.isArray(data.advice) ? data.advice.map(a => ({ title: normalizeString(a?.title), content: normalizeMultiLine(a?.content) })).filter(a => a.title || a.content) : []
+    };
+}
+
 async function askQwenForJson({ prompt, images = [], textBlocks = [] }) {
     ensureClient();
 
     const textParts = [prompt];
     if (textBlocks && textBlocks.length > 0) {
-        textParts.push('\n\n以下是上传文档提取的文本内容：');
+        textParts.push('\n\n以下是用户提供的文本内容：');
         textBlocks.forEach((block, idx) => {
             textParts.push(`\n【文档${idx + 1}：${block.name || '未命名'}】\n${block.content || ''}`);
         });
@@ -184,6 +296,7 @@ async function askQwenForJson({ prompt, images = [], textBlocks = [] }) {
     const completion = await openai.chat.completions.create({
         model: MODEL,
         temperature: 0.2,
+        max_tokens: 8192,
         messages: [
             { role: 'system', content: JSON_ONLY_SYSTEM_PROMPT },
             { role: 'user', content }
@@ -429,6 +542,148 @@ app.post('/api/ai/course-plan-new', async (req, res, next) => {
                 advices: normalizeString(result.advices)
             }
         });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// 学习规划 - 模板①「学习指南」
+app.post('/api/ai/study-plan/guide', async (req, res, next) => {
+    try {
+        const images = Array.isArray(req.body?.images) ? req.body.images : [];
+        const textBlocks = Array.isArray(req.body?.textBlocks) ? req.body.textBlocks : [];
+        if (!images.length && !textBlocks.length) {
+            return res.status(400).json({ error: '请先上传专业手册或课程目录（图片或PDF）' });
+        }
+
+        const prompt = `
+你是一位资深的留学学业规划专家。请仔细阅读提供的专业手册 / 课程目录（图片或文档），提取该专业的真实信息，输出符合以下规范的结构化「学习指南」数据。
+
+【重要】所有输出必须基于上传文件中的实际内容。文件信息不足时可合理推断，但优先使用文件中明确提供的内容，不要编造具体的课程代码、学分数字等。
+
+【输出格式】严格的JSON，字段如下：
+{
+  "schoolZh": "学校中文名",
+  "schoolEn": "学校英文名",
+  "schoolAbbr": "学校英文缩写（如：EdUHK、UCL、Leeds，信息不足可留空）",
+  "majorZh": "专业中文全称",
+  "majorEn": "专业英文全称/缩写",
+  "courseAbbr": "课程简称（如：BSocSc(Psy)，信息不足可留空）",
+  "courseCode": "课程编号（如：A4B075，信息不足可留空）",
+  "admissionCode": "联招/招生编号（如：JS8651，信息不足可留空）",
+  "mode": "修读模式（如：全日制，四年）",
+  "language": "授课语言",
+  "credits": "毕业总学分",
+  "fieldTrip": "实地考察要求（信息不足可留空）",
+  "internship": "实习要求（如：须完成至少两周实习）",
+  "intro": [{"title":"小标题（如：课程定位与培养目标）","content":"正文内容，多段用换行符\\n分隔"}],
+  "structureDesc": "学分结构说明（一句话概括整体学分构成）",
+  "structureRows": [{"category":"学分范畴（如：必修课程）","credits":"学分数（如：60学分）"}],
+  "specializations": [{"name":"专修范畴名","content":"核心内容"}],
+  "coreGroups": [
+    {"grade":"年级（如：一年级）","courses":[{"code":"课程代码（英文原文）","name":"课程名称（英文原文）","desc":"课程描述（中文）","meta":"备注（如：仅一年级入学）"}]}
+  ],
+  "specializationOptions": [{"direction":"专修方向","suitableFor":"适合对象","development":"发展方向"}],
+  "internshipCredits": "实习学分",
+  "internshipYear1": "一年级入学实习要求",
+  "internshipSenior": "高年级入学实习要求",
+  "internshipAdvice": "实习建议",
+  "crossSchoolCourses": "跨学院核心课程（必修），每条一行，用换行符\\n分隔，格式如：组件一（CFA1001）：基本法与国家安全教育",
+  "resources": "学习资源（课程主任/课程查询/教学地点等），多条用换行符\\n分隔",
+  "advice": [{"title":"阶段标题（如：大一阶段：打好基础）","content":"该阶段建议，多条用换行符\\n分隔"}],
+  "prospectTable": [{"field":"就业领域（如：教育领域）","direction":"具体方向"}],
+  "furtherStudy": "深造路径，每条一行，用换行符\\n分隔",
+  "qualification": "专业资格（可申请的专业学会/认证，信息不足可合理推断）",
+  "furtherStudyAdvice": "深造准备建议，每条一行，用换行符\\n分隔"
+}
+
+【各字段生成规范】
+1. schoolZh/schoolEn/schoolAbbr/majorZh/majorEn：提取学校与专业的正式名称；schoolZh/schoolEn 为「大学/学院本身」的名称（如「布里斯托大学」/「University of Bristol」），须从文档标题或专业全称中提取，不要将「所属学院为XX」「所在学院：XX」这类描述性句子整体当作学校名，也不要带上「所属学院」「学院」等前缀词；schoolAbbr 为学校英文缩写（如 EdUHK、UCL、Leeds），无法确定时留空；majorEn 可保留英文缩写，如 "BSocSc(Psy)"。
+2. courseAbbr/courseCode/admissionCode：提取课程简称、课程编号、联招/招生编号；文件中未明确时留空字符串，不要编造编号。
+3. mode/language/credits/fieldTrip/internship：提取修读模式、授课语言、毕业总学分、实地考察、实习要求；如文件未明确，可合理推断并在描述中体现。
+4. intro：按文档中的小标题+正文结构完整提取，输出为 title（小标题）+ content（正文）数组；如文档有4个小标题则输出4条，不要概括或删减。
+5. structureDesc/structureRows：structureDesc 一句话概括整体学分构成；structureRows 按文件中的学分结构拆分「范畴 + 学分」若干行。
+6. specializations：提炼该专业的主要专修/学习范畴（2-4个），每个含 name（范畴名）与 content（核心内容）。
+7. coreGroups：按年级分组（一年级/二年级/三年级/四年级），每组列出核心课程；每门课的 code、name 保留英文原文，desc 用中文简述课程内容与目标。
+8. specializationOptions：列出该专业可选择的专修方向（通常3个），每个含 direction（专修方向）、suitableFor（适合对象）、development（发展方向）。优先从文档提取；文档未明确时，结合该专业性质合理生成典型专修方向（如心理学可分教育心理学/临床心理学/发展心理学），不要留空。
+9. internshipCredits/internshipYear1/internshipSenior/internshipAdvice：实习学分、一年级入学实习要求、高年级入学实习要求、实习建议。优先从文档提取；文档未明确时，结合专业性质合理生成典型实习要求与建议，不要留空。
+10. crossSchoolCourses：跨学院核心课程（必修）。每条一行，格式为「组件X（课程代码）：课程名称」，如「组件一（CFA1001）：基本法与国家安全教育」。优先从文档提取；文档未明确时，结合专业性质合理生成典型跨学院/通识必修课程，不要留空。
+11. resources：学习资源（课程主任、课程查询、教学地点、第二主修等），每条一行。
+12. advice：按学习阶段（大一/大二/大三/大四或通用阶段）给出规划建议，每条含 title 与 content（多条用换行分隔）。
+13. prospectTable/furtherStudy/qualification/furtherStudyAdvice：就业前景表（领域+方向）、深造路径、专业资格、深造准备建议。
+
+【语言规则】
+- 学校名、专业名、课程代码（code）、课程名（name）保留英文原文
+- 其余字段全部中文输出
+- 专业术语可保留英文
+
+【质量要求】
+- 输出必须是合法JSON，不包含任何JSON外的解释性文字
+- 不要编造不存在的课程代码或学分数字，信息不足时合理推断`;
+
+        const result = await askQwenForJson({ prompt, images, textBlocks });
+        res.json({ data: normalizeStudyPlanGuide(result) });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// 学习规划 - 模板②「课程规划方案」
+app.post('/api/ai/study-plan/plan', async (req, res, next) => {
+    try {
+        const images = Array.isArray(req.body?.images) ? req.body.images : [];
+        const textBlocks = Array.isArray(req.body?.textBlocks) ? req.body.textBlocks : [];
+        if (!images.length && !textBlocks.length) {
+            return res.status(400).json({ error: '请先上传专业手册或课程目录（图片或PDF）' });
+        }
+
+        const prompt = `
+你是一位资深的留学学业规划专家。请仔细阅读提供的专业手册 / 课程目录（图片或文档），提取该专业的真实课程信息，输出符合以下规范的结构化「课程规划方案」数据。
+
+【重要】所有输出必须基于上传文件中的实际内容。文件信息不足时可合理推断，但优先使用文件中明确提供的内容，不要编造具体的课程代码。
+
+【输出格式】严格的JSON，字段如下：
+{
+  "schoolZh": "学校中文名",
+  "schoolEn": "学校英文名",
+  "schoolAbbr": "学校英文缩写（如：UCL、Leeds，信息不足可留空）",
+  "majorFullName": "专业全称（英文，如：Archaeology and Anthropology BA）",
+  "degreeName": "学位名称（中文，如：考古学与人类学学士学位）",
+  "intro": [{"title":"小标题（如：课程定位与培养目标）","content":"正文内容，多段用换行符\\n分隔"}],
+  "requirement": [
+    {"title":"专业要求标题（如：学术成绩要求、语言成绩要求）","content":"要求内容（中文）"}
+  ],
+  "coreCourses": [
+    {"code":"课程代码（英文原文）","name":"课程名称（英文原文）","credits":"学分（如：5 ECTS / 10 CATS）","analysis":"课程解析（中文，含课程简介内容）","keyPoints":"重难点，每行一条，用\\n分隔","assessment":"考核项，每行一条，用\\n分隔","other":"其他信息，每行一条，用\\n分隔"}
+  ],
+  "electiveCourses": [
+    {"code":"课程代码","name":"课程名称","credits":"学分（如：5 ECTS / 10 CATS）","analysis":"课程解析（含课程简介）","keyPoints":"重难点\\n...","assessment":"考核项\\n...","other":"其他信息\\n...","recommend":"推荐建议，每行一条，用\\n分隔"}
+  ],
+  "advice": [
+    {"title":"学术建议标题（如：选课策略）","content":"建议内容（中文）"}
+  ]
+}
+
+【各字段生成规范】
+1. schoolZh/schoolEn/schoolAbbr/majorFullName/degreeName：提取学校与专业的正式名称；schoolZh/schoolEn 为「大学/学院本身」的名称（如「布里斯托大学」/「University of Bristol」），须从文档标题或专业全称中提取，不要将「所属学院为XX」「所在学院：XX」这类描述性句子整体当作学校名，也不要带上「所属学院」「学院」等前缀词；schoolAbbr 为学校英文缩写（如 UCL、Leeds），无法确定时留空；majorFullName 保留英文原文，degreeName 输出中文。
+2. intro：按文档中的小标题+正文结构完整提取，输出为 title（小标题）+ content（正文）数组；文档有几条就输出几条，不要概括或删减。
+3. requirement：按文档实际内容完整提取所有专业要求（如学术成绩要求、语言成绩要求、先修课程要求、升学要求、学位授予要求等），不要删减条目，每条含 title 与 content。
+4. coreCourses：列出文档中实际出现的全部必修课程，每门课包含 code、name（英文原文）+ credits（学分，如 5 ECTS / 10 CATS，优先从文档提取，格式统一）+ analysis（中文课程解析，须按文档实际内容完整提取，涵盖课程简介内容：专业定位、核心内容、培养目标，不要概括或删减）+ keyPoints、assessment、other（均按文档实际条目完整提取，每行一条，用\\n分隔）。
+5. electiveCourses：列出文档中实际出现的全部选修课程，字段同 coreCourses（含 credits），额外含 recommend（按文档实际内容完整提取，不要概括或删减）。
+6. advice：按文档实际内容完整提取所有学术建议，不要删减条目，每条含 title 与 content。
+
+【语言规则】
+- 课程代码（code）、课程名（name）、majorFullName 保留英文原文
+- 其余字段全部中文输出
+- 专业术语可保留英文
+
+【质量要求】
+- 输出必须是合法JSON，不包含任何JSON外的解释性文字
+- 不要编造不存在的课程代码，信息不足时合理推断
+- 所有列表型字段（advice、requirement、coreCourses、electiveCourses 以及每门课内的 keyPoints、assessment、other 等）必须按文档实际条目逐条提取，不得合并、删减或遗漏；文档有几条就输出几条`;
+
+        const result = await askQwenForJson({ prompt, images, textBlocks });
+        res.json({ data: normalizeStudyPlanPlan(result) });
     } catch (error) {
         next(error);
     }
