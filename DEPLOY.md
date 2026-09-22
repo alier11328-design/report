@@ -1,147 +1,155 @@
-# 部署说明
+# 部署说明（Cloudflare Pages）
 
-## 架构说明
-
-本项目是 Node.js Express 全栈应用，包含：
-- **前端**：静态 HTML/JS 文件（index.html, final-report.html 等）
-- **后端**：Node.js Express 服务器（server.js），处理 AI API 调用、文件解析等
-
-### 部署方案
-
-由于 **Cloudflare Workers 不支持 Node.js Express**，推荐以下两种部署方案：
+本项目**只使用 Cloudflare Pages 一条部署链路**。
+（原先的 Vercel / Netlify / 腾讯云 EdgeOne / Docker / Nginx 链路已于 2026-09-22 全部移除，如需回溯可从 Git 历史里取回。）
 
 ---
 
-## 方案 A：Cloudflare Pages（前端）+ Railway（后端）⭐推荐
+## 线上环境
 
-### 第一步：部署后端到 Railway
+| 项 | 值 |
+|---|---|
+| Cloudflare Pages 项目 | `classbroreport` |
+| 生产地址 | https://classbroreport.pages.dev |
+| 生产分支 | `main` |
+| GitHub 仓库 | `alier11328-design/report` |
+| 构建命令 | 空（不执行构建） |
+| 输出目录 | 空（仓库根目录） |
+| 部署方式 | Git 集成，push 到 `main` 自动触发 |
 
-Railway 是支持 Node.js 的 PaaS 平台，提供免费额度。
+---
 
-1. 访问 [https://railway.app](https://railway.app) 注册账号
-2. 点击 **"New Project"** → **"Deploy from GitHub repo"**
-3. 选择仓库 `alier11328-design/report`
-4. 在项目设置中添加环境变量：
-   ```
-   DASHSCOPE_API_KEY=你的火山方舟API密钥
-   DASHSCOPE_BASE_URL=https://ark.cn-beijing.volces.com/api/plan/v3
-   DASHSCOPE_MODEL=doubao-seed-2-0-lite
-   ```
-5. Railway 会自动检测 Node.js 项目并部署
-6. 部署完成后，复制后端服务的公网域名（如 `https://report.up.railway.app`）
+## 架构
 
-### 第二步：部署前端到 Cloudflare Pages
-
-1. 访问 [https://dash.cloudflare.com](https://dash.cloudflare.com) 登录
-2. 进入 **Workers & Pages** → **Create** → **Pages**
-3. 选择 **Connect to Git**，授权并选择仓库 `alier11328-design/report`
-4. 构建配置：
-   - **Build command**: 留空（不执行构建）
-   - **Build output directory**: `.`（根目录）
-5. 点击 **Save and Deploy**
-
-### 第三步：配置前端连接后端
-
-在 Cloudflare Pages 的前端代码中，需要设置 API 地址指向 Railway 后端。
-
-在任意 HTML 文件的 `<head>` 中，在引入 `ai-client.js` 之前添加：
-
-```html
-<script>
-    window.__API_BASE__ = 'https://你的Railway后端域名.up.railway.app';
-</script>
+```
+浏览器
+  │
+  ├── 静态页面   index.html / course-plan.html / social-poster.html / …
+  │   （由 Cloudflare Pages 的 CDN 直接托管）
+  │
+  └── /api/*  ──►  functions/api/**   （Cloudflare Pages Functions，同源，无需 CORS）
+                    ├── /api/health                     → functions/api/health.js
+                    ├── /api/ai/poster-caption           → functions/api/ai/poster-caption.js
+                    ├── /api/ai/course-plan              → functions/api/ai/course-plan.js
+                    ├── …（共 11 个 AI 接口）
+                    └── /api/parse-file                  → functions/api/parse-file.js
 ```
 
-或者直接修改 `ai-client.js` 第 8 行：
-```javascript
-let apiBaseUrl = window.__API_BASE__ || 'https://你的Railway后端域名.up.railway.app';
-```
+**关键约定**
 
-### 第四步：验证
-
-- 访问 Cloudflare Pages 分配的域名
-- 测试 AI 识别、文件上传等功能
+- `functions/` 目录**必须放在仓库根目录**，Pages 会自动把它识别为 Functions，按文件路径映射路由（`functions/api/ai/poster-caption.js` → `/api/ai/poster-caption`）。
+- `functions/` 下每个文件**必须完全自包含**——Cloudflare Functions **不能跨目录引用模块**。这是历史踩坑点，新增接口时请把依赖内联进去，不要在 `functions/` 里 `import` 其他目录的文件。
+- 前端 `ai-client.js` 的 `apiBaseUrl` 默认为空字符串 = 同源，因此线上**不需要**配置 `window.__API_BASE__`。
+- AI 调用统一在 Functions 里用 `fetch` 直连火山方舟，**不使用 openai SDK / Node 专有库**（Workers 运行时限制）。PDF 解析在前端完成。
 
 ---
 
-## 方案 B：全栈部署到 Railway（最简单）
+## 环境变量
 
-如果你不需要使用 Cloudflare，可以直接将整个项目部署到 Railway：
+在 **Cloudflare 控制台 → Workers & Pages → `classbroreport` → Settings → Variables and Secrets** 配置（Production 与 Preview 都要填）：
 
-1. 访问 [https://railway.app](https://railway.app)
-2. 点击 **"New Project"** → **"Deploy from GitHub repo"**
-3. 选择仓库 `alier11328-design/report`
-4. Railway 自动检测 Node.js 并部署
-5. 添加环境变量（同上）
-6. 访问 Railway 提供的公网域名
+| 变量名 | 类型 | 说明 |
+|---|---|---|
+| `DASHSCOPE_API_KEY` | Secret | 火山方舟 API Key |
+| `DASHSCOPE_BASE_URL` | Plain | `https://ark.cn-beijing.volces.com/api/plan/v3` |
+| `DASHSCOPE_MODEL` | Plain | `doubao-seed-2-0-lite` |
+
+⚠️ **改完环境变量必须重新部署一次才生效**（Pages 不会热更）。
 
 ---
 
-## 方案 C：Linux 服务器 + Nginx
-
-### 1. 准备环境
-- Node.js 20+
-- Nginx
-- PM2（进程管理）
-
-### 2. 部署步骤
+## 日常发布流程
 
 ```bash
-cd /var/www/report
-git clone https://github.com/alier11328-design/report.git .
-npm install
+git add -A
+git commit -m "feat: xxx"
+git push origin main      # 推送到 main 即触发 Cloudflare 自动构建
 ```
 
-创建 `.env`：
+无需任何额外命令，也无需构建产物。
+
+### 新增页面注意
+
+- HTML 页面直接放**仓库根目录**即可被托管，Pages 会自动识别。
+- Cloudflare Pages 会把 `/xxx.html` **308 重定向**到干净路径 `/xxx`（例如 `index.html` → `/`、`social-poster.html` → `/social-poster`）。这是平台默认行为，浏览器会自动跟随，**不是 bug**；页面内的相对链接写 `xxx.html` 或 `xxx` 都能正常工作。
+
+---
+
+## 部署验证
+
+### 1. 看构建状态
+
+Cloudflare 控制台 → `classbroreport` → Deployments，看最新一条是否 `success`。
+
+### 2. 线上接口自检
+
+```bash
+curl https://classbroreport.pages.dev/api/health
+# 期望：{"ok":true,"model":"doubao-seed-2-0-lite","configured":true}
+```
+
+### 3. 线上页面自检
+
+```bash
+curl -L -o /dev/null -w "%{http_code}\n" https://classbroreport.pages.dev/social-poster
+```
+
+### 4. 排查线上函数
+
+```bash
+npx wrangler pages deployment tail --project-name classbroreport
+```
+
+在函数里加 `console.log` 就能在 tail 里看到，是线上排障最快的路径。
+若本机有代理，先 `env -u HTTP_PROXY -u HTTPS_PROXY` 再跑，否则会 502 / 超时。
+
+> **假 200 提醒**：新文件刚部署完，Pages 可能对不存在的路径兜底返回 `index.html`（200 但内容是 HTML）。
+> 判断方法：看响应体开头是否为预期内容，或加个 `?v=随机` 参数再取一次。
+
+---
+
+## 本地开发
+
+本地用自带的 Express 服务，**与线上部署无关**（`server.js` 是完全自包含的，内联了全部 13 个接口）：
+
+```bash
+npm install
+npm start          # 或 npm run dev（--watch 热重载）
+# http://localhost:3000
+```
+
+`.env`（本地，不提交）：
+
 ```env
-HOST=0.0.0.0
-PORT=3000
 DASHSCOPE_API_KEY=你的火山方舟API密钥
 DASHSCOPE_BASE_URL=https://ark.cn-beijing.volces.com/api/plan/v3
 DASHSCOPE_MODEL=doubao-seed-2-0-lite
-```
-
-启动服务：
-```bash
-npm install -g pm2
-pm2 start server.js --name report
-pm2 save
-pm2 startup
-```
-
-### 3. 配置 Nginx
-
-```nginx
-server {
-    listen 80;
-    server_name 你的域名;
-    
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    }
-}
+PORT=3000
 ```
 
 ---
 
-## 验证部署
+## 代码结构速查
 
-访问 `https://你的域名/api/health`，应返回：
+| 路径 | 用途 |
+|---|---|
+| `functions/` | **线上后端**（Cloudflare Pages Functions，13 个接口，必须自包含） |
+| `server.js` | 本地开发服务器（Express，与线上并行维护） |
+| `ai-client.js` | 前端统一请求封装 |
+| `tokens.css` | 设计令牌（含 `--poster-*` 海报主题变量） |
+| `*.html` | 各工具页面，直接放根目录 |
+| `scripts/` | 视觉校验工具（无头 Chrome + CDP，本地跑，不参与部署） |
+| `change/`、`examples/` | 静态素材 |
 
-```json
-{
-  "ok": true,
-  "model": "doubao-seed-2-0-lite",
-  "configured": true
-}
-```
+> ⚠️ **改动接口时记得两边同步**：`functions/api/**`（线上）与 `server.js`（本地）。
+> 两者是各自独立的实现，不会自动同步。
+
+---
 
 ## 安全提示
 
-⚠️ 生产部署前请注意：
-- 本项目没有登录鉴权和限流
-- API Key 直接暴露在后端代码中
-- 建议添加访问密码或 API Key 验证
+⚠️ 上线前请注意：
+
+- 本项目**没有登录鉴权和限流**，任何人拿到域名都能调用 AI 接口（会产生费用）。
+- 建议加访问口令或在 Cloudflare 侧配置 WAF / Rate Limiting 规则。
+- API Key 只放在 Cloudflare 环境变量里，**不要写进代码或提交到仓库**（`.env` 已在 `.gitignore` 中）。

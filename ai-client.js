@@ -3,8 +3,9 @@
     const PARSEABLE_FILE_EXTENSIONS = ['.pdf'];
 
     // API base URL configuration
-    // EdgeOne Pages: Set to empty string '' when deploying to EdgeOne Pages (same-origin)
-    // Example: window.__API_BASE__ = 'https://your-project.edgeone.app';
+    // Cloudflare Pages（本项目线上环境）：前端与 Pages Functions 同源，保持 apiBaseUrl 为 '' 即可
+    // 仅在前后端分离时（如本地前端连远程后端）才需要显式指定：
+    //   window.__API_BASE__ = 'https://classbroreport.pages.dev';
     let apiBaseUrl = window.__API_BASE__ || '';
 
     function getApiUrl(path) {

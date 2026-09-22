@@ -89,10 +89,7 @@ ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 
-# Platform specific
-.vercel/
-.edgeone/
-.netlify/
+# Platform specific（仅 Cloudflare Pages）
 .cloudflare/
 .wrangler/
 wrangler.toml

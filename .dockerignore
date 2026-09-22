@@ -1,8 +1,0 @@
-.env
-.npm-cache
-node_modules
-npm-debug.log*
-Dockerfile*
-deploy
-.git
-.gitignore
