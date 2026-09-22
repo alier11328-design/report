@@ -145,7 +145,7 @@ function toMessageText(value) {
     return '';
 }
 
-export async function askQwenForJson({ prompt, images = [], textBlocks = [] }) {
+export async function askQwenForJson({ prompt, images = [], textBlocks = [], temperature = 0.2, disableThinking = false }) {
     const client = await getOpenai();
     if (!client) {
         const error = new Error('服务端缺少 DASHSCOPE_API_KEY，请先配置环境变量。');
@@ -171,14 +171,28 @@ export async function askQwenForJson({ prompt, images = [], textBlocks = [] }) {
         }
     });
 
-    const apiPromise = client.chat.completions.create({
+    const requestParams = {
         model: process.env.DASHSCOPE_MODEL || MODEL,
-        temperature: 0.2,
+        temperature,
         messages: [
             { role: 'system', content: JSON_ONLY_SYSTEM_PROMPT },
             { role: 'user', content }
         ]
-    });
+    };
+    if (disableThinking) requestParams.thinking = { type: 'disabled' };
+
+    const createCompletion = async params => {
+        try {
+            return await client.chat.completions.create(params);
+        } catch (error) {
+            if (!params.thinking) throw error;
+            const fallback = { ...params };
+            delete fallback.thinking;
+            return await client.chat.completions.create(fallback);
+        }
+    };
+
+    const apiPromise = createCompletion(requestParams);
 
     const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => {

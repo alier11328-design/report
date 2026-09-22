@@ -1,0 +1,1964 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>万能班长 · 朋友圈海报</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="tokens.css">
+    <style>
+        :root {
+            --primary-color: #BF2A32;
+            --primary-rgb: 191, 42, 50;
+            --primary-light: #D26A70;
+            --primary-dark: #A8252C;
+            --primary-bg-soft: #FAEEEF;
+            --primary-bg-hover: #F5DDDE;
+        }
+
+        /* 万能班长报告工坊 · 统一布局骨架（对齐其余工具）*/
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #f5f7fb;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        button, input, select, textarea { font-family: inherit; }
+        button, a, label[for="posterImages"] { -webkit-tap-highlight-color: transparent; }
+
+        .app {
+            width: 100%;
+            max-width: 1500px;
+            background: white;
+            border-radius: 32px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+            overflow: hidden;
+            min-height: 700px;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .split-layout {
+            display: grid;
+            grid-template-columns: 480px 1fr;
+            flex: 1;
+            min-height: 0;
+        }
+        .editor-pane {
+            background: #fafbfc;
+            border-right: 1px solid #eef2f6;
+            padding: 28px 24px;
+            overflow-y: auto;
+            height: 100%;
+        }
+        .preview-pane {
+            background: #f2f4f8;
+            padding: 24px;
+            overflow-y: auto;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 18px;
+        }
+        .preview-header h2 { font-size: 20px; color: #1e293b; }
+        .preview-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+        .back-btn {
+            background: transparent;
+            border: none;
+            color: #475569;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 16px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+        }
+        .back-btn:hover { color: var(--primary-color); }
+
+        .theme-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            background: #ffffffcc;
+            padding: 8px 12px;
+            border-radius: 28px;
+            border: 1px solid #eef2f6;
+        }
+        .theme-label { font-weight: 600; font-size: 13px; color: #1e293b; }
+        .theme-options { display: flex; gap: 12px; flex-wrap: wrap; }
+        .theme-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 14px;
+            border-radius: 40px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            background: #f1f5f9;
+            color: #334155;
+            border: 1px solid #e2e8f0;
+            transition: 0.2s;
+            user-select: none;
+        }
+        .theme-badge i { font-size: 13px; }
+        .theme-badge.active { background: var(--primary-color); border-color: var(--primary-color); color: white; }
+        .theme-badge:not(.active):hover { background: #e9eef3; }
+
+        .poster-watermark {
+            position: absolute;
+            left: var(--media-pad-x);
+            right: var(--media-pad-x);
+            top: var(--media-pad-top);
+            bottom: var(--media-pad-bottom);
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-size: 80% auto;
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .form-section-title {
+            font-weight: 700;
+            font-size: 18px;
+            margin: 24px 0 16px;
+            color: #1e293b;
+            border-left: 5px solid var(--primary-color);
+            padding-left: 14px;
+        }
+        .form-row { display: flex; gap: 12px; margin-bottom: 18px; }
+        .form-group { margin-bottom: 0; flex: 1; min-width: 0; }
+        .form-group label {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: 600;
+            font-size: 13px;
+            color: #475569;
+            margin-bottom: 6px;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 14px;
+            background: white;
+            color: inherit;
+            transition: 0.2s;
+        }
+        .form-group input:focus, .form-group select:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.08);
+        }
+        .form-group input::placeholder { color: #94a3b8; }
+        .form-group input[aria-invalid="true"] { border-color: #dc2626; }
+
+        .field-help { display: block; margin: 6px 0 0; font-size: 12px; color: #94a3b8; line-height: 1.5; }
+        .field-help[role="alert"] { color: #dc2626; }
+
+        .btn {
+            background: white;
+            border: 1px solid #cbd5e1;
+            padding: 10px 18px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-primary { background: var(--primary-color); border-color: var(--primary-color); color: white; }
+        .btn-primary:hover { background: var(--primary-color); filter: brightness(0.85); }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+        .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+        .btn[data-state="loading"] .button-label::after { content: "生成中…"; }
+        .btn[data-state="loading"] .button-label > span { display: none; }
+        .btn[data-state="success"] { border-color: #16a34a; }
+        .btn[data-state="error"] { border-color: #dc2626; }
+
+        /* 上传区：对齐其余工具的虚线拖拽区 */
+        .upload-window {
+            border: 2px dashed var(--primary-color);
+            border-radius: 20px;
+            padding: 16px;
+            text-align: center;
+            background: var(--primary-bg-soft);
+            margin-bottom: 12px;
+            transition: 0.2s;
+        }
+        .upload-window { cursor: pointer; }
+        .upload-window:hover { background: var(--primary-bg-hover); }
+        .upload-window.is-dragover {
+            background: var(--primary-bg-hover);
+            border-color: var(--primary-color);
+            border-style: solid;
+            box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.08);
+            transform: scale(1.01);
+        }
+        .upload-hint { display: block; margin-top: 8px; font-size: 12px; color: #94a3b8; }
+        .upload-row { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+        .poster-image-input {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: clip;
+            clip-path: inset(50%);
+            white-space: nowrap;
+        }
+        .upload-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            border: 1px solid var(--primary-color);
+            border-radius: 40px;
+            background: var(--primary-color);
+            color: white;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .upload-button:hover { filter: brightness(0.9); }
+        .upload-icon { display: inline-flex; }
+        .upload-icon svg, .btn svg {
+            width: 16px;
+            height: 16px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 1.8;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .image-file-name { min-width: 0; color: #64748b; font-size: 13px; overflow-wrap: anywhere; }
+        .upload-file-list { display: grid; gap: 8px; margin-top: 10px; }
+        .upload-file-list:empty { display: none; }
+        .upload-file-row { display: flex; align-items: center; gap: 10px; padding-top: 8px; border-top: 1px solid #eef2f6; }
+        .upload-file-index { flex: none; color: var(--primary-color); font-size: 13px; font-weight: 700; }
+        .save-state { margin-top: 14px; font-size: 12px; color: #94a3b8; font-variant-numeric: tabular-nums; }
+
+        .preview-meta {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #64748b;
+            font-size: 12px;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+        .preview-meta::before { content: ""; width: 8px; height: 8px; border-radius: 999px; background: #16a34a; }
+        .preview-viewport {
+            flex: 1;
+            min-height: 0;
+            padding: 4px;
+            overflow: auto;
+        }
+        .poster-host {
+            position: relative;
+            width: 750px;
+            flex: none;
+            margin: 0 auto;
+        }
+        .caption-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(20, 25, 40, 0.45);
+        }
+        .caption-modal[hidden] { display: none; }
+        .caption-dialog {
+            width: 100%;
+            max-width: 520px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.22);
+            overflow: hidden;
+        }
+        .caption-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 18px 20px 12px;
+            border-bottom: 1px solid #eef2f6;
+        }
+        .caption-head h3 { font-size: 17px; color: #1e293b; display: inline-flex; align-items: center; gap: 8px; }
+        .caption-head h3 i { color: var(--primary-color); }
+        .caption-close {
+            background: transparent;
+            border: none;
+            font-size: 24px;
+            line-height: 1;
+            color: #94a3b8;
+            cursor: pointer;
+            padding: 0 4px;
+        }
+        .caption-close:hover { color: #475569; }
+        .caption-body {
+            flex: 1;
+            min-height: 120px;
+            margin: 0;
+            padding: 18px 20px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-family: inherit;
+            font-size: 15px;
+            line-height: 1.9;
+            color: #1e293b;
+        }
+        .caption-body[data-tone="error"] { color: #dc2626; font-size: 14px; }
+        .caption-body[data-tone="loading"] { color: #94a3b8; }
+        .caption-foot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            padding: 12px 20px 18px;
+            border-top: 1px solid #eef2f6;
+        }
+        .caption-status { font-size: 12px; color: #94a3b8; }
+        .caption-status[data-tone="error"] { color: #dc2626; }
+        .caption-status[data-tone="success"] { color: #16a34a; }
+        .caption-actions { display: flex; gap: 10px; margin-left: auto; }
+
+        .status-line { min-height: 1.5rem; margin-top: 12px; color: #64748b; font-size: 13px; }
+        .status-line[data-tone="error"] { color: #dc2626; }
+        .status-line[data-tone="success"] { color: #16a34a; }
+
+        @media (max-width: 1100px) {
+            body { padding: 12px; align-items: flex-start; }
+            .app { height: auto; min-height: 0; }
+            .split-layout { grid-template-columns: 1fr; }
+            .editor-pane { height: auto; border-right: none; border-bottom: 1px solid #eef2f6; }
+            .preview-pane { height: auto; }
+        }
+        @media (max-width: 640px) {
+            .form-row { flex-direction: column; }
+        }
+        @media (pointer: coarse) {
+            .btn, .upload-button, .form-group input, .form-group select { min-height: 44px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 150ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 150ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+
+        .poster {
+            width: 750px;
+            transform-origin: top left;
+            overflow: clip;
+            color: var(--poster-ink);
+            background: var(--poster-paper);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(20, 25, 40, .18);
+            font-family: var(--font-body);
+        }
+
+        .poster-topbar {
+            height: 86px;
+            padding: 18px 24px;
+            display: flex;
+            align-items: center;
+            color: var(--poster-paper);
+            background: linear-gradient(120deg,
+                var(--poster-primary-dark) 0%,
+                var(--poster-primary) 55%,
+                var(--poster-primary-light) 100%);
+            transition: background .4s ease;
+        }
+
+        .poster-brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .poster-logo {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+            flex: none;
+        }
+
+        .poster-brand-copy {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .poster-brand-copy strong { font-size: 17px; letter-spacing: .8px; }
+        .poster-brand-copy span {
+            color: var(--poster-soft);
+            font-size: 14px;
+            letter-spacing: .4px;
+            transition: color .4s ease;
+        }
+
+        .poster-hero {
+            padding: 32px 24px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            border-bottom: var(--rule-thin) solid var(--poster-rule);
+            background:
+                radial-gradient(circle at 90% 10%, rgba(var(--poster-primary-rgb), .08), transparent 34%),
+                radial-gradient(circle at 5% 90%, rgba(var(--poster-accent-rgb), .22), transparent 36%),
+                var(--poster-paper);
+            transition: background .4s ease;
+        }
+
+        .poster-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 0 0 22px;
+            min-width: 0;
+            font-family: var(--font-display);
+            font-size: 52px;
+            font-weight: 900;
+            line-height: 1;
+            letter-spacing: 2px;
+            white-space: nowrap;
+            overflow-wrap: anywhere;
+        }
+
+        .poster-title span {
+            display: block;
+            /* 本项目字体（Noto Sans SC）的中文字面在行盒里天然偏上，
+               多留一点上内边距、少一点下内边距，文字才真正落在色块垂直中心 */
+            padding: 15px 22px 10px;
+            border: 2px solid var(--poster-primary);
+            border-radius: 8px;
+            color: var(--poster-paper);
+            background: var(--poster-primary);
+            box-shadow: 0 12px 30px rgba(var(--poster-primary-rgb), .22);
+            transition: background .4s ease, box-shadow .4s ease, border-color .4s ease;
+        }
+
+        .poster-title span:last-child {
+            padding: 13px 20px 8px;
+            color: var(--poster-primary);
+            background: var(--poster-paper);
+            box-shadow: none;
+            transition: color .4s ease, border-color .4s ease;
+        }
+
+        .poster-chips {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .poster-chip {
+            max-width: 100%;
+            padding: 8px 18px;
+            overflow: clip;
+            border-radius: 8px;
+            color: var(--poster-ink);
+            background: var(--poster-accent);
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: .4px;
+            /* 29px 行盒 + 上下 8px 内边距 = 45px，与参考稿的 .chip 高度一致 */
+            line-height: 29px;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            transition: background .4s ease;
+        }
+
+        .poster-course {
+            max-width: 100%;
+            overflow: clip;
+            margin-top: 2px;
+            color: var(--poster-accent-deep);
+            font-family: var(--font-display);
+            font-size: 30px;
+            font-weight: 900;
+            letter-spacing: .6px;
+            /* 与参考稿的 .course 行盒高度一致 */
+            line-height: 40px;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            transition: color .4s ease;
+        }
+
+        .poster-content {
+            --media-pad-x: 24px;
+            --media-pad-top: 24px;
+            --media-pad-bottom: 28px;
+            position: relative;
+            padding: var(--media-pad-top) var(--media-pad-x) var(--media-pad-bottom);
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            background: var(--poster-content);
+        }
+
+        /* 多张图拼成一整块：中间不留空隙、不出现圆角缺口 */
+        .poster-media + .poster-media {
+            border-top-width: 0;
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+        }
+        .poster-media:not(:last-of-type) {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .poster-media {
+            position: relative;
+            width: 100%;
+            flex: 0 0 auto;
+            margin: 0;
+            overflow: clip;
+            border: var(--rule-thin) solid var(--poster-rule);
+            border-radius: 14px;
+            background: var(--poster-paper);
+        }
+
+        /* 单图时与参考稿的图片卡一致：带一层柔和投影；多图拼接时投影会互相压叠，故不加 */
+        .poster-content[data-count="1"] .poster-media {
+            box-shadow: 0 10px 28px rgba(20, 25, 40, .08);
+        }
+
+        .poster-media img {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: contain;
+            background: var(--poster-paper);
+            opacity: 1;
+            transition: opacity var(--dur-short) var(--ease-out);
+        }
+
+        .poster-media img[hidden] { display: none; }
+
+        .poster-media img[data-loading="true"] { opacity: 0; }
+
+        .poster-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: var(--poster-ph-text);
+            background: repeating-linear-gradient(45deg,
+                var(--poster-ph-bg-1) 0 18px,
+                var(--poster-ph-bg-2) 18px 36px);
+        }
+
+        .poster-placeholder svg {
+            width: 64px;
+            height: 64px;
+            fill: none;
+            stroke: currentColor;
+            color: var(--poster-ph-icon);
+            stroke-width: 1.6;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .poster-placeholder span { font-size: 15px; font-weight: 700; letter-spacing: 1px; }
+
+        .poster-footer {
+            padding: 20px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            color: var(--poster-paper);
+            background: linear-gradient(120deg, var(--poster-primary-dark), var(--poster-primary));
+            transition: background .4s ease;
+        }
+
+        .poster-footer-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 20px;
+            font-weight: 900;
+            letter-spacing: 1px;
+            line-height: 26px;
+        }
+
+        .poster-footer-left svg {
+            width: 26px;
+            height: 26px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 1.8;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .poster-footer-right {
+            color: var(--poster-gold);
+            font-family: var(--font-display);
+            font-size: 26px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            line-height: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <div class="split-layout">
+            <!-- 左侧：编辑区 -->
+            <div class="editor-pane">
+                <a class="back-btn" href="index.html"><i class="fas fa-arrow-left"></i> 返回工具选择</a>
+
+                <div class="theme-row">
+                    <span class="theme-label"><i class="fas fa-watermark"></i> 水印图片：</span>
+                    <div class="theme-options">
+                        <div class="theme-badge watermark-option active" data-watermark="w1"><i class="fas fa-image"></i> 万能班长</div>
+                        <div class="theme-badge watermark-option" data-watermark="w2"><i class="fas fa-cloud"></i> 留学云伴</div>
+                        <div class="theme-badge watermark-option" data-watermark="none"><i class="fas fa-ban"></i> 无</div>
+                    </div>
+                </div>
+                <h3 class="form-section-title"><i class="fas fa-image" style="color:var(--primary-color);"></i> 朋友圈海报 · 编辑信息</h3>
+
+                <form id="posterForm" novalidate>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="theme"><i class="fas fa-tag"></i> 产品类型</label>
+                            <select id="theme" name="theme">
+                                <option value="course">包课辅导</option>
+                                <option value="paper">论文辅导</option>
+                                <option value="custom">定制辅导</option>
+                                <option value="thesis">毕业论文</option>
+                                <option value="cram">考前突击</option>
+                                <option value="hours">课时卡</option>
+                                <option value="papercard">论文卡</option>
+                                <option value="preview">课程预习</option>
+                                <option value="homework">作业辅导</option>
+                                <option value="polish">修改润色</option>
+                                <option value="papercustom">论文定制</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="titleSecondary"><i class="fas fa-images"></i> 素材类型</label>
+                            <select id="titleSecondary" name="titleSecondary">
+                                <option value="课堂展示">课堂展示</option>
+                                <option value="好评分享">好评分享</option>
+                                <option value="讲师产出">讲师产出</option>
+                                <option value="高分喜报">高分喜报</option>
+                                <option value="课后答疑">课后答疑</option>
+                                <option value="客户复购">客户复购</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-section-title">课程信息</div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="region">🌍 国家或地区</label>
+                            <input id="region" name="region" maxlength="18" placeholder="例如：澳洲">
+                        </div>
+                        <div class="form-group">
+                            <label for="school">🏫 学校</label>
+                            <input id="school" name="school" maxlength="30" placeholder="例如：昆士兰大学">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="major">📚 专业</label>
+                            <input id="major" name="major" maxlength="24" placeholder="例如：食品科学">
+                        </div>
+                        <div class="form-group">
+                            <label for="courseCode">📦 课程代码</label>
+                            <input id="courseCode" name="courseCode" maxlength="20" placeholder="例如：BIOL1020">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="teacher">🧑‍🏫 辅导老师</label>
+                            <input id="teacher" name="teacher" maxlength="24" placeholder="例如：Michelle.许">
+                        </div>
+                        <div class="form-group">
+                            <label for="courseName">📖 课程名称</label>
+                            <input id="courseName" name="courseName" maxlength="70" placeholder="例如：Genes, Cells &amp; Evolution">
+                        </div>
+                    </div>
+                    <span class="field-help">辅导老师会自动补上「老师」——填 <b>Michelle.许</b>，海报显示 <b>Michelle.许老师</b>；课程名称保留英文原名会更符合参考海报的视觉节奏。</span>
+
+                    <div class="form-section-title">课堂图片</div>
+                    <div class="upload-window">
+                        <div class="upload-row">
+                            <input class="poster-image-input" id="posterImages" name="posterImages" type="file" accept="image/png,image/jpeg,image/webp" aria-describedby="imageError" multiple>
+                            <label class="upload-button" for="posterImages">
+                                <span class="upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg></span>
+                                选择 1–3 张图片
+                            </label>
+                            <span class="image-file-name" id="imageCount">尚未选择图片</span>
+                        </div>
+                        <span class="upload-hint">点击此处选择，也可以把图片拖进来，或按 Ctrl / ⌘ + V 粘贴截图</span>
+                        <div class="upload-file-list" id="imageFileList" aria-live="polite"></div>
+                        <span class="field-help" id="imageError">支持 JPG、PNG 和 WebP，最多 3 张，单张建议不超过 12 MB。</span>
+                    </div>
+                    <div class="save-state" id="saveState" role="status" aria-live="polite">已自动保存</div>
+                </form>
+            </div>
+
+            <!-- 右侧：预览区 -->
+            <div class="preview-pane">
+                <div class="preview-header">
+                    <div>
+                        <h2 id="previewTitle">实时预览</h2>
+                    </div>
+                    <div class="preview-actions">
+                        <span class="preview-meta" id="previewMeta">750 × 1258</span>
+                        <button class="btn" id="captionButton" type="button"><i class="fas fa-wand-magic-sparkles"></i> 生成文案</button>
+                        <button class="btn btn-primary" id="exportButton" type="button">
+                            <i class="fas fa-download"></i>
+                            <span class="button-label"><span>导出 PNG</span></span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="preview-viewport" id="previewViewport">
+                    <div class="poster-host" id="posterHost">
+                        <article class="poster" id="poster" data-theme="course" aria-label="朋友圈海报预览">
+                            <header class="poster-topbar">
+                                <div class="poster-brand">
+                                    <img class="poster-logo" id="posterLogo" crossorigin="anonymous" src="https://i.ibb.co/FLTJXq6N/logo-slogn.png" alt="万能班长">
+                                    <div class="poster-brand-copy">
+                                        <strong>央视上榜企业</strong>
+                                        <span>腾讯教育年度综合实力教育集团</span>
+                                    </div>
+                                </div>
+                            </header>
+                            <section class="poster-hero">
+                                <h2 class="poster-title"><span id="previewTitlePrimary">包课辅导</span><span id="previewTitleSecondary">课堂展示</span></h2>
+                                <div class="poster-chips">
+                                    <span class="poster-chip" id="previewChipSchool">国家或地区 | 学校</span>
+                                    <span class="poster-chip" id="previewChipCourse">专业 | 课程代码 | 辅导老师</span>
+                                    <span class="poster-course" id="previewCourseName">课程名称</span>
+                                </div>
+                            </section>
+                            <div class="poster-content" id="posterContent" data-count="1"></div>
+                            <footer class="poster-footer">
+                                <div class="poster-footer-left">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="5"/><path d="M9 13.5 7.5 22l4.5-2.5 4.5 2.5-1.5-8.5"/></svg>
+                                    <span>央视上榜企业</span>
+                                </div>
+                                <div class="poster-footer-right">CLASSBRO</div>
+                            </footer>
+                        </article>
+                    </div>
+                </div>
+                <p class="status-line" id="exportStatus" role="status" aria-live="polite">修改左侧字段后，预览会自动更新 · 导出 1500 px 宽双倍清晰度 PNG</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="caption-modal" id="captionModal" hidden>
+        <div class="caption-dialog" role="dialog" aria-modal="true" aria-labelledby="captionTitle">
+            <div class="caption-head">
+                <h3 id="captionTitle"><i class="fas fa-wand-magic-sparkles"></i> AI 文案</h3>
+                <button class="caption-close" id="captionClose" type="button" aria-label="关闭">&times;</button>
+            </div>
+            <pre class="caption-body" id="captionBody"></pre>
+            <div class="caption-foot">
+                <span class="caption-status" id="captionStatus" role="status" aria-live="polite"></span>
+                <div class="caption-actions">
+                    <button class="btn" id="captionRegenerate" type="button"><i class="fas fa-rotate"></i> 重新生成</button>
+                    <button class="btn btn-primary" id="captionCopy" type="button"><i class="fas fa-copy"></i> 复制文案</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="ai-client.js"></script>
+    <script>
+        (() => {
+            'use strict';
+
+            const STORAGE_KEY = 'clasbro-social-poster-v1';
+            const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
+            const POSTER_WIDTH = 750;
+            const EXPORT_SCALE = 2;
+            const MEDIA_PADDING_X = 24;
+            const MEDIA_PADDING_TOP = 24;
+            const MEDIA_GAP = 0;
+            const MEDIA_WIDTH = POSTER_WIDTH - MEDIA_PADDING_X * 2;
+            // 未上传图片时的占位高度，保持默认版式仍是 750 x 1258
+            const PLACEHOLDER_MEDIA_HEIGHT = 742;
+
+            const WATERMARK_MAP = {
+                w1: { name: '万能班长', url: 'https://i.ibb.co/hxw0GD7L/retouch-2025041613021979.png' },
+                w2: { name: '留学云伴', url: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 200'%3E%3Ctext x='50%25' y='50%25' font-size='38' fill='%23999' text-anchor='middle' dominant-baseline='middle' font-weight='bold' opacity='0.8'%3E留学云伴%3C/text%3E%3C/svg%3E" },
+                none: null
+            };
+            const HIGH_SCORE_MATERIAL = '高分喜报';   // 该素材类型启用 AI 识图读分
+            const MAX_AI_IMAGE_SIDE = 1600;           // 送 AI 前压缩到长边 1600，够读分又不至于太大
+            const WATERMARK_SIZE = 0.8;
+            const WATERMARK_POSITION_Y = 0.5;
+            const WATERMARK_OPACITY = 0.3;
+
+            const THEME_TITLES = {
+                course: '包课辅导',
+                paper: '论文辅导',
+                custom: '定制辅导',
+                thesis: '毕业论文',
+                cram: '考前突击',
+                hours: '课时卡',
+                papercard: '论文卡',
+                preview: '课程预习',
+                homework: '作业辅导',
+                polish: '修改润色',
+                papercustom: '论文定制'
+            };
+
+            const DEFAULT_STATE = {
+                theme: 'course',
+                titleSecondary: '课堂展示',
+                watermark: 'w1',
+                // 「课程信息」默认全部留空，由使用者自己填写
+                region: '',
+                school: '',
+                major: '',
+                courseCode: '',
+                teacher: '',
+                courseName: ''
+            };
+
+            // 早期版本给「课程信息」预填过示例内容，这里把仍是示例值的旧存档清空；
+            // 使用者自己改过的内容不会被误删。
+            const LEGACY_DEMO_VALUES = {
+                region: '澳洲',
+                school: '昆士兰大学',
+                major: '食品科学',
+                courseCode: 'BIOL1020',
+                teacher: 'Michelle.许老师',
+                courseName: 'Genes, Cells & Evolution'
+            };
+
+            const form = document.getElementById('posterForm');
+            const poster = document.getElementById('poster');
+            const posterHost = document.getElementById('posterHost');
+            const previewViewport = document.getElementById('previewViewport');
+            const imageInput = document.getElementById('posterImages');
+            const posterContent = document.getElementById('posterContent');
+            const imageFileList = document.getElementById('imageFileList');
+            const imageCount = document.getElementById('imageCount');
+            const teacherInput = document.getElementById('teacher');
+            const uploadWindow = document.querySelector('.upload-window');
+            const exportButton = document.getElementById('exportButton');
+            const exportStatus = document.getElementById('exportStatus');
+            const saveState = document.getElementById('saveState');
+            const imageError = document.getElementById('imageError');
+            const posterLogo = document.getElementById('posterLogo');
+            const titleSecondarySelect = document.getElementById('titleSecondary');
+            const previewMeta = document.getElementById('previewMeta');
+            const captionButton = document.getElementById('captionButton');
+            const captionModal = document.getElementById('captionModal');
+            const captionBody = document.getElementById('captionBody');
+            const captionStatus = document.getElementById('captionStatus');
+            const captionCopy = document.getElementById('captionCopy');
+            const captionRegenerate = document.getElementById('captionRegenerate');
+            const captionClose = document.getElementById('captionClose');
+
+            let state = loadState();
+            let imageItems = [];
+            let saveTimer = null;
+
+            function loadState() {
+                try {
+                    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+                    const migrated = { ...(saved || {}) };
+                    delete migrated.badge;
+                    delete migrated.badge1;
+                    delete migrated.badge2;
+                    delete migrated.imageFit;
+                    const next = { ...DEFAULT_STATE, ...migrated };
+                    if (!THEME_TITLES[next.theme]) next.theme = DEFAULT_STATE.theme;
+                    const materialTitles = titleSecondarySelect
+                        ? Array.from(titleSecondarySelect.options, option => option.value)
+                        : [];
+                    if (materialTitles.length && !materialTitles.includes(next.titleSecondary)) {
+                        next.titleSecondary = DEFAULT_STATE.titleSecondary;
+                    }
+                    if (!(next.watermark in WATERMARK_MAP)) next.watermark = DEFAULT_STATE.watermark;
+                    Object.entries(LEGACY_DEMO_VALUES).forEach(([key, demo]) => {
+                        if (String(next[key] || '').trim() === demo) next[key] = '';
+                    });
+                    return next;
+                } catch {
+                    return { ...DEFAULT_STATE };
+                }
+            }
+
+            function readFormState() {
+                const data = new FormData(form);
+                return {
+                    theme: String(data.get('theme') || 'course'),
+                    watermark: state.watermark || DEFAULT_STATE.watermark,
+                    titleSecondary: String(data.get('titleSecondary') || '').trim(),
+                    region: String(data.get('region') || '').trim(),
+                    school: String(data.get('school') || '').trim(),
+                    major: String(data.get('major') || '').trim(),
+                    courseCode: String(data.get('courseCode') || '').trim(),
+                    teacher: String(data.get('teacher') || '').trim(),
+                    courseName: String(data.get('courseName') || '').trim()
+                };
+            }
+
+            function writeStateToForm(nextState) {
+                Object.entries(nextState).forEach(([key, value]) => {
+                    const control = form.elements.namedItem(key);
+                    if (control) control.value = value;
+                });
+            }
+
+            // 辅导老师统一带「老师」后缀：「Michelle.许」→「Michelle.许老师」（已带则不重复添加）
+            function normalizeTeacherName(raw) {
+                const value = String(raw || '').trim();
+                if (!value) return '';
+                return value.endsWith('老师') ? value : `${value}老师`;
+            }
+
+            // 预览与导出显示的老师名：完整保留输入内容（含「.许」这类中文姓氏），并补上「老师」
+            function teacherDisplayName(raw) {
+                return normalizeTeacherName(raw);
+            }
+
+            function joinVisible(parts) {
+                return parts.filter(Boolean).join(' | ');
+            }
+
+            function textOrFallback(value, fallback) {
+                return value || fallback;
+            }
+
+            function render() {
+                const titlePrimary = THEME_TITLES[state.theme] || THEME_TITLES.course;
+                poster.dataset.theme = state.theme;
+                document.getElementById('previewTitlePrimary').textContent = titlePrimary;
+                document.getElementById('previewTitleSecondary').textContent = textOrFallback(state.titleSecondary, '课堂展示');
+                document.getElementById('previewChipSchool').textContent = textOrFallback(joinVisible([state.region, state.school]), '国家或地区 | 学校');
+                document.getElementById('previewChipCourse').textContent = textOrFallback(joinVisible([state.major, state.courseCode, teacherDisplayName(state.teacher)]), '专业 | 课程代码 | 辅导老师');
+                document.getElementById('previewCourseName').textContent = textOrFallback(state.courseName, '课程名称');
+                renderMediaSlots();
+                renderImageList();
+                requestAnimationFrame(scalePreview);
+            }
+
+            // 图片宽度固定为内容区宽度，高度完全按原图比例换算；
+            // 内容区（以及整张海报）随图片高度增长，保证图片完整显示、不裁剪不压缩。
+            function computeMediaHeights(items) {
+                if (!items.length) return [PLACEHOLDER_MEDIA_HEIGHT];
+                return items.map(item => {
+                    const image = item && item.image;
+                    const width = (image && image.naturalWidth) || 0;
+                    const height = (image && image.naturalHeight) || 0;
+                    const ratio = width > 0 && height > 0 ? height / width : 3 / 4;
+                    return Math.max(1, Math.round(MEDIA_WIDTH * ratio));
+                });
+            }
+
+            function createPlaceholder(message) {
+                const placeholder = document.createElement('div');
+                placeholder.className = 'poster-placeholder';
+                placeholder.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>';
+                const text = document.createElement('span');
+                text.textContent = message;
+                placeholder.appendChild(text);
+                return placeholder;
+            }
+
+            function renderMediaSlots() {
+                const visibleItems = imageItems.length ? imageItems : [null];
+                const slotHeights = computeMediaHeights(imageItems);
+                posterContent.replaceChildren();
+                posterContent.dataset.count = String(visibleItems.length);
+
+                visibleItems.forEach((item, index) => {
+                    const figure = document.createElement('figure');
+                    figure.className = 'poster-media';
+                    figure.style.height = `${slotHeights[index]}px`;
+
+                    if (item) {
+                        const image = document.createElement('img');
+                        image.src = item.dataUrl;
+                        image.alt = `上传的课堂图片 ${index + 1}`;
+                        figure.appendChild(image);
+                    } else {
+                        figure.appendChild(createPlaceholder('请上传 1–3 张课堂图片'));
+                    }
+
+                    posterContent.appendChild(figure);
+                });
+
+                // 水印只加一次，盖在整块图片区的中间
+                const watermark = WATERMARK_MAP[state.watermark];
+                if (watermark && imageItems.length) {
+                    const overlay = document.createElement('span');
+                    overlay.className = 'poster-watermark';
+                    overlay.setAttribute('aria-hidden', 'true');
+                    overlay.style.backgroundImage = `url("${watermark.url}")`;
+                    posterContent.appendChild(overlay);
+                }
+            }
+
+            function renderImageList() {
+                imageFileList.replaceChildren();
+                imageCount.textContent = imageItems.length ? `已选择 ${imageItems.length} 张图片` : '尚未选择图片';
+
+                imageItems.forEach((item, index) => {
+                    const row = document.createElement('div');
+                    row.className = 'upload-file-row';
+
+                    const number = document.createElement('span');
+                    number.className = 'upload-file-index';
+                    number.textContent = `图 ${index + 1}`;
+
+                    const name = document.createElement('span');
+                    name.className = 'image-file-name';
+                    name.textContent = item.name;
+
+                    const removeButton = document.createElement('button');
+                    removeButton.className = 'btn btn-sm';
+                    removeButton.type = 'button';
+                    removeButton.dataset.removeImage = String(index);
+                    removeButton.textContent = '移除';
+                    removeButton.setAttribute('aria-label', `移除图片 ${index + 1}：${item.name}`);
+
+                    row.append(number, name, removeButton);
+                    imageFileList.appendChild(row);
+                });
+            }
+
+            function setCaptionBody(text, tone) {
+                captionBody.textContent = text || '';
+                if (tone) captionBody.dataset.tone = tone;
+                else delete captionBody.dataset.tone;
+            }
+
+            function setCaptionStatus(message, tone) {
+                captionStatus.textContent = message || '';
+                if (tone) captionStatus.dataset.tone = tone;
+                else delete captionStatus.dataset.tone;
+            }
+
+            function openCaptionModal() {
+                captionModal.hidden = false;
+            }
+
+            function closeCaptionModal() {
+                captionModal.hidden = true;
+            }
+
+            // 文案生成依据：海报类型（产品类型）+ 素材类型 + 辅导老师 + 课程名称（老师与海报显示一致，带「老师」）
+            function currentCaptionInput() {
+                return {
+                    productType: THEME_TITLES[state.theme] || THEME_TITLES.course,
+                    materialType: state.titleSecondary || DEFAULT_STATE.titleSecondary,
+                    teacher: teacherDisplayName(state.teacher),
+                    courseName: String(state.courseName || '').trim()
+                };
+            }
+
+            // 送 AI 识图前先按长边压缩（海报导出仍用原图，不受影响）
+            function downscaleImageForAi(dataUrl) {
+                return new Promise(resolve => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const maxSide = Math.max(img.naturalWidth, img.naturalHeight);
+                        if (!maxSide || maxSide <= MAX_AI_IMAGE_SIDE) { resolve(dataUrl); return; }
+                        const ratio = MAX_AI_IMAGE_SIDE / maxSide;
+                        const canvas = document.createElement('canvas');
+                        canvas.width = Math.round(img.naturalWidth * ratio);
+                        canvas.height = Math.round(img.naturalHeight * ratio);
+                        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.92));
+                    };
+                    img.onerror = () => resolve(null);
+                    img.src = dataUrl;
+                });
+            }
+
+            // 只有「高分喜报」通道需要识图读分；其余通道不传图
+            async function collectCaptionImages() {
+                if ((state.titleSecondary || '') !== HIGH_SCORE_MATERIAL) return [];
+                if (!imageItems.length) return [];
+                const urls = [];
+                for (const item of imageItems.slice(0, 3)) {
+                    const url = await downscaleImageForAi(item.dataUrl);
+                    if (url) urls.push(url);
+                }
+                return urls;
+            }
+
+            async function generateCaption() {
+                if (!window.aiClient || typeof window.aiClient.request !== 'function') {
+                    openCaptionModal();
+                    setCaptionBody('文案服务不可用：请通过本地服务地址（例如 http://localhost:3000/social-poster.html）打开本页后再试。', 'error');
+                    setCaptionStatus('');
+                    return;
+                }
+
+                const input = currentCaptionInput();
+                openCaptionModal();
+                const contextParts = [input.productType, input.materialType, input.teacher, input.courseName].filter(Boolean);
+                setCaptionBody(`正在依据「${contextParts.join(' · ')}」生成文案…`, 'loading');
+                setCaptionStatus('生成中…');
+
+                const originalLabel = captionButton.innerHTML;
+                captionButton.disabled = true;
+                captionButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 生成中…';
+
+                try {
+                    const images = await collectCaptionImages();
+                    if (images.length) {
+                        setCaptionBody(`正在识别图片里的分数，并生成文案…`, 'loading');
+                    } else if ((state.titleSecondary || '') === HIGH_SCORE_MATERIAL) {
+                        setCaptionStatus('未检测到可识别的图片，本次按泛化文案生成。');
+                    }
+                    const payload = images.length ? { ...input, images } : input;
+                    const data = await window.aiClient.request('/api/ai/poster-caption', payload);
+                    const caption = String(data?.caption || '').trim();
+                    if (!caption) throw new Error('AI 未返回文案，请重试');
+                    setCaptionBody(caption);
+                    setCaptionStatus(images.length
+                        ? '已读取图片中的分数，并生成本条文案，可复制后自由修改。'
+                        : '已按「海报类型 + 素材类型 + 辅导老师 + 课程名称」生成，可复制后自由修改。', 'success');
+                } catch (error) {
+                    setCaptionBody(`生成失败：${error.message || '请稍后重试'}`, 'error');
+                    setCaptionStatus('请确认服务端已配置 DASHSCOPE_API_KEY。', 'error');
+                } finally {
+                    captionButton.disabled = false;
+                    captionButton.innerHTML = originalLabel;
+                }
+            }
+
+            function legacyCopyText(text) {
+                const helper = document.createElement('textarea');
+                helper.value = text;
+                helper.setAttribute('readonly', '');
+                helper.style.position = 'fixed';
+                helper.style.left = '-9999px';
+                document.body.appendChild(helper);
+                helper.select();
+                let ok = false;
+                try {
+                    ok = document.execCommand('copy');
+                } catch {
+                    ok = false;
+                }
+                helper.remove();
+                return ok;
+            }
+
+            async function copyCaption() {
+                const text = captionBody.textContent || '';
+                if (!text) return;
+                if (navigator.clipboard && window.isSecureContext) {
+                    try {
+                        await navigator.clipboard.writeText(text);
+                        setCaptionStatus('已复制到剪贴板 ✅', 'success');
+                        return;
+                    } catch {
+                        /* 权限被拒时回落到 execCommand */
+                    }
+                }
+                if (legacyCopyText(text)) setCaptionStatus('已复制到剪贴板 ✅', 'success');
+                else setCaptionStatus('复制失败，请手动选中文本复制。', 'error');
+            }
+
+            function updateWatermarkUI() {
+                document.querySelectorAll('[data-watermark]').forEach(badge => {
+                    const active = badge.dataset.watermark === state.watermark;
+                    badge.classList.toggle('active', active);
+                    badge.setAttribute('aria-pressed', String(active));
+                });
+            }
+
+            function setWatermark(value) {
+                if (!(value in WATERMARK_MAP) || state.watermark === value) return;
+                state = { ...state, watermark: value };
+                updateWatermarkUI();
+                render();
+                queueSave();
+            }
+
+            function persistState() {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+                saveState.textContent = '已自动保存';
+            }
+
+            function queueSave() {
+                saveState.textContent = '保存中…';
+                clearTimeout(saveTimer);
+                saveTimer = setTimeout(persistState, 250);
+            }
+
+            function scalePreview() {
+                const available = Math.max(220, previewViewport.clientWidth - 16);
+                const scale = Math.min(1, available / POSTER_WIDTH);
+                const posterHeight = poster.offsetHeight;
+                poster.style.transform = `scale(${scale})`;
+                posterHost.style.width = `${POSTER_WIDTH * scale}px`;
+                posterHost.style.height = `${posterHeight * scale}px`;
+                previewMeta.textContent = `${POSTER_WIDTH} × ${posterHeight}`;
+            }
+
+            function setStatus(message, tone = '') {
+                exportStatus.textContent = message;
+                if (tone) exportStatus.dataset.tone = tone;
+                else delete exportStatus.dataset.tone;
+            }
+
+            function resetImageMessage() {
+                imageInput.removeAttribute('aria-invalid');
+                imageError.removeAttribute('role');
+                imageError.textContent = '支持 JPG、PNG 和 WebP，最多 3 张，单张建议不超过 12 MB。';
+            }
+
+            function removeImage(index) {
+                imageItems.splice(index, 1);
+                resetImageMessage();
+                render();
+            }
+
+            function readImageFile(file) {
+                const supported = ['image/jpeg', 'image/png', 'image/webp'];
+                if (!file || !supported.includes(file.type)) {
+                    return Promise.reject(new Error(`${file?.name || '文件'} 格式不支持，请选择 JPG、PNG 或 WebP。`));
+                }
+                if (file.size > MAX_IMAGE_BYTES) {
+                    return Promise.reject(new Error(`${file.name} 超过 12 MB，请压缩后重试。`));
+                }
+
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const dataUrl = String(reader.result || '');
+                        const img = new Image();
+                        img.onload = () => resolve({ name: file.name, dataUrl, image: img });
+                        img.onerror = () => reject(new Error(`${file.name} 可能已损坏，请换一张图片。`));
+                        img.src = dataUrl;
+                    };
+                    reader.onerror = () => reject(new Error(`${file.name} 无法读取，请重新选择。`));
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            async function handleImages(files) {
+                const selected = Array.from(files || []);
+                if (!selected.length) return;
+
+                const remaining = 3 - imageItems.length;
+                if (remaining <= 0) {
+                    imageInput.setAttribute('aria-invalid', 'true');
+                    imageError.setAttribute('role', 'alert');
+                    imageError.textContent = '已有 3 张图片。请先移除一张，再继续添加。';
+                    imageInput.value = '';
+                    return;
+                }
+
+                const candidates = selected.slice(0, remaining);
+                imageCount.textContent = '正在读取图片…';
+                imageFileList.setAttribute('aria-busy', 'true');
+
+                try {
+                    const loaded = [];
+                    for (const file of candidates) loaded.push(await readImageFile(file));
+                    imageItems.push(...loaded);
+                    render();
+                    if (selected.length > remaining) {
+                        imageInput.setAttribute('aria-invalid', 'true');
+                        imageError.setAttribute('role', 'alert');
+                        imageError.textContent = `最多上传 3 张图片，本次已读取前 ${remaining} 张。`;
+                    } else {
+                        resetImageMessage();
+                    }
+                } catch (error) {
+                    imageInput.setAttribute('aria-invalid', 'true');
+                    imageError.setAttribute('role', 'alert');
+                    imageError.textContent = `图片未读取。${error.message}`;
+                } finally {
+                    imageInput.value = '';
+                    imageFileList.removeAttribute('aria-busy');
+                }
+            }
+
+            // 部分手机浏览器（旧版 Safari / 安卓 WebView）的 canvas 不认 oklch()，
+            // 直接把 tokens.css 的 oklch 丢给 addColorStop / fillStyle 会报
+            // "The value provided ('oklch(...)') could not be parsed as a color."
+            // 这里先把 oklch 换算成 sRGB 再交给画布，任何浏览器都能画。
+            function oklchToRgb(input) {
+                const match = /^oklch\(\s*([\d.]+)(%?)\s+([\d.]+)\s+([\d.]+)(?:deg)?\s*(?:\/\s*([\d.]+)(%?)\s*)?\)$/i.exec(input);
+                if (!match) return input;                       // 不是 oklch（rgb/hex 等）原样返回
+
+                const lightness = match[2] === '%' ? parseFloat(match[1]) / 100 : parseFloat(match[1]);
+                const chroma = parseFloat(match[3]);
+                const hue = parseFloat(match[4]) * Math.PI / 180;
+                const alpha = match[5] === undefined
+                    ? 1
+                    : (match[6] === '%' ? parseFloat(match[5]) / 100 : parseFloat(match[5]));
+
+                const a = chroma * Math.cos(hue);
+                const b = chroma * Math.sin(hue);
+                const lp = lightness + 0.3963377774 * a + 0.2158037573 * b;
+                const mp = lightness - 0.1055613458 * a - 0.0638541728 * b;
+                const sp = lightness - 0.0894841775 * a - 1.2914855480 * b;
+                const l = lp * lp * lp;
+                const m = mp * mp * mp;
+                const s = sp * sp * sp;
+
+                const linear = [
+                    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+                    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+                    -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s
+                ];
+                const channel = value => {
+                    const v = value <= 0.0031308 ? 12.92 * value : 1.055 * Math.pow(Math.max(value, 0), 1 / 2.4) - 0.055;
+                    return Math.min(255, Math.max(0, Math.round(v * 255)));
+                };
+                const [r, g, bl] = linear.map(channel);
+                return alpha >= 1 ? `rgb(${r}, ${g}, ${bl})` : `rgba(${r}, ${g}, ${bl}, ${alpha})`;
+            }
+
+            function cssToken(name) {
+                return oklchToRgb(getComputedStyle(poster).getPropertyValue(name).trim());
+            }
+
+            // 主题色的 RGB 三元组（用于 rgba(...)，与参考稿的 --c-*-rgb 用法一致）
+            function rgbTriplet(name, fallbackHex) {
+                const raw = String(getComputedStyle(poster).getPropertyValue(name) || '').trim();
+                if (/^\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}$/.test(raw)) {
+                    return raw.replace(/\s+/g, '');
+                }
+                const hex = String(fallbackHex || '').replace('#', '');
+                if (hex.length !== 6) return '0,0,0';
+                return [
+                    parseInt(hex.slice(0, 2), 16),
+                    parseInt(hex.slice(2, 4), 16),
+                    parseInt(hex.slice(4, 6), 16)
+                ].join(',');
+            }
+
+            // CSS radial-gradient 的默认尺寸是 farthest-corner，这里按同样的规则算半径，
+            // 保证导出图里 hero 的两层光晕与页面预览位置、范围一致。
+            function farthestCornerRadius(centerX, centerY, width, height) {
+                return Math.max(
+                    Math.hypot(centerX, centerY),
+                    Math.hypot(width - centerX, centerY),
+                    Math.hypot(centerX, height - centerY),
+                    Math.hypot(width - centerX, height - centerY)
+                );
+            }
+
+            function roundRect(ctx, x, y, width, height, radius) {
+                const r = Math.min(radius, width / 2, height / 2);
+                ctx.beginPath();
+                ctx.moveTo(x + r, y);
+                ctx.lineTo(x + width - r, y);
+                ctx.arcTo(x + width, y, x + width, y + r, r);
+                ctx.lineTo(x + width, y + height - r);
+                ctx.arcTo(x + width, y + height, x + width - r, y + height, r);
+                ctx.lineTo(x + r, y + height);
+                ctx.arcTo(x, y + height, x, y + height - r, r);
+                ctx.lineTo(x, y + r);
+                ctx.arcTo(x, y, x + r, y, r);
+                ctx.closePath();
+            }
+
+            function fillRoundedRect(ctx, x, y, width, height, radius, fill, stroke = '', lineWidth = 1) {
+                roundRect(ctx, x, y, width, height, radius);
+                ctx.fillStyle = fill;
+                ctx.fill();
+                if (stroke) {
+                    ctx.strokeStyle = stroke;
+                    ctx.lineWidth = lineWidth;
+                    ctx.stroke();
+                }
+            }
+
+            // 画布自带的 'middle' 基线并不等于 CSS 行盒的基线（实测差 1~2.5px），
+            // 这里按「半行距 + 字体上沿」反算基线相对内容盒顶部的高度，导出才能与预览逐像素对齐。
+            function lineBoxBaselineOffset(ctx, style) {
+                const metrics = ctx.measureText('中');
+                const lineHeight = parseFloat(style.lineHeight);
+                return (lineHeight - (metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent)) / 2
+                    + metrics.fontBoundingBoxAscent;
+            }
+
+            function fitFontSize(ctx, text, maxWidth, startSize, minSize, weight, family) {
+                let size = startSize;
+                while (size > minSize) {
+                    ctx.font = `${weight} ${size}px ${family}`;
+                    if (ctx.measureText(text).width <= maxWidth) break;
+                    size -= 1;
+                }
+                return size;
+            }
+
+            // CSS 的 letter-spacing 在画布上要靠 ctx.letterSpacing（Chrome 99+）还原，
+            // 不支持时静默跳过，只少一点点字距，不会画错。
+            function setLetterSpacing(ctx, value) {
+                if ('letterSpacing' in ctx) ctx.letterSpacing = value;
+            }
+
+            function drawImageFitted(ctx, img, x, y, width, height, background) {
+                ctx.fillStyle = background;
+                ctx.fillRect(x, y, width, height);
+                const ratio = Math.min(width / img.width, height / img.height);
+                const drawWidth = img.width * ratio;
+                const drawHeight = img.height * ratio;
+                ctx.drawImage(img, x + (width - drawWidth) / 2, y + (height - drawHeight) / 2, drawWidth, drawHeight);
+            }
+
+            function drawPlaceholder(ctx, x, y, width, height, colors, bodyFont, placeholderText) {
+                ctx.save();
+                roundRect(ctx, x, y, width, height, 14);
+                ctx.clip();
+                ctx.fillStyle = colors.phBg1;
+                ctx.fillRect(x, y, width, height);
+                ctx.strokeStyle = colors.phBg2;
+                ctx.lineWidth = 18;
+                for (let offset = -height; offset < width + height; offset += 36) {
+                    ctx.beginPath();
+                    ctx.moveTo(x + offset, y);
+                    ctx.lineTo(x + offset + height, y + height);
+                    ctx.stroke();
+                }
+                ctx.restore();
+
+                const centerX = x + width / 2;
+                const centerY = y + height / 2 - 20;
+                ctx.strokeStyle = colors.phIcon;
+                ctx.lineWidth = 2.5;
+                ctx.strokeRect(centerX - 30, centerY - 30, 60, 60);
+                ctx.beginPath();
+                ctx.arc(centerX - 9, centerY - 9, 4.5, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(centerX + 28, centerY + 22);
+                ctx.lineTo(centerX + 8, centerY - 4);
+                ctx.lineTo(centerX - 14, centerY + 12);
+                ctx.lineTo(centerX - 28, centerY - 2);
+                ctx.stroke();
+                ctx.fillStyle = colors.phText;
+                ctx.font = `700 15px ${bodyFont}`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(placeholderText, centerX, centerY + 52);
+            }
+
+            // 远程图片先转 dataURL 再画，避免跨域污染画布；dataURL / 本地图直接加载。
+            async function loadImageForCanvas(source) {
+                if (!source) return null;
+                try {
+                    let url = source;
+                    if (/^https?:/i.test(source)) {
+                        const response = await fetch(source, { mode: 'cors', cache: 'force-cache' });
+                        if (!response.ok) return null;
+                        const blob = await response.blob();
+                        url = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = () => resolve(String(reader.result || ''));
+                            reader.onerror = reject;
+                            reader.readAsDataURL(blob);
+                        });
+                    }
+                    return await new Promise(resolve => {
+                        const img = new Image();
+                        img.onload = () => resolve(img);
+                        img.onerror = () => resolve(null);
+                        img.src = url;
+                    });
+                } catch {
+                    return null;
+                }
+            }
+
+            function loadLogoForCanvas() {
+                return loadImageForCanvas(posterLogo.currentSrc || posterLogo.src);
+            }
+
+            function loadWatermarkForCanvas() {
+                const info = WATERMARK_MAP[state.watermark];
+                return info ? loadImageForCanvas(info.url) : Promise.resolve(null);
+            }
+
+            // 与 .poster-watermark 的 CSS 一致：宽度 80%、整块居中、透明度 0.3
+            function drawWatermark(ctx, img, x, y, width, height) {
+                const naturalWidth = img.naturalWidth || img.width || 0;
+                const naturalHeight = img.naturalHeight || img.height || 0;
+                if (!naturalWidth || !naturalHeight) return;
+                const drawWidth = width * WATERMARK_SIZE;
+                const drawHeight = drawWidth * (naturalHeight / naturalWidth);
+                const drawX = x + (width - drawWidth) * 0.5;
+                const drawY = y + (height - drawHeight) * WATERMARK_POSITION_Y;
+                ctx.save();
+                ctx.globalAlpha = WATERMARK_OPACITY;
+                ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+                ctx.restore();
+            }
+
+            async function buildCanvas() {
+                await document.fonts.ready;
+                const canvas = document.createElement('canvas');
+                canvas.width = POSTER_WIDTH * EXPORT_SCALE;
+                canvas.height = poster.offsetHeight * EXPORT_SCALE;
+                const ctx = canvas.getContext('2d');
+                ctx.scale(EXPORT_SCALE, EXPORT_SCALE);
+
+                const colors = {
+                    primary: cssToken('--poster-primary'),
+                    primaryDark: cssToken('--poster-primary-dark'),
+                    primaryLight: cssToken('--poster-primary-light'),
+                    accent: cssToken('--poster-accent'),
+                    accentDeep: cssToken('--poster-accent-deep'),
+                    soft: cssToken('--poster-soft'),
+                    paper: cssToken('--poster-paper'),
+                    content: cssToken('--poster-content'),
+                    ink: cssToken('--poster-ink'),
+                    muted: cssToken('--poster-muted'),
+                    rule: cssToken('--poster-rule'),
+                    gold: cssToken('--poster-gold'),
+                    phBg1: cssToken('--poster-ph-bg-1'),
+                    phBg2: cssToken('--poster-ph-bg-2'),
+                    phIcon: cssToken('--poster-ph-icon'),
+                    phText: cssToken('--poster-ph-text')
+                };
+                const primaryRgb = rgbTriplet('--poster-primary-rgb', '#E32B1E');
+                const accentRgb = rgbTriplet('--poster-accent-rgb', '#FFE45C');
+                const bodyFont = getComputedStyle(poster).fontFamily;
+                const displayFont = getComputedStyle(document.querySelector('.poster-title')).fontFamily;
+                let y = 0;
+
+                const topGradient = ctx.createLinearGradient(0, 0, POSTER_WIDTH, 0);
+                topGradient.addColorStop(0, colors.primaryDark);
+                topGradient.addColorStop(0.55, colors.primary);
+                topGradient.addColorStop(1, colors.primaryLight);
+                ctx.fillStyle = topGradient;
+                ctx.fillRect(0, y, POSTER_WIDTH, 86);
+
+                const [logo, watermarkImage] = await Promise.all([loadLogoForCanvas(), loadWatermarkForCanvas()]);
+                if (logo) {
+                    ctx.drawImage(logo, 24, 18, 50, 50);
+                } else {
+                    fillRoundedRect(ctx, 24, 18, 50, 50, 10, colors.soft);
+                    ctx.fillStyle = colors.paper;
+                    ctx.font = `800 26px ${displayFont}`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('C', 49, 44);
+                }
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = colors.paper;
+                setLetterSpacing(ctx, '0.8px');
+                ctx.font = `700 17px ${bodyFont}`;
+                ctx.fillText('央视上榜企业', 88, 31);
+                ctx.fillStyle = colors.soft;
+                setLetterSpacing(ctx, '0.4px');
+                ctx.font = `400 14px ${bodyFont}`;
+                ctx.fillText('腾讯教育年度综合实力教育集团', 88, 55);
+                setLetterSpacing(ctx, '0px');
+                y += 86;
+
+                // 与预览完全对齐：hero / 标题行 / 信息标签 / 页脚都取页面实测尺寸，
+                // 避免画布里写死的高度和 CSS 走偏。
+                const heroEl = document.querySelector('.poster-hero');
+                const titleRowEl = document.querySelector('.poster-title');
+                const chipEl = document.querySelector('.poster-chip');
+                const courseEl = document.querySelector('.poster-course');
+                const footerEl = document.querySelector('.poster-footer');
+                const heroHeight = heroEl.offsetHeight;
+                const titleRowHeight = titleRowEl.offsetHeight;
+                const chipHeight = chipEl.offsetHeight;
+                const footerHeight = footerEl.offsetHeight;
+
+                // hero：白底 + 两层光晕（与页面 CSS 的 radial-gradient 圆心/半径/透明度一一对应）
+                const heroTop = y;
+                ctx.fillStyle = colors.paper;
+                ctx.fillRect(0, heroTop, POSTER_WIDTH, heroHeight);
+
+                const glow1X = 0.90 * POSTER_WIDTH;
+                const glow1Y = heroTop + 0.10 * heroHeight;
+                const glow1 = ctx.createRadialGradient(
+                    glow1X, glow1Y, 0,
+                    glow1X, glow1Y,
+                    0.34 * farthestCornerRadius(glow1X, glow1Y - heroTop, POSTER_WIDTH, heroHeight)
+                );
+                glow1.addColorStop(0, `rgba(${primaryRgb}, .08)`);
+                glow1.addColorStop(1, `rgba(${primaryRgb}, 0)`);
+                ctx.fillStyle = glow1;
+                ctx.fillRect(0, heroTop, POSTER_WIDTH, heroHeight);
+
+                const glow2X = 0.05 * POSTER_WIDTH;
+                const glow2Y = heroTop + 0.90 * heroHeight;
+                const glow2 = ctx.createRadialGradient(
+                    glow2X, glow2Y, 0,
+                    glow2X, glow2Y,
+                    0.36 * farthestCornerRadius(glow2X, glow2Y - heroTop, POSTER_WIDTH, heroHeight)
+                );
+                glow2.addColorStop(0, `rgba(${accentRgb}, .22)`);
+                glow2.addColorStop(1, `rgba(${accentRgb}, 0)`);
+                ctx.fillStyle = glow2;
+                ctx.fillRect(0, heroTop, POSTER_WIDTH, heroHeight);
+
+                const titlePrimary = THEME_TITLES[state.theme] || THEME_TITLES.course;
+                const titleSecondary = textOrFallback(state.titleSecondary, '课堂展示');
+                setLetterSpacing(ctx, '2px');
+                let titleSize = 52;
+                do {
+                    ctx.font = `900 ${titleSize}px ${displayFont}`;
+                    const combined = ctx.measureText(titlePrimary).width + ctx.measureText(titleSecondary).width + 100;
+                    if (combined <= POSTER_WIDTH - 48 || titleSize <= 32) break;
+                    titleSize -= 1;
+                } while (titleSize > 31);
+
+                const titleY = y + 32;
+                const titleHeight = titleRowHeight;
+                // 色块宽度/高度/内边距全部取 DOM 实测值：flex 的 align-items:center 决定各自的垂直位置，
+                // 文字用 lineBoxBaselineOffset 反算基线，导出与预览就能逐像素对上。
+                let titleLeft = 24;
+                Array.from(titleRowEl.children).forEach((spanEl, index) => {
+                    const spanStyle = getComputedStyle(spanEl);
+                    const spanWidth = spanEl.offsetWidth;
+                    const spanHeight = spanEl.offsetHeight;
+                    const spanTop = titleY + (titleHeight - spanHeight) / 2;
+                    ctx.font = `900 ${titleSize}px ${displayFont}`;
+                    setLetterSpacing(ctx, spanStyle.letterSpacing);
+                    if (index === 0) {
+                        // 与 CSS 的 box-shadow: 0 12px 30px rgba(primary,.22) 对齐
+                        ctx.save();
+                        ctx.shadowColor = `rgba(${primaryRgb}, .22)`;
+                        ctx.shadowBlur = 30;
+                        ctx.shadowOffsetY = 12;
+                        fillRoundedRect(ctx, titleLeft, spanTop, spanWidth, spanHeight, 8, colors.primary);
+                        ctx.restore();
+                        ctx.fillStyle = colors.paper;
+                    } else {
+                        // 白底 + 主色描边：路径内缩 1px、描边 2px，外沿正好落回 DOM 边框的外沿
+                        fillRoundedRect(ctx, titleLeft + 1, spanTop + 1, spanWidth - 2, spanHeight - 2, 7, colors.paper, colors.primary, 2);
+                        ctx.fillStyle = colors.primary;
+                    }
+                    ctx.textBaseline = 'alphabetic';
+                    ctx.fillText(
+                        spanEl.textContent,
+                        titleLeft + parseFloat(spanStyle.borderLeftWidth) + parseFloat(spanStyle.paddingLeft),
+                        spanTop + parseFloat(spanStyle.borderTopWidth) + parseFloat(spanStyle.paddingTop) + lineBoxBaselineOffset(ctx, spanStyle)
+                    );
+                    titleLeft += spanWidth + 12;
+                });
+                setLetterSpacing(ctx, '0px');
+
+                const schoolText = textOrFallback(joinVisible([state.region, state.school]), '国家或地区 | 学校');
+                const detailText = textOrFallback(joinVisible([state.major, state.courseCode, teacherDisplayName(state.teacher)]), '专业 | 课程代码 | 辅导老师');
+                const maxChipTextWidth = POSTER_WIDTH - 84;
+                let chipY = titleY + titleHeight + 22;
+
+                setLetterSpacing(ctx, '0.4px');
+                const chipStyle = getComputedStyle(chipEl);
+                const chipPadLeft = parseFloat(chipStyle.paddingLeft);
+                const chipPadTop = parseFloat(chipStyle.paddingTop);
+                [schoolText, detailText].forEach(text => {
+                    const fontSize = fitFontSize(ctx, text, maxChipTextWidth, 22, 14, 700, bodyFont);
+                    ctx.font = `700 ${fontSize}px ${bodyFont}`;
+                    const boxWidth = Math.min(POSTER_WIDTH - 48, ctx.measureText(text).width + 36);
+                    fillRoundedRect(ctx, 24, chipY, boxWidth, chipHeight, 8, colors.accent);
+                    ctx.fillStyle = colors.ink;
+                    ctx.textBaseline = 'alphabetic';
+                    ctx.fillText(text, 24 + chipPadLeft, chipY + chipPadTop + lineBoxBaselineOffset(ctx, chipStyle));
+                    chipY += chipHeight + 10;
+                });
+
+                const courseText = textOrFallback(state.courseName, '课程名称');
+                const courseSize = fitFontSize(ctx, courseText, POSTER_WIDTH - 48, 30, 18, 900, displayFont);
+                setLetterSpacing(ctx, '0.6px');
+                const courseStyle = getComputedStyle(courseEl);
+                ctx.font = `900 ${courseSize}px ${displayFont}`;
+                ctx.fillStyle = colors.accentDeep;
+                ctx.textBaseline = 'alphabetic';
+                // 课程名上方有 2px 外边距（.poster-course 的 margin-top）
+                ctx.fillText(courseText, 24, chipY + 2 + lineBoxBaselineOffset(ctx, courseStyle));
+                setLetterSpacing(ctx, '0px');
+                y += heroHeight;
+
+                // hero 底部的 1px 分隔线（CSS 上的 border-bottom）
+                ctx.fillStyle = colors.rule;
+                ctx.fillRect(0, y - 1, POSTER_WIDTH, 1);
+
+                const contentHeight = posterContent.offsetHeight;
+                ctx.fillStyle = colors.content;
+                ctx.fillRect(0, y, POSTER_WIDTH, contentHeight);
+                const imageX = MEDIA_PADDING_X;
+                const imageWidth = MEDIA_WIDTH;
+                const canvasItems = imageItems.length ? imageItems : [null];
+                const placeholderTexts = [
+                    '课堂截图 / 笔记图片占位',
+                    '课堂截图 / 板书图片占位',
+                    '课堂补充图片占位'
+                ];
+                const slotHeights = computeMediaHeights(imageItems);
+
+                let nextImageY = y + MEDIA_PADDING_TOP;
+                const imageSlots = canvasItems.map((item, index) => {
+                    const slot = {
+                        y: nextImageY,
+                        height: slotHeights[index],
+                        object: item?.image || null,
+                        placeholder: imageItems.length ? placeholderTexts[index] : '请上传 1–3 张课堂图片'
+                    };
+                    nextImageY += slot.height + MEDIA_GAP;
+                    return slot;
+                });
+
+                // 多张图拼成一整块：中间不留空隙、不画分隔线，只描一次外框
+                const mediaTop = imageSlots[0].y;
+                const mediaHeight = slotHeights.reduce((sum, value) => sum + value, 0)
+                    + MEDIA_GAP * (slotHeights.length - 1);
+                ctx.save();
+                roundRect(ctx, imageX, mediaTop, imageWidth, mediaHeight, 14);
+                ctx.clip();
+                imageSlots.forEach(slot => {
+                    if (slot.object) {
+                        drawImageFitted(ctx, slot.object, imageX, slot.y, imageWidth, slot.height, colors.paper);
+                    } else {
+                        drawPlaceholder(ctx, imageX, slot.y, imageWidth, slot.height, colors, bodyFont, slot.placeholder);
+                    }
+                });
+                // 水印只画一次，盖在整块图片区的正中间
+                if (watermarkImage && imageItems.length) {
+                    drawWatermark(ctx, watermarkImage, imageX, mediaTop, imageWidth, mediaHeight);
+                }
+                ctx.restore();
+                // 外框：CSS 是 border-box 的 1px 边框，画布描边要内缩半个像素才对得上
+                roundRect(ctx, imageX + 0.5, mediaTop + 0.5, imageWidth - 1, mediaHeight - 1, 14);
+                ctx.strokeStyle = colors.rule;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                y += contentHeight;
+
+                const footerGradient = ctx.createLinearGradient(0, y, POSTER_WIDTH, y);
+                footerGradient.addColorStop(0, colors.primaryDark);
+                footerGradient.addColorStop(1, colors.primary);
+                ctx.fillStyle = footerGradient;
+                ctx.fillRect(0, y, POSTER_WIDTH, footerHeight);
+
+                const iconX = 46;
+                const iconY = y + footerHeight / 2;
+                ctx.strokeStyle = colors.paper;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(iconX, iconY - 3, 8, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(iconX - 5, iconY + 4);
+                ctx.lineTo(iconX - 3, iconY + 13);
+                ctx.lineTo(iconX, iconY + 9);
+                ctx.lineTo(iconX + 3, iconY + 13);
+                ctx.lineTo(iconX + 5, iconY + 4);
+                ctx.stroke();
+
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = colors.paper;
+                setLetterSpacing(ctx, '1px');
+                ctx.font = `900 20px ${bodyFont}`;
+                ctx.fillText('央视上榜企业', 66, y + footerHeight / 2 + 1);
+                ctx.textAlign = 'right';
+                ctx.fillStyle = colors.gold;
+                setLetterSpacing(ctx, '3px');
+                ctx.font = `900 26px ${displayFont}`;
+                ctx.fillText('CLASSBRO', POSTER_WIDTH - 24, y + footerHeight / 2 + 1);
+                setLetterSpacing(ctx, '0px');
+
+                return canvas;
+            }
+
+            function safeFilePart(value) {
+                return value.replace(/[\\/:*?"<>|\s]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 36) || '朋友圈海报';
+            }
+
+            async function exportPoster() {
+                exportButton.disabled = true;
+                exportButton.dataset.state = 'loading';
+                setStatus('正在生成双倍清晰度 PNG…');
+                try {
+                    const canvas = await buildCanvas();
+                    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                    if (!blob) throw new Error('浏览器未生成图片数据');
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `${safeFilePart(THEME_TITLES[state.theme])}_${safeFilePart(state.courseCode || state.courseName)}.png`;
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                    exportButton.dataset.state = 'success';
+                    setStatus('海报已导出，请在浏览器下载目录查看。', 'success');
+                } catch (error) {
+                    console.error('[poster export]', error);
+                    exportButton.dataset.state = 'error';
+                    setStatus(`海报未导出。${error.message || '请稍后重试。'}`, 'error');
+                } finally {
+                    exportButton.disabled = false;
+                    setTimeout(() => { delete exportButton.dataset.state; }, 1800);
+                }
+            }
+
+            form.addEventListener('input', () => {
+                state = readFormState();
+                render();
+                queueSave();
+            });
+
+            form.addEventListener('change', event => {
+                if (event.target === imageInput) {
+                    handleImages(imageInput.files);
+                    return;
+                }
+                state = readFormState();
+                render();
+                queueSave();
+            });
+
+            document.querySelectorAll('[data-watermark]').forEach(badge => {
+                badge.addEventListener('click', () => setWatermark(badge.dataset.watermark));
+            });
+            // 拖拽上传（与其余工具一致）：高亮提示 + 复用 handleImages 的格式/数量校验
+            let dragDepth = 0;
+            function setDragActive(active) {
+                uploadWindow.classList.toggle('is-dragover', active);
+            }
+
+            uploadWindow.addEventListener('dragenter', event => {
+                event.preventDefault();
+                dragDepth += 1;
+                setDragActive(true);
+            });
+            uploadWindow.addEventListener('dragover', event => {
+                event.preventDefault();
+                if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+            });
+            uploadWindow.addEventListener('dragleave', event => {
+                event.preventDefault();
+                dragDepth = Math.max(0, dragDepth - 1);
+                if (!dragDepth) setDragActive(false);
+            });
+            uploadWindow.addEventListener('drop', event => {
+                event.preventDefault();
+                dragDepth = 0;
+                setDragActive(false);
+                const files = event.dataTransfer ? Array.from(event.dataTransfer.files || []) : [];
+                if (files.length) handleImages(files);
+            });
+
+            // 点击虚线区任意空白处也能打开选择框（避开「移除」按钮与「选择」按钮，避免重复触发）
+            uploadWindow.addEventListener('click', event => {
+                if (event.target.closest('button, a, input, .upload-button, .upload-file-row')) return;
+                imageInput.click();
+            });
+
+            // 拖到页面其它位置时不要让浏览器直接打开图片
+            ['dragover', 'drop'].forEach(type => {
+                document.addEventListener(type, event => {
+                    if (!uploadWindow.contains(event.target)) event.preventDefault();
+                });
+            });
+
+            // 粘贴截图（与其余工具一致）
+            document.addEventListener('paste', event => {
+                const target = event.target;
+                if (target && (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+                const items = event.clipboardData ? Array.from(event.clipboardData.items || []) : [];
+                const files = [];
+                items.forEach((item, index) => {
+                    if (item.kind !== 'file' || !String(item.type).startsWith('image/')) return;
+                    const blob = item.getAsFile();
+                    if (!blob) return;
+                    const ext = String(blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+                    files.push(new File([blob], `粘贴的课堂图片-${Date.now()}-${index + 1}.${ext}`, { type: blob.type }));
+                });
+                if (files.length) handleImages(files);
+            });
+
+            teacherInput.addEventListener('blur', () => {
+                const normalized = normalizeTeacherName(teacherInput.value);
+                if (normalized === teacherInput.value) return;
+                teacherInput.value = normalized;
+                state = readFormState();
+                render();
+                queueSave();
+            });
+            teacherInput.addEventListener('keydown', event => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    teacherInput.blur();
+                }
+            });
+            imageFileList.addEventListener('click', event => {
+                const button = event.target.closest('[data-remove-image]');
+                if (!button) return;
+                removeImage(Number(button.dataset.removeImage));
+            });
+            exportButton.addEventListener('click', exportPoster);
+            captionButton.addEventListener('click', generateCaption);
+            captionRegenerate.addEventListener('click', generateCaption);
+            captionCopy.addEventListener('click', copyCaption);
+            captionClose.addEventListener('click', closeCaptionModal);
+            captionModal.addEventListener('click', event => {
+                if (event.target === captionModal) closeCaptionModal();
+            });
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape' && !captionModal.hidden) closeCaptionModal();
+            });
+
+            posterLogo.addEventListener('error', () => { posterLogo.hidden = true; });
+            window.addEventListener('resize', scalePreview, { passive: true });
+            if ('ResizeObserver' in window) new ResizeObserver(scalePreview).observe(previewViewport);
+
+            writeStateToForm(state);
+            updateWatermarkUI();
+            render();
+        })();
+    </script>
+</body>
+</html>

@@ -1,7 +1,19 @@
-# Environment variables
+# Environment variables / 敏感凭据：严禁提交（代码中一律用环境变量引用）
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+
+# 私钥与证书文件
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+credentials.json
+service-account*.json
 
 # Dependencies (CRITICAL: Don't deploy node_modules to Cloudflare Pages)
 node_modules/
@@ -88,3 +100,10 @@ wrangler.toml
 # Project specific
 backups/
 *.bak
+
+# 视觉校验产物（scripts/*.mjs 生成的对照截图，不入库）
+scripts/_verify/
+
+# 本地工具副产物（AI 项目记忆 / 设计工具元数据，不入库）
+.workbuddy/
+.hallmark/

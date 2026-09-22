@@ -1,0 +1,208 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Noto+Sans+SC:wght@400;500;600;700;800&display=swap');
+
+/* Hallmark · token system · theme: Coral · anchor hue: warm red */
+:root {
+    --color-paper: oklch(98% 0.007 25);
+    --color-paper-2: oklch(96% 0.011 25);
+    --color-paper-3: oklch(93.5% 0.014 25);
+    --color-surface: oklch(99.3% 0.004 25);
+    --color-ink: oklch(20% 0.025 250);
+    --color-ink-2: oklch(34% 0.022 250);
+    --color-neutral: oklch(43% 0.018 250);
+    --color-muted: oklch(48% 0.018 250);
+    --color-rule: oklch(84% 0.015 25);
+    --color-rule-2: oklch(90% 0.012 25);
+    --color-accent: oklch(50% 0.185 25);
+    --color-accent-dark: oklch(42% 0.16 25);
+    --color-accent-soft: oklch(95% 0.035 25);
+    --color-accent-ink: oklch(98% 0.008 25);
+    --color-focus: oklch(58% 0.205 25);
+    --color-error: oklch(52% 0.205 25);
+    --color-success: oklch(45% 0.135 150);
+    --color-shadow: oklch(24% 0.025 250 / 0.12);
+    --color-shadow-soft: oklch(24% 0.025 250 / 0.06);
+    --color-overlay: oklch(20% 0.025 250 / 0.72);
+
+    --font-display: "Bricolage Grotesque", "Noto Sans SC", sans-serif;
+    --font-body: "Noto Sans SC", "Microsoft YaHei", sans-serif;
+
+    --space-3xs: 0.125rem;
+    --space-2xs: 0.25rem;
+    --space-xs: 0.5rem;
+    --space-sm: 0.75rem;
+    --space-md: 1rem;
+    --space-lg: 1.5rem;
+    --space-xl: 2.5rem;
+    --space-2xl: 4rem;
+    --space-3xl: 6rem;
+
+    --text-xs: 0.75rem;
+    --text-sm: 0.875rem;
+    --text-base: 1rem;
+    --text-md: 1.125rem;
+    --text-lg: 1.375rem;
+    --text-xl: 1.75rem;
+    --text-2xl: 2.25rem;
+
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.5rem;
+    --radius-pill: 999px;
+
+    --rule-thin: 1px;
+    --dur-micro: 120ms;
+    --dur-short: 220ms;
+    --dur-long: 420ms;
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+    --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+    --z-base: 1;
+    --z-raised: 10;
+    --z-sticky: 200;
+    --z-toast: 500;
+
+    /* ==== 朋友圈海报主题（色值与参考稿 朋友圈海报.html 逐项一致） ==== */
+    /* 默认主题 = 包课辅导 */
+    --poster-primary: #E32B1E;
+    --poster-primary-dark: #C8201A;
+    --poster-primary-light: #FF5A4E;
+    --poster-primary-rgb: 227,43,30;
+    --poster-accent: #FFE45C;
+    --poster-accent-rgb: 255,228,92;
+    --poster-accent-deep: #D4A017;
+    --poster-soft: #FFD9D5;
+
+    /* 以下为不随主题变化的中性色 / 占位图材质色 */
+    --poster-paper: #FFFFFF;
+    --poster-content: #FBFCFD;
+    --poster-ink: #1B1B1B;
+    --poster-muted: #A6AEBA;
+    --poster-rule: #E8EAED;
+    --poster-gold: #FFC93C;
+    --poster-ph-bg-1: #F5F6F8;
+    --poster-ph-bg-2: #EEF0F3;
+    --poster-ph-icon: #C2C9D2;
+    --poster-ph-text: #A6AEBA;
+}
+
+/* ---- 论文辅导：玫红 ---- */
+[data-theme="paper"] {
+    --poster-primary: #DB2777;
+    --poster-primary-dark: #BE185D;
+    --poster-primary-light: #F472B6;
+    --poster-primary-rgb: 219,39,119;
+    --poster-accent: #FBCFE8;
+    --poster-accent-rgb: 251,207,232;
+    --poster-accent-deep: #9D174D;
+    --poster-soft: #FBCFE8;
+}
+
+/* ---- 定制辅导：琥珀 ---- */
+[data-theme="custom"] {
+    --poster-primary: #D97706;
+    --poster-primary-dark: #B45309;
+    --poster-primary-light: #FBBF24;
+    --poster-primary-rgb: 217,119,6;
+    --poster-accent: #FEF3C7;
+    --poster-accent-rgb: 254,243,199;
+    --poster-accent-deep: #92400E;
+    --poster-soft: #FDE68A;
+}
+
+/* ---- 毕业论文：青 ---- */
+[data-theme="thesis"] {
+    --poster-primary: #0891B2;
+    --poster-primary-dark: #155E75;
+    --poster-primary-light: #22D3EE;
+    --poster-primary-rgb: 8,145,178;
+    --poster-accent: #FEF08A;
+    --poster-accent-rgb: 254,240,138;
+    --poster-accent-deep: #A16207;
+    --poster-soft: #A5F3FC;
+}
+
+/* ---- 考前突击：橙 ---- */
+[data-theme="cram"] {
+    --poster-primary: #EA580C;
+    --poster-primary-dark: #C2410C;
+    --poster-primary-light: #FB923C;
+    --poster-primary-rgb: 234,88,12;
+    --poster-accent: #FDE047;
+    --poster-accent-rgb: 253,224,71;
+    --poster-accent-deep: #A16207;
+    --poster-soft: #FED7AA;
+}
+
+/* ---- 课时卡：翠绿 ---- */
+[data-theme="hours"] {
+    --poster-primary: #059669;
+    --poster-primary-dark: #047857;
+    --poster-primary-light: #34D399;
+    --poster-primary-rgb: 5,150,105;
+    --poster-accent: #FEF3C7;
+    --poster-accent-rgb: 254,243,199;
+    --poster-accent-deep: #B45309;
+    --poster-soft: #A7F3D0;
+}
+
+/* ---- 论文卡：靛蓝 ---- */
+[data-theme="papercard"] {
+    --poster-primary: #4F46E5;
+    --poster-primary-dark: #3730A3;
+    --poster-primary-light: #818CF8;
+    --poster-primary-rgb: 79,70,229;
+    --poster-accent: #FDE68A;
+    --poster-accent-rgb: 253,230,138;
+    --poster-accent-deep: #B45309;
+    --poster-soft: #C7D2FE;
+}
+
+/* ---- 课程预习：青绿 ---- */
+[data-theme="preview"] {
+    --poster-primary: #0D9488;
+    --poster-primary-dark: #0F766E;
+    --poster-primary-light: #2DD4BF;
+    --poster-primary-rgb: 13,148,136;
+    --poster-accent: #FEF08A;
+    --poster-accent-rgb: 254,240,138;
+    --poster-accent-deep: #A16207;
+    --poster-soft: #99F6E4;
+}
+
+/* ---- 作业辅导：学术蓝 ---- */
+[data-theme="homework"] {
+    --poster-primary: #2563EB;
+    --poster-primary-dark: #1E40AF;
+    --poster-primary-light: #60A5FA;
+    --poster-primary-rgb: 37,99,235;
+    --poster-accent: #FCD34D;
+    --poster-accent-rgb: 252,211,77;
+    --poster-accent-deep: #A16207;
+    --poster-soft: #CFE0FF;
+}
+
+/* ---- 修改润色：紫罗兰 ---- */
+[data-theme="polish"] {
+    --poster-primary: #7C3AED;
+    --poster-primary-dark: #5B21B6;
+    --poster-primary-light: #A78BFA;
+    --poster-primary-rgb: 124,58,237;
+    --poster-accent: #FDE68A;
+    --poster-accent-rgb: 253,230,138;
+    --poster-accent-deep: #B45309;
+    --poster-soft: #DDD6FE;
+}
+
+/* ---- 论文定制：紫红 ---- */
+[data-theme="papercustom"] {
+    --poster-primary: #9333EA;
+    --poster-primary-dark: #7E22CE;
+    --poster-primary-light: #C084FC;
+    --poster-primary-rgb: 147,51,234;
+    --poster-accent: #E9D5FF;
+    --poster-accent-rgb: 233,213,255;
+    --poster-accent-deep: #7E22CE;
+    --poster-soft: #E9D5FF;
+}

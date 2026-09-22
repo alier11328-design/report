@@ -152,7 +152,7 @@ function toMessageText(value) {
     return '';
 }
 
-export async function askQwenForJson({ prompt, images = [], textBlocks = [] }) {
+export async function askQwenForJson({ prompt, images = [], textBlocks = [], temperature = 0.2, disableThinking = false }) {
     if (!openai) {
         const error = new Error('服务端缺少 DASHSCOPE_API_KEY，请先配置环境变量。');
         error.statusCode = 500;
@@ -177,14 +177,29 @@ export async function askQwenForJson({ prompt, images = [], textBlocks = [] }) {
         }
     });
 
-    const completion = await openai.chat.completions.create({
+    const requestParams = {
         model: MODEL,
-        temperature: 0.2,
+        temperature,
         messages: [
             { role: 'system', content: JSON_ONLY_SYSTEM_PROMPT },
             { role: 'user', content }
         ]
-    });
+    };
+    if (disableThinking) requestParams.thinking = { type: 'disabled' };
+
+    // 若所选模型不支持 thinking 参数，自动退回普通调用
+    const createCompletion = async params => {
+        try {
+            return await openai.chat.completions.create(params);
+        } catch (error) {
+            if (!params.thinking) throw error;
+            const fallback = { ...params };
+            delete fallback.thinking;
+            return await openai.chat.completions.create(fallback);
+        }
+    };
+
+    const completion = await createCompletion(requestParams);
 
     return extractJsonObject(toMessageText(completion.choices?.[0]?.message?.content));
 }
