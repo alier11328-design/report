@@ -388,47 +388,6 @@
         .caption-status[data-tone="success"] { color: #16a34a; }
         .caption-actions { display: flex; gap: 10px; margin-left: auto; }
 
-        /* 复制图片的版本选择弹窗：沿用文案弹窗的视觉语言 */
-        .choice-modal {
-            position: fixed;
-            inset: 0;
-            z-index: 520;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
-            background: rgba(20, 25, 40, 0.45);
-        }
-        .choice-modal[hidden] { display: none; }
-        .choice-dialog {
-            width: 100%;
-            max-width: 420px;
-            background: white;
-            border-radius: 24px;
-            box-shadow: 0 24px 60px rgba(0,0,0,0.22);
-            overflow: hidden;
-        }
-        .choice-body { display: grid; gap: 10px; padding: 14px 20px 6px; }
-        .choice-option {
-            display: block;
-            width: 100%;
-            text-align: left;
-            background: white;
-            border: 1px solid #cbd5e1;
-            border-radius: 16px;
-            padding: 14px 16px;
-            font-family: inherit;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .choice-option:hover:not(:disabled) { border-color: var(--primary-color); background: var(--primary-bg-soft); }
-        .choice-option:disabled { opacity: 0.55; cursor: not-allowed; }
-        .choice-option strong { display: block; margin-bottom: 4px; font-size: 14px; color: #1e293b; }
-        .choice-option span { font-size: 12px; line-height: 1.5; color: #64748b; }
-        .choice-status { min-height: 1.5rem; margin: 0; padding: 12px 20px 18px; font-size: 12px; color: #94a3b8; }
-        .choice-status[data-tone="error"] { color: #dc2626; }
-        .choice-status[data-tone="success"] { color: #16a34a; }
-
         .status-line { min-height: 1.5rem; margin-top: 12px; color: #64748b; font-size: 13px; }
         .status-line[data-tone="error"] { color: #dc2626; }
         .status-line[data-tone="success"] { color: #16a34a; }
@@ -824,7 +783,8 @@
                     <div class="preview-actions">
                         <span class="preview-meta" id="previewMeta">750 × 1258</span>
                         <button class="btn" id="captionButton" type="button"><i class="fas fa-wand-magic-sparkles"></i> 生成文案</button>
-                        <button class="btn" id="copyImageButton" type="button"><i class="fas fa-clipboard"></i> 复制图片</button>
+                        <button class="btn" id="copyW1Button" type="button" title="复制带水印图片到剪贴板"><i class="fas fa-clipboard"></i> 复制带水印图</button>
+                        <button class="btn" id="copyNoneButton" type="button" title="复制无水印图片到剪贴板"><i class="fas fa-clipboard"></i> 复制无水印图</button>
                         <button class="btn" id="exportButton" type="button">
                             <i class="fas fa-download"></i>
                             <span class="button-label"><span>导出 PNG</span></span>
@@ -887,26 +847,6 @@
                     <button class="btn btn-primary" id="captionCopy" type="button"><i class="fas fa-copy"></i> 复制文案</button>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <div class="choice-modal" id="imageCopyModal" hidden>
-        <div class="choice-dialog" role="dialog" aria-modal="true" aria-labelledby="imageCopyTitle">
-            <div class="caption-head">
-                <h3 id="imageCopyTitle"><i class="fas fa-clipboard"></i> 复制哪一版图片</h3>
-                <button class="caption-close" id="imageCopyClose" type="button" aria-label="关闭">&times;</button>
-            </div>
-            <div class="choice-body">
-                <button class="choice-option" data-copy-variant="w1" type="button">
-                    <strong>带水印</strong>
-                    <span>完整品牌色带 + 图区万能班长水印</span>
-                </button>
-                <button class="choice-option" data-copy-variant="none" type="button">
-                    <strong>无水印</strong>
-                    <span>上下色带缩半，无 logo、奖章与品牌文字，图区无水印</span>
-                </button>
-            </div>
-            <p class="choice-status" id="imageCopyStatus" role="status" aria-live="polite"></p>
         </div>
     </div>
 
@@ -987,12 +927,10 @@
             const uploadWindow = document.querySelector('.upload-window');
             const exportButton = document.getElementById('exportButton');
             const exportBothButton = document.getElementById('exportBothButton');
-            const copyImageButton = document.getElementById('copyImageButton');
+            const copyW1Button = document.getElementById('copyW1Button');
+            const copyNoneButton = document.getElementById('copyNoneButton');
             const previewVeil = document.getElementById('previewVeil');
             const previewVeilText = document.getElementById('previewVeilText');
-            const imageCopyModal = document.getElementById('imageCopyModal');
-            const imageCopyClose = document.getElementById('imageCopyClose');
-            const imageCopyStatus = document.getElementById('imageCopyStatus');
             const exportStatus = document.getElementById('exportStatus');
             const saveState = document.getElementById('saveState');
             const imageError = document.getElementById('imageError');
@@ -2072,7 +2010,8 @@
             function setExportBusy(busy) {
                 exportButton.disabled = busy;
                 exportBothButton.disabled = busy;
-                copyImageButton.disabled = busy;
+                copyW1Button.disabled = busy;
+                copyNoneButton.disabled = busy;
             }
 
             async function exportPosterBoth() {
@@ -2158,43 +2097,32 @@
                 }
             }
 
-            function setImageCopyStatus(message, tone = '') {
-                imageCopyStatus.textContent = message || '';
-                if (tone) imageCopyStatus.dataset.tone = tone;
-                else delete imageCopyStatus.dataset.tone;
-            }
+            // 复制指定水印版本的图片到剪贴板：点哪个按钮就复制哪个版本，不再弹窗二次选择
+            async function copyPosterImage(watermark, button) {
+                const label = watermark === 'none' ? '无水印' : '带水印';
+                const originalLabel = button.innerHTML;
+                // 要复制的版本和当前预览一致时不必重渲染，也就不必上遮罩，点下去几乎瞬间完成
+                const needsSwitch = activeWatermark() !== watermark;
 
-            function setCopyOptionsBusy(busy) {
-                imageCopyModal.querySelectorAll('[data-copy-variant]').forEach(button => {
-                    button.disabled = busy;
-                });
-            }
+                setExportBusy(true);
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 复制中…';
+                setStatus(`正在生成${label}图片…`);
+                if (needsSwitch) setVeil(true, `正在生成${label}图片…`);
 
-            function openImageCopyModal() {
-                setImageCopyStatus('');
-                setCopyOptionsBusy(false);
-                imageCopyModal.hidden = false;
-            }
-
-            function closeImageCopyModal() {
-                imageCopyModal.hidden = true;
-            }
-
-            async function copyPosterImage(watermark) {
-                setCopyOptionsBusy(true);
-                setImageCopyStatus('正在生成图片…');
-                // 先起一个不 await 的渲染任务，让 clipboard.write 仍留在点击手势的同一 tick 内
-                const blobPromise = renderVariantBlob(watermark);
                 try {
+                    // 先起一个不 await 的渲染任务，让 clipboard.write 仍留在点击手势的同一 tick 内
+                    const blobPromise = renderVariantBlob(watermark);
                     await writeImageToClipboard(blobPromise);
-                    setImageCopyStatus('已复制到剪贴板，可直接粘贴到聊天窗口 ✅', 'success');
+                    setStatus(`已复制${label}图片到剪贴板，可直接粘贴。`, 'success');
                 } catch (error) {
                     console.error('[poster copy image]', error);
-                    setImageCopyStatus(`复制失败：${error.message || '请改用「导出 PNG」'}`, 'error');
+                    setStatus(`图片复制失败：${error.message || '请改用「导出 PNG」'}`, 'error');
                 } finally {
                     watermarkOverride = null;
                     render();
-                    setCopyOptionsBusy(false);
+                    setVeil(false);
+                    setExportBusy(false);
+                    button.innerHTML = originalLabel;
                 }
             }
 
@@ -2295,16 +2223,8 @@
             });
             exportButton.addEventListener('click', exportPoster);
             exportBothButton.addEventListener('click', exportPosterBoth);
-            copyImageButton.addEventListener('click', openImageCopyModal);
-            imageCopyClose.addEventListener('click', closeImageCopyModal);
-            imageCopyModal.addEventListener('click', event => {
-                const option = event.target.closest('[data-copy-variant]');
-                if (option) {
-                    copyPosterImage(option.dataset.copyVariant);
-                    return;
-                }
-                if (event.target === imageCopyModal) closeImageCopyModal();
-            });
+            copyW1Button.addEventListener('click', () => copyPosterImage('w1', copyW1Button));
+            copyNoneButton.addEventListener('click', () => copyPosterImage('none', copyNoneButton));
             captionButton.addEventListener('click', generateCaption);
             captionRegenerate.addEventListener('click', generateCaption);
             captionCopy.addEventListener('click', copyCaption);
@@ -2314,7 +2234,6 @@
             });
             document.addEventListener('keydown', event => {
                 if (event.key !== 'Escape') return;
-                if (!imageCopyModal.hidden) closeImageCopyModal();
                 if (!captionModal.hidden) closeCaptionModal();
             });
 
