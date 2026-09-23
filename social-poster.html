@@ -57,6 +57,7 @@
             height: 100%;
         }
         .preview-pane {
+            position: relative;
             background: #f2f4f8;
             padding: 24px;
             overflow-y: auto;
@@ -74,6 +75,24 @@
         }
         .preview-header h2 { font-size: 20px; color: #1e293b; }
         .preview-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+        /* 导出 / 复制图片期间盖住预览：双版本导出要先切到「无」再切回来，
+           不遮住的话用户会看到海报闪一下。遮罩不影响 offsetHeight 测量。 */
+        .preview-veil {
+            position: absolute;
+            inset: 0;
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: rgba(242, 244, 248, 0.93);
+            color: #475569;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .preview-veil[hidden] { display: none; }
+        .preview-veil i { color: var(--primary-color); }
 
         .back-btn {
             background: transparent;
@@ -368,6 +387,47 @@
         .caption-status[data-tone="error"] { color: #dc2626; }
         .caption-status[data-tone="success"] { color: #16a34a; }
         .caption-actions { display: flex; gap: 10px; margin-left: auto; }
+
+        /* 复制图片的版本选择弹窗：沿用文案弹窗的视觉语言 */
+        .choice-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 520;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(20, 25, 40, 0.45);
+        }
+        .choice-modal[hidden] { display: none; }
+        .choice-dialog {
+            width: 100%;
+            max-width: 420px;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.22);
+            overflow: hidden;
+        }
+        .choice-body { display: grid; gap: 10px; padding: 14px 20px 6px; }
+        .choice-option {
+            display: block;
+            width: 100%;
+            text-align: left;
+            background: white;
+            border: 1px solid #cbd5e1;
+            border-radius: 16px;
+            padding: 14px 16px;
+            font-family: inherit;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .choice-option:hover:not(:disabled) { border-color: var(--primary-color); background: var(--primary-bg-soft); }
+        .choice-option:disabled { opacity: 0.55; cursor: not-allowed; }
+        .choice-option strong { display: block; margin-bottom: 4px; font-size: 14px; color: #1e293b; }
+        .choice-option span { font-size: 12px; line-height: 1.5; color: #64748b; }
+        .choice-status { min-height: 1.5rem; margin: 0; padding: 12px 20px 18px; font-size: 12px; color: #94a3b8; }
+        .choice-status[data-tone="error"] { color: #dc2626; }
+        .choice-status[data-tone="success"] { color: #16a34a; }
 
         .status-line { min-height: 1.5rem; margin-top: 12px; color: #64748b; font-size: 13px; }
         .status-line[data-tone="error"] { color: #dc2626; }
@@ -764,10 +824,12 @@
                     <div class="preview-actions">
                         <span class="preview-meta" id="previewMeta">750 × 1258</span>
                         <button class="btn" id="captionButton" type="button"><i class="fas fa-wand-magic-sparkles"></i> 生成文案</button>
-                        <button class="btn btn-primary" id="exportButton" type="button">
+                        <button class="btn" id="copyImageButton" type="button"><i class="fas fa-clipboard"></i> 复制图片</button>
+                        <button class="btn" id="exportButton" type="button">
                             <i class="fas fa-download"></i>
                             <span class="button-label"><span>导出 PNG</span></span>
                         </button>
+                        <button class="btn btn-primary" id="exportBothButton" type="button"><i class="fas fa-layer-group"></i> 导出双版本</button>
                     </div>
                 </div>
 
@@ -803,6 +865,10 @@
                     </div>
                 </div>
                 <p class="status-line" id="exportStatus" role="status" aria-live="polite">修改左侧字段后，预览会自动更新 · 导出 1500 px 宽双倍清晰度 PNG</p>
+                <div class="preview-veil" id="previewVeil" hidden>
+                    <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+                    <span id="previewVeilText">正在生成…</span>
+                </div>
             </div>
         </div>
     </div>
@@ -821,6 +887,26 @@
                     <button class="btn btn-primary" id="captionCopy" type="button"><i class="fas fa-copy"></i> 复制文案</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div class="choice-modal" id="imageCopyModal" hidden>
+        <div class="choice-dialog" role="dialog" aria-modal="true" aria-labelledby="imageCopyTitle">
+            <div class="caption-head">
+                <h3 id="imageCopyTitle"><i class="fas fa-clipboard"></i> 复制哪一版图片</h3>
+                <button class="caption-close" id="imageCopyClose" type="button" aria-label="关闭">&times;</button>
+            </div>
+            <div class="choice-body">
+                <button class="choice-option" data-copy-variant="w1" type="button">
+                    <strong>带水印</strong>
+                    <span>完整品牌色带 + 图区万能班长水印</span>
+                </button>
+                <button class="choice-option" data-copy-variant="none" type="button">
+                    <strong>无水印</strong>
+                    <span>上下色带缩半，无 logo、奖章与品牌文字，图区无水印</span>
+                </button>
+            </div>
+            <p class="choice-status" id="imageCopyStatus" role="status" aria-live="polite"></p>
         </div>
     </div>
 
@@ -900,6 +986,13 @@
             const teacherInput = document.getElementById('teacher');
             const uploadWindow = document.querySelector('.upload-window');
             const exportButton = document.getElementById('exportButton');
+            const exportBothButton = document.getElementById('exportBothButton');
+            const copyImageButton = document.getElementById('copyImageButton');
+            const previewVeil = document.getElementById('previewVeil');
+            const previewVeilText = document.getElementById('previewVeilText');
+            const imageCopyModal = document.getElementById('imageCopyModal');
+            const imageCopyClose = document.getElementById('imageCopyClose');
+            const imageCopyStatus = document.getElementById('imageCopyStatus');
             const exportStatus = document.getElementById('exportStatus');
             const saveState = document.getElementById('saveState');
             const imageError = document.getElementById('imageError');
@@ -917,6 +1010,9 @@
             let state = loadState();
             let imageItems = [];
             let saveTimer = null;
+            // 导出 / 复制图片期间临时接管水印方案：只作用于渲染，不改 state，
+            // 因此不会写入存档、也不会改动左侧水印按钮的高亮状态。
+            let watermarkOverride = null;
 
             function loadState() {
                 try {
@@ -986,11 +1082,16 @@
                 return value || fallback;
             }
 
+            // 当前生效的水印方案：导出 / 复制图片期间由 watermarkOverride 临时接管
+            function activeWatermark() {
+                return watermarkOverride || state.watermark;
+            }
+
             function render() {
                 const titlePrimary = THEME_TITLES[state.theme] || THEME_TITLES.course;
                 poster.dataset.theme = state.theme;
                 // 水印选「无」时：上下红条保留，条内 logo / 奖章 / 文字隐藏，预览与导出一致
-                poster.dataset.brand = state.watermark === 'none' ? 'off' : 'on';
+                poster.dataset.brand = activeWatermark() === 'none' ? 'off' : 'on';
                 document.getElementById('previewTitlePrimary').textContent = titlePrimary;
                 document.getElementById('previewTitleSecondary').textContent = textOrFallback(state.titleSecondary, '课堂展示');
                 document.getElementById('previewChipSchool').textContent = textOrFallback(joinVisible([state.region, state.school]), '国家或地区 | 学校');
@@ -1048,7 +1149,7 @@
                 });
 
                 // 水印只加一次，盖在整块图片区的中间
-                const watermark = WATERMARK_MAP[state.watermark];
+                const watermark = WATERMARK_MAP[activeWatermark()];
                 if (watermark && imageItems.length) {
                     const overlay = document.createElement('span');
                     overlay.className = 'poster-watermark';
@@ -1180,9 +1281,11 @@
                     setCaptionStatus(images.length
                         ? '已读取图片中的分数，并生成本条文案，可复制后自由修改。'
                         : '已按「海报类型 + 素材类型 + 辅导老师 + 课程名称」生成，可复制后自由修改。', 'success');
+                    return caption;
                 } catch (error) {
                     setCaptionBody(`生成失败：${error.message || '请稍后重试'}`, 'error');
                     setCaptionStatus('请确认服务端已配置 DASHSCOPE_API_KEY。', 'error');
+                    return null;
                 } finally {
                     captionButton.disabled = false;
                     captionButton.innerHTML = originalLabel;
@@ -1207,19 +1310,24 @@
                 return ok;
             }
 
-            async function copyCaption() {
-                const text = captionBody.textContent || '';
-                if (!text) return;
+            // 文本写入剪贴板：优先走异步 API，权限被拒或非 https 环境回落到 execCommand
+            async function writeTextToClipboard(text) {
+                if (!text) return false;
                 if (navigator.clipboard && window.isSecureContext) {
                     try {
                         await navigator.clipboard.writeText(text);
-                        setCaptionStatus('已复制到剪贴板 ✅', 'success');
-                        return;
+                        return true;
                     } catch {
                         /* 权限被拒时回落到 execCommand */
                     }
                 }
-                if (legacyCopyText(text)) setCaptionStatus('已复制到剪贴板 ✅', 'success');
+                return legacyCopyText(text);
+            }
+
+            async function copyCaption() {
+                const text = captionBody.textContent || '';
+                if (!text) return;
+                if (await writeTextToClipboard(text)) setCaptionStatus('已复制到剪贴板 ✅', 'success');
                 else setCaptionStatus('复制失败，请手动选中文本复制。', 'error');
             }
 
@@ -1504,26 +1612,51 @@
                 ctx.fillText(placeholderText, centerX, centerY + 52);
             }
 
+            // 远程素材必须限时：弱网或跨域被拦时 fetch 可能长时间挂起，
+            // 表现为点导出后一直停在「正在生成」。超时统一返回 null，由各绘制分支走占位。
+            // 取值要留够余量——i.ibb.co 直连实测可到 3.8s，卡太紧会把正常加载误杀。
+            const CANVAS_ASSET_TIMEOUT = 8000;
+            const canvasAssetCache = new Map();
+
+            function loadImageForCanvas(source) {
+                if (!source) return Promise.resolve(null);
+                if (!canvasAssetCache.has(source)) {
+                    const task = loadImageForCanvasOnce(source).then(image => {
+                        // 失败不缓存，下次导出仍可重试
+                        if (!image) canvasAssetCache.delete(source);
+                        return image;
+                    });
+                    canvasAssetCache.set(source, task);
+                }
+                return canvasAssetCache.get(source);
+            }
+
             // 远程图片先转 dataURL 再画，避免跨域污染画布；dataURL / 本地图直接加载。
-            async function loadImageForCanvas(source) {
-                if (!source) return null;
+            async function loadImageForCanvasOnce(source) {
                 try {
                     let url = source;
                     if (/^https?:/i.test(source)) {
-                        const response = await fetch(source, { mode: 'cors', cache: 'force-cache' });
-                        if (!response.ok) return null;
-                        const blob = await response.blob();
-                        url = await new Promise((resolve, reject) => {
-                            const reader = new FileReader();
-                            reader.onload = () => resolve(String(reader.result || ''));
-                            reader.onerror = reject;
-                            reader.readAsDataURL(blob);
-                        });
+                        const controller = new AbortController();
+                        const timer = setTimeout(() => controller.abort(), CANVAS_ASSET_TIMEOUT);
+                        try {
+                            const response = await fetch(source, { mode: 'cors', cache: 'force-cache', signal: controller.signal });
+                            if (!response.ok) return null;
+                            const blob = await response.blob();
+                            url = await new Promise((resolve, reject) => {
+                                const reader = new FileReader();
+                                reader.onload = () => resolve(String(reader.result || ''));
+                                reader.onerror = reject;
+                                reader.readAsDataURL(blob);
+                            });
+                        } finally {
+                            clearTimeout(timer);
+                        }
                     }
                     return await new Promise(resolve => {
                         const img = new Image();
-                        img.onload = () => resolve(img);
-                        img.onerror = () => resolve(null);
+                        const timer = setTimeout(() => resolve(null), CANVAS_ASSET_TIMEOUT);
+                        img.onload = () => { clearTimeout(timer); resolve(img); };
+                        img.onerror = () => { clearTimeout(timer); resolve(null); };
                         img.src = url;
                     });
                 } catch {
@@ -1532,11 +1665,18 @@
             }
 
             function loadLogoForCanvas() {
+                // 顶栏那张 logo 已经带 crossOrigin="anonymous" 加载成功，直接复用，
+                // 省掉导出时的一次网络往返，也避开网络抖动导致的额外风险。
+                if (posterLogo.complete && posterLogo.naturalWidth > 0) {
+                    return Promise.resolve(posterLogo);
+                }
                 return loadImageForCanvas(posterLogo.currentSrc || posterLogo.src);
             }
 
             function loadWatermarkForCanvas() {
-                const info = WATERMARK_MAP[state.watermark];
+                // 必须用 activeWatermark：导出双版本时 state.watermark 不变，
+                // 读 state 会让「无水印」那一版照样画上水印。
+                const info = WATERMARK_MAP[activeWatermark()];
                 return info ? loadImageForCanvas(info.url) : Promise.resolve(null);
             }
 
@@ -1588,7 +1728,7 @@
                 let y = 0;
 
                 // 水印选「无」时：上下色带照画（高度各减半），只是不画条内的 logo / 奖章 / 文字
-                const showBrandInfo = state.watermark !== 'none';
+                const showBrandInfo = activeWatermark() !== 'none';
                 // 顶栏高度取 DOM 实测值（水印选「无」时会被 CSS 缩到一半），不要在画布里写死
                 const topbarEl = document.querySelector('.poster-topbar');
                 const topbarHeight = topbarEl.offsetHeight;
@@ -1876,6 +2016,188 @@
                 }
             }
 
+            const EXPORT_VARIANTS = [
+                { watermark: 'w1', suffix: '带水印' },
+                { watermark: 'none', suffix: '无水印' }
+            ];
+
+            // 等浏览器完成一次样式重算与绘制。切水印方案会改变上下色带高度，
+            // 必须等布局稳定后再量 offsetHeight，否则第二张图的尺寸会算错。
+            // 后台标签页与无头模式下 rAF 可能不触发，用定时器兜底。
+            function nextPaint() {
+                return new Promise(resolve => {
+                    let settled = false;
+                    const finish = () => {
+                        if (settled) return;
+                        settled = true;
+                        resolve();
+                    };
+                    requestAnimationFrame(() => requestAnimationFrame(finish));
+                    setTimeout(finish, 250);
+                });
+            }
+
+            function posterFileBase() {
+                return `${safeFilePart(THEME_TITLES[state.theme])}_${safeFilePart(state.courseCode || state.courseName)}`;
+            }
+
+            function downloadBlob(blob, filename) {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 4000);
+            }
+
+            // 以指定水印方案渲染一次并返回 PNG Blob。
+            // 全程只改 watermarkOverride，不动 state，因此不会污染存档、也不影响左侧高亮。
+            async function renderVariantBlob(watermark) {
+                watermarkOverride = watermark;
+                render();
+                await nextPaint();
+                const canvas = await buildCanvas();
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                if (!blob) throw new Error('浏览器未生成图片数据');
+                return blob;
+            }
+
+            function setVeil(visible, message) {
+                previewVeil.hidden = !visible;
+                if (message) previewVeilText.textContent = message;
+            }
+
+            function setExportBusy(busy) {
+                exportButton.disabled = busy;
+                exportBothButton.disabled = busy;
+                copyImageButton.disabled = busy;
+            }
+
+            async function exportPosterBoth() {
+                const originalLabel = exportBothButton.innerHTML;
+                const base = posterFileBase();
+                let exported = 0;
+
+                setExportBusy(true);
+                exportBothButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 导出中…';
+
+                try {
+                    // 先把两个版本都渲染成 Blob，再连续触发下载：
+                    // 下载动作集中在同一次点击手势的时间窗内，避免第二张被浏览器当成非手势下载丢弃
+                    const rendered = [];
+                    for (const variant of EXPORT_VARIANTS) {
+                        setVeil(true, `正在生成${variant.suffix}版本…`);
+                        rendered.push({ variant, blob: await renderVariantBlob(variant.watermark) });
+                    }
+
+                    setVeil(true, '正在保存文件…');
+                    for (const { variant, blob } of rendered) {
+                        downloadBlob(blob, `${base}_${variant.suffix}.png`);
+                        exported += 1;
+                        await new Promise(resolve => setTimeout(resolve, 320));
+                    }
+                } catch (error) {
+                    console.error('[poster export both]', error);
+                    setStatus(`双版本导出未完成（已出 ${exported} 张）。${error.message || '请稍后重试。'}`, 'error');
+                    return;
+                } finally {
+                    watermarkOverride = null;
+                    render();
+                    setVeil(false);
+                    setExportBusy(false);
+                    exportBothButton.innerHTML = originalLabel;
+                }
+
+                setStatus(`已导出 2 张：${base}_带水印.png、${base}_无水印.png`, 'success');
+                await attachCaptionToExport();
+            }
+
+            // 导出后附带复制文案：文案区已有内容（可能被手动改过）就直接复用，不重新生成
+            async function attachCaptionToExport() {
+                let text = (captionBody.textContent || '').trim();
+                if (!text) {
+                    setStatus('两张海报已导出，正在生成文案…');
+                    const generated = await generateCaption();
+                    if (!generated) {
+                        setStatus('两张海报已导出；文案生成失败，可点「生成文案」重试。', 'error');
+                        return;
+                    }
+                    text = generated;
+                }
+
+                if (await writeTextToClipboard(text)) {
+                    setCaptionStatus('已随海报一起复制到剪贴板，可直接粘贴发布 ✅', 'success');
+                    setStatus('已导出 2 张海报，文案已复制到剪贴板。', 'success');
+                } else {
+                    openCaptionModal();
+                    setCaptionStatus('自动复制失败，请点下方「复制文案」。', 'error');
+                    setStatus('两张海报已导出；文案复制失败，请手动复制。', 'error');
+                }
+            }
+
+            function supportsImageClipboard() {
+                return Boolean(navigator.clipboard && window.isSecureContext && typeof ClipboardItem !== 'undefined');
+            }
+
+            // 图片写入剪贴板。优先用 Promise 形式提交 ClipboardItem：
+            // 渲染要等布局，而 Safari 要求 ClipboardItem 在用户手势的同一 tick 内构造，
+            // 传 Promise 可以让它在 write 内部再去等渲染结果。失败则退回已完成 Blob 再试一次。
+            async function writeImageToClipboard(blobPromise) {
+                if (!supportsImageClipboard()) {
+                    throw new Error('当前浏览器不支持复制图片，请改用「导出 PNG」');
+                }
+                blobPromise.catch(() => {});
+                try {
+                    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blobPromise })]);
+                    return;
+                } catch (promiseFormError) {
+                    const blob = await blobPromise;
+                    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                }
+            }
+
+            function setImageCopyStatus(message, tone = '') {
+                imageCopyStatus.textContent = message || '';
+                if (tone) imageCopyStatus.dataset.tone = tone;
+                else delete imageCopyStatus.dataset.tone;
+            }
+
+            function setCopyOptionsBusy(busy) {
+                imageCopyModal.querySelectorAll('[data-copy-variant]').forEach(button => {
+                    button.disabled = busy;
+                });
+            }
+
+            function openImageCopyModal() {
+                setImageCopyStatus('');
+                setCopyOptionsBusy(false);
+                imageCopyModal.hidden = false;
+            }
+
+            function closeImageCopyModal() {
+                imageCopyModal.hidden = true;
+            }
+
+            async function copyPosterImage(watermark) {
+                setCopyOptionsBusy(true);
+                setImageCopyStatus('正在生成图片…');
+                // 先起一个不 await 的渲染任务，让 clipboard.write 仍留在点击手势的同一 tick 内
+                const blobPromise = renderVariantBlob(watermark);
+                try {
+                    await writeImageToClipboard(blobPromise);
+                    setImageCopyStatus('已复制到剪贴板，可直接粘贴到聊天窗口 ✅', 'success');
+                } catch (error) {
+                    console.error('[poster copy image]', error);
+                    setImageCopyStatus(`复制失败：${error.message || '请改用「导出 PNG」'}`, 'error');
+                } finally {
+                    watermarkOverride = null;
+                    render();
+                    setCopyOptionsBusy(false);
+                }
+            }
+
             form.addEventListener('input', () => {
                 state = readFormState();
                 render();
@@ -1972,6 +2294,17 @@
                 removeImage(Number(button.dataset.removeImage));
             });
             exportButton.addEventListener('click', exportPoster);
+            exportBothButton.addEventListener('click', exportPosterBoth);
+            copyImageButton.addEventListener('click', openImageCopyModal);
+            imageCopyClose.addEventListener('click', closeImageCopyModal);
+            imageCopyModal.addEventListener('click', event => {
+                const option = event.target.closest('[data-copy-variant]');
+                if (option) {
+                    copyPosterImage(option.dataset.copyVariant);
+                    return;
+                }
+                if (event.target === imageCopyModal) closeImageCopyModal();
+            });
             captionButton.addEventListener('click', generateCaption);
             captionRegenerate.addEventListener('click', generateCaption);
             captionCopy.addEventListener('click', copyCaption);
@@ -1980,12 +2313,20 @@
                 if (event.target === captionModal) closeCaptionModal();
             });
             document.addEventListener('keydown', event => {
-                if (event.key === 'Escape' && !captionModal.hidden) closeCaptionModal();
+                if (event.key !== 'Escape') return;
+                if (!imageCopyModal.hidden) closeImageCopyModal();
+                if (!captionModal.hidden) closeCaptionModal();
             });
 
             posterLogo.addEventListener('error', () => { posterLogo.hidden = true; });
             window.addEventListener('resize', scalePreview, { passive: true });
             if ('ResizeObserver' in window) new ResizeObserver(scalePreview).observe(previewViewport);
+
+            // 预热导出要用的远程素材：水印图不在 DOM 里（靠 CSS background 显示），
+            // 不预热的话第一次导出会现场等网络。logo 复用顶栏已加载的那张，无需预热。
+            Object.values(WATERMARK_MAP).forEach(info => {
+                if (info && info.url) loadImageForCanvas(info.url);
+            });
 
             writeStateToForm(state);
             updateWatermarkUI();
