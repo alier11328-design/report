@@ -136,6 +136,23 @@
             pointer-events: none;
         }
 
+        /* 水印选「无」时：上下色带底色保留，条内 logo / 奖章图标 / 文字隐藏，
+           两条色带高度各缩减 50%（顶栏 86 → 43，页脚 70 → 35）。
+           条内内容改用 display:none 收掉占位，高度才能由这里显式定死；
+           条高写死的同时，buildCanvas() 从 DOM 实测取值，导出仍与预览一致。 */
+        .poster[data-brand="off"] .poster-topbar {
+            height: 43px;
+            padding: 0 24px;
+        }
+        .poster[data-brand="off"] .poster-brand { display: none; }
+
+        .poster[data-brand="off"] .poster-footer {
+            height: 35px;
+            padding: 0 24px;
+        }
+        .poster[data-brand="off"] .poster-footer-left,
+        .poster[data-brand="off"] .poster-footer-right { display: none; }
+
         .form-section-title {
             font-weight: 700;
             font-size: 18px;
@@ -651,7 +668,6 @@
                     <span class="theme-label"><i class="fas fa-watermark"></i> 水印图片：</span>
                     <div class="theme-options">
                         <div class="theme-badge watermark-option active" data-watermark="w1"><i class="fas fa-image"></i> 万能班长</div>
-                        <div class="theme-badge watermark-option" data-watermark="w2"><i class="fas fa-cloud"></i> 留学云伴</div>
                         <div class="theme-badge watermark-option" data-watermark="none"><i class="fas fa-ban"></i> 无</div>
                     </div>
                 </div>
@@ -824,9 +840,9 @@
             // 未上传图片时的占位高度，保持默认版式仍是 750 x 1258
             const PLACEHOLDER_MEDIA_HEIGHT = 742;
 
+            // 水印方案：w1 = 万能班长；none = 不打水印，同时隐藏海报上下的品牌 logo / slogan
             const WATERMARK_MAP = {
                 w1: { name: '万能班长', url: 'https://i.ibb.co/hxw0GD7L/retouch-2025041613021979.png' },
-                w2: { name: '留学云伴', url: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 200'%3E%3Ctext x='50%25' y='50%25' font-size='38' fill='%23999' text-anchor='middle' dominant-baseline='middle' font-weight='bold' opacity='0.8'%3E留学云伴%3C/text%3E%3C/svg%3E" },
                 none: null
             };
             const HIGH_SCORE_MATERIAL = '高分喜报';   // 该素材类型启用 AI 识图读分
@@ -973,6 +989,8 @@
             function render() {
                 const titlePrimary = THEME_TITLES[state.theme] || THEME_TITLES.course;
                 poster.dataset.theme = state.theme;
+                // 水印选「无」时：上下红条保留，条内 logo / 奖章 / 文字隐藏，预览与导出一致
+                poster.dataset.brand = state.watermark === 'none' ? 'off' : 'on';
                 document.getElementById('previewTitlePrimary').textContent = titlePrimary;
                 document.getElementById('previewTitleSecondary').textContent = textOrFallback(state.titleSecondary, '课堂展示');
                 document.getElementById('previewChipSchool').textContent = textOrFallback(joinVisible([state.region, state.school]), '国家或地区 | 学校');
@@ -1569,36 +1587,48 @@
                 const displayFont = getComputedStyle(document.querySelector('.poster-title')).fontFamily;
                 let y = 0;
 
+                // 水印选「无」时：上下色带照画（高度各减半），只是不画条内的 logo / 奖章 / 文字
+                const showBrandInfo = state.watermark !== 'none';
+                // 顶栏高度取 DOM 实测值（水印选「无」时会被 CSS 缩到一半），不要在画布里写死
+                const topbarEl = document.querySelector('.poster-topbar');
+                const topbarHeight = topbarEl.offsetHeight;
+                const [logo, watermarkImage] = await Promise.all([
+                    showBrandInfo ? loadLogoForCanvas() : Promise.resolve(null),
+                    loadWatermarkForCanvas()
+                ]);
+
                 const topGradient = ctx.createLinearGradient(0, 0, POSTER_WIDTH, 0);
                 topGradient.addColorStop(0, colors.primaryDark);
                 topGradient.addColorStop(0.55, colors.primary);
                 topGradient.addColorStop(1, colors.primaryLight);
                 ctx.fillStyle = topGradient;
-                ctx.fillRect(0, y, POSTER_WIDTH, 86);
+                ctx.fillRect(0, y, POSTER_WIDTH, topbarHeight);
 
-                const [logo, watermarkImage] = await Promise.all([loadLogoForCanvas(), loadWatermarkForCanvas()]);
-                if (logo) {
-                    ctx.drawImage(logo, 24, 18, 50, 50);
-                } else {
-                    fillRoundedRect(ctx, 24, 18, 50, 50, 10, colors.soft);
-                    ctx.fillStyle = colors.paper;
-                    ctx.font = `800 26px ${displayFont}`;
-                    ctx.textAlign = 'center';
+                // 条内内容只在完整高度时画，坐标为 86px 版式下的位置
+                if (showBrandInfo) {
+                    if (logo) {
+                        ctx.drawImage(logo, 24, 18, 50, 50);
+                    } else {
+                        fillRoundedRect(ctx, 24, 18, 50, 50, 10, colors.soft);
+                        ctx.fillStyle = colors.paper;
+                        ctx.font = `800 26px ${displayFont}`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText('C', 49, 44);
+                    }
+                    ctx.textAlign = 'left';
                     ctx.textBaseline = 'middle';
-                    ctx.fillText('C', 49, 44);
+                    ctx.fillStyle = colors.paper;
+                    setLetterSpacing(ctx, '0.8px');
+                    ctx.font = `700 17px ${bodyFont}`;
+                    ctx.fillText('央视上榜企业', 88, 31);
+                    ctx.fillStyle = colors.soft;
+                    setLetterSpacing(ctx, '0.4px');
+                    ctx.font = `400 14px ${bodyFont}`;
+                    ctx.fillText('腾讯教育年度综合实力教育集团', 88, 55);
+                    setLetterSpacing(ctx, '0px');
                 }
-                ctx.textAlign = 'left';
-                ctx.textBaseline = 'middle';
-                ctx.fillStyle = colors.paper;
-                setLetterSpacing(ctx, '0.8px');
-                ctx.font = `700 17px ${bodyFont}`;
-                ctx.fillText('央视上榜企业', 88, 31);
-                ctx.fillStyle = colors.soft;
-                setLetterSpacing(ctx, '0.4px');
-                ctx.font = `400 14px ${bodyFont}`;
-                ctx.fillText('腾讯教育年度综合实力教育集团', 88, 55);
-                setLetterSpacing(ctx, '0px');
-                y += 86;
+                y += topbarHeight;
 
                 // 与预览完全对齐：hero / 标题行 / 信息标签 / 页脚都取页面实测尺寸，
                 // 避免画布里写死的高度和 CSS 走偏。
@@ -1781,33 +1811,35 @@
                 ctx.fillStyle = footerGradient;
                 ctx.fillRect(0, y, POSTER_WIDTH, footerHeight);
 
-                const iconX = 46;
-                const iconY = y + footerHeight / 2;
-                ctx.strokeStyle = colors.paper;
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.arc(iconX, iconY - 3, 8, 0, Math.PI * 2);
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.moveTo(iconX - 5, iconY + 4);
-                ctx.lineTo(iconX - 3, iconY + 13);
-                ctx.lineTo(iconX, iconY + 9);
-                ctx.lineTo(iconX + 3, iconY + 13);
-                ctx.lineTo(iconX + 5, iconY + 4);
-                ctx.stroke();
+                if (showBrandInfo) {
+                    const iconX = 46;
+                    const iconY = y + footerHeight / 2;
+                    ctx.strokeStyle = colors.paper;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(iconX, iconY - 3, 8, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(iconX - 5, iconY + 4);
+                    ctx.lineTo(iconX - 3, iconY + 13);
+                    ctx.lineTo(iconX, iconY + 9);
+                    ctx.lineTo(iconX + 3, iconY + 13);
+                    ctx.lineTo(iconX + 5, iconY + 4);
+                    ctx.stroke();
 
-                ctx.textAlign = 'left';
-                ctx.textBaseline = 'middle';
-                ctx.fillStyle = colors.paper;
-                setLetterSpacing(ctx, '1px');
-                ctx.font = `900 20px ${bodyFont}`;
-                ctx.fillText('央视上榜企业', 66, y + footerHeight / 2 + 1);
-                ctx.textAlign = 'right';
-                ctx.fillStyle = colors.gold;
-                setLetterSpacing(ctx, '3px');
-                ctx.font = `900 26px ${displayFont}`;
-                ctx.fillText('CLASSBRO', POSTER_WIDTH - 24, y + footerHeight / 2 + 1);
-                setLetterSpacing(ctx, '0px');
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = colors.paper;
+                    setLetterSpacing(ctx, '1px');
+                    ctx.font = `900 20px ${bodyFont}`;
+                    ctx.fillText('央视上榜企业', 66, y + footerHeight / 2 + 1);
+                    ctx.textAlign = 'right';
+                    ctx.fillStyle = colors.gold;
+                    setLetterSpacing(ctx, '3px');
+                    ctx.font = `900 26px ${displayFont}`;
+                    ctx.fillText('CLASSBRO', POSTER_WIDTH - 24, y + footerHeight / 2 + 1);
+                    setLetterSpacing(ctx, '0px');
+                }
 
                 return canvas;
             }
