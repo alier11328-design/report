@@ -104,9 +104,10 @@ await wait(500);
 const testImage = path.join(__dirname, '..', 'examples', '163f0615ffd14bd1aa913ae6886d7b42.png');
 const doc = await send('DOM.getDocument', {}, s);
 const fileInput = await send('DOM.querySelector', { nodeId: doc.result.root.nodeId, selector: '#posterImages' }, s);
+// setFileInputFiles 自己会触发 change；再手动 dispatch 会让处理函数跑两次、同一张图被加两遍
 await send('DOM.setFileInputFiles', { nodeId: fileInput.result.nodeId, files: [testImage] }, s);
-await ev(`document.getElementById('posterImages').dispatchEvent(new Event('change', { bubbles: true })); 1`);
-await wait(1600);
+await wait(1800);
+ok('只上传了 1 张图片', (await ev(`document.querySelectorAll('.poster-media').length`)) === 1);
 
 // 2) 桩掉 AI：只关心「文案有没有进剪贴板」和「调了几次」，不真的走网络
 await ev(`(() => {
