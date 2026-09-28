@@ -968,7 +968,8 @@
                     if (materialTitles.length && !materialTitles.includes(next.titleSecondary)) {
                         next.titleSecondary = DEFAULT_STATE.titleSecondary;
                     }
-                    if (!(next.watermark in WATERMARK_MAP)) next.watermark = DEFAULT_STATE.watermark;
+                    // 水印不读存档：每次进入页面都强制默认「万能班长」
+                    next.watermark = DEFAULT_STATE.watermark;
                     Object.entries(LEGACY_DEMO_VALUES).forEach(([key, demo]) => {
                         if (String(next[key] || '').trim() === demo) next[key] = '';
                     });
