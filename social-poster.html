@@ -359,21 +359,64 @@
             padding: 0 4px;
         }
         .caption-close:hover { color: #475569; }
-        .caption-body {
+        .caption-list {
             flex: 1;
             min-height: 120px;
-            margin: 0;
-            padding: 18px 20px;
+            padding: 14px 16px;
             overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .caption-note {
+            padding: 26px 8px;
+            text-align: center;
+            font-size: 14px;
+            line-height: 1.8;
+            color: #94a3b8;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .caption-note[data-tone="error"] { color: #dc2626; }
+        .caption-note[data-tone="loading"] { color: #94a3b8; }
+        .caption-card {
+            border: 1.5px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 12px 14px;
+            background: #f8fafc;
+            cursor: pointer;
+            transition: border-color .15s, box-shadow .15s, background .15s;
+        }
+        .caption-card.selected {
+            border-color: var(--primary-color);
+            background: #fff;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.07);
+        }
+        .caption-card-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        .caption-card-tag {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--primary-color);
+            background: rgba(191, 42, 50, 0.08);
+            border-radius: 999px;
+            padding: 3px 10px;
+        }
+        .caption-card.selected .caption-card-tag { background: var(--primary-color); color: #fff; }
+        .caption-card-text {
+            margin: 0;
             white-space: pre-wrap;
             word-break: break-word;
             font-family: inherit;
-            font-size: 15px;
-            line-height: 1.9;
+            font-size: 14px;
+            line-height: 1.85;
             color: #1e293b;
         }
-        .caption-body[data-tone="error"] { color: #dc2626; font-size: 14px; }
-        .caption-body[data-tone="loading"] { color: #94a3b8; }
         .caption-foot {
             display: flex;
             align-items: center;
@@ -840,12 +883,12 @@
                 <h3 id="captionTitle"><i class="fas fa-wand-magic-sparkles"></i> AI 文案</h3>
                 <button class="caption-close" id="captionClose" type="button" aria-label="关闭">&times;</button>
             </div>
-            <pre class="caption-body" id="captionBody"></pre>
+            <div class="caption-list" id="captionList"></div>
             <div class="caption-foot">
                 <span class="caption-status" id="captionStatus" role="status" aria-live="polite"></span>
                 <div class="caption-actions">
                     <button class="btn" id="captionRegenerate" type="button"><i class="fas fa-rotate"></i> 重新生成</button>
-                    <button class="btn btn-primary" id="captionCopy" type="button"><i class="fas fa-copy"></i> 复制文案</button>
+                    <button class="btn btn-primary" id="captionCopy" type="button"><i class="fas fa-copy"></i> 复制选中文案</button>
                 </div>
             </div>
         </div>
@@ -941,7 +984,7 @@
             const previewMeta = document.getElementById('previewMeta');
             const captionButton = document.getElementById('captionButton');
             const captionModal = document.getElementById('captionModal');
-            const captionBody = document.getElementById('captionBody');
+            const captionList = document.getElementById('captionList');
             const captionStatus = document.getElementById('captionStatus');
             const captionCopy = document.getElementById('captionCopy');
             const captionRegenerate = document.getElementById('captionRegenerate');
@@ -953,6 +996,11 @@
             // 导出 / 复制图片期间临时接管水印方案：只作用于渲染，不改 state，
             // 因此不会写入存档、也不会改动左侧水印按钮的高亮状态。
             let watermarkOverride = null;
+
+            // 文案多风格：一次生成 3 条，顺序与服务端提示词里的风格定义一一对应
+            const CAPTION_STYLE_NAMES = ['品牌经典风', '元气热情风', '干货攻略风'];
+            let captionItems = [];        // [{ style, text }]
+            let selectedCaptionIndex = 0; // 导出后自动复制的是选中那条，默认第一条
 
             function loadState() {
                 try {
@@ -1128,10 +1176,59 @@
                 });
             }
 
-            function setCaptionBody(text, tone) {
-                captionBody.textContent = text || '';
-                if (tone) captionBody.dataset.tone = tone;
-                else delete captionBody.dataset.tone;
+            // 弹窗里的提示信息（加载中 / 出错），占满整个列表区
+            function setCaptionNote(text, tone) {
+                captionList.replaceChildren();
+                const note = document.createElement('div');
+                note.className = 'caption-note';
+                note.textContent = text || '';
+                if (tone) note.dataset.tone = tone;
+                else delete note.dataset.tone;
+                captionList.appendChild(note);
+            }
+
+            function captionStyleName(index) {
+                return CAPTION_STYLE_NAMES[index] || `风格 ${index + 1}`;
+            }
+
+            function renderCaptionList() {
+                if (!captionItems.length) { setCaptionNote(''); return; }
+                captionList.replaceChildren();
+                captionItems.forEach((item, index) => {
+                    const card = document.createElement('article');
+                    card.className = 'caption-card' + (index === selectedCaptionIndex ? ' selected' : '');
+
+                    const head = document.createElement('div');
+                    head.className = 'caption-card-head';
+                    const tag = document.createElement('span');
+                    tag.className = 'caption-card-tag';
+                    tag.textContent = item.style || captionStyleName(index);
+                    const copyButton = document.createElement('button');
+                    copyButton.className = 'btn btn-sm';
+                    copyButton.type = 'button';
+                    copyButton.innerHTML = '<i class="fas fa-copy"></i> 复制';
+                    copyButton.addEventListener('click', () => copyCaptionAt(index));
+                    head.append(tag, copyButton);
+
+                    const text = document.createElement('pre');
+                    text.className = 'caption-card-text';
+                    text.textContent = item.text;
+
+                    // 点卡片空白处即选中（复制按钮自己处理，不触发选中逻辑）
+                    card.addEventListener('click', event => {
+                        if (event.target.closest('button')) return;
+                        selectedCaptionIndex = index;
+                        renderCaptionList();
+                    });
+
+                    card.append(head, text);
+                    captionList.appendChild(card);
+                });
+            }
+
+            function selectedCaptionText() {
+                const item = captionItems[selectedCaptionIndex] || captionItems[0];
+                return item ? item.text : '';
             }
 
             function setCaptionStatus(message, tone) {
@@ -1192,15 +1289,15 @@
             async function generateCaption() {
                 if (!window.aiClient || typeof window.aiClient.request !== 'function') {
                     openCaptionModal();
-                    setCaptionBody('文案服务不可用：请通过本地服务地址（例如 http://localhost:3000/social-poster.html）打开本页后再试。', 'error');
+                    setCaptionNote('文案服务不可用：请通过本地服务地址（例如 http://localhost:3000/social-poster.html）打开本页后再试。', 'error');
                     setCaptionStatus('');
-                    return;
+                    return null;
                 }
 
                 const input = currentCaptionInput();
                 openCaptionModal();
                 const contextParts = [input.productType, input.materialType, input.teacher, input.courseName].filter(Boolean);
-                setCaptionBody(`正在依据「${contextParts.join(' · ')}」生成文案…`, 'loading');
+                setCaptionNote(`正在依据「${contextParts.join(' · ')}」生成 3 条不同风格的文案…`, 'loading');
                 setCaptionStatus('生成中…');
 
                 const originalLabel = captionButton.innerHTML;
@@ -1210,21 +1307,25 @@
                 try {
                     const images = await collectCaptionImages();
                     if (images.length) {
-                        setCaptionBody(`正在识别图片里的分数，并生成文案…`, 'loading');
+                        setCaptionNote(`正在识别图片里的分数，并生成 3 条不同风格的文案…`, 'loading');
                     } else if ((state.titleSecondary || '') === HIGH_SCORE_MATERIAL) {
                         setCaptionStatus('未检测到可识别的图片，本次按泛化文案生成。');
                     }
                     const payload = images.length ? { ...input, images } : input;
                     const data = await window.aiClient.request('/api/ai/poster-caption', payload);
-                    const caption = String(data?.caption || '').trim();
-                    if (!caption) throw new Error('AI 未返回文案，请重试');
-                    setCaptionBody(caption);
+                    const captions = (Array.isArray(data?.captions) ? data.captions : [])
+                        .map(item => String(item || '').trim())
+                        .filter(Boolean);
+                    if (!captions.length) throw new Error('AI 未返回文案，请重试');
+                    captionItems = captions.slice(0, 3).map((text, index) => ({ text, style: captionStyleName(index) }));
+                    selectedCaptionIndex = 0;
+                    renderCaptionList();
                     setCaptionStatus(images.length
-                        ? '已读取图片中的分数，并生成本条文案，可复制后自由修改。'
-                        : '已按「海报类型 + 素材类型 + 辅导老师 + 课程名称」生成，可复制后自由修改。', 'success');
-                    return caption;
+                        ? '已读取图片中的分数；点卡片可选中，点「复制」可复制对应那条。'
+                        : '3 条风格各不相同；点卡片可选中，点「复制」可复制对应那条。', 'success');
+                    return selectedCaptionText();
                 } catch (error) {
-                    setCaptionBody(`生成失败：${error.message || '请稍后重试'}`, 'error');
+                    setCaptionNote(`生成失败：${error.message || '请稍后重试'}`, 'error');
                     setCaptionStatus('请确认服务端已配置 DASHSCOPE_API_KEY。', 'error');
                     return null;
                 } finally {
@@ -1265,11 +1366,23 @@
                 return legacyCopyText(text);
             }
 
-            async function copyCaption() {
-                const text = captionBody.textContent || '';
+            // 复制指定那条文案，同时把它设为选中（导出后自动复制的就是选中那条）
+            async function copyCaptionAt(index) {
+                const text = String(captionItems[index]?.text || '').trim();
                 if (!text) return;
-                if (await writeTextToClipboard(text)) setCaptionStatus('已复制到剪贴板 ✅', 'success');
-                else setCaptionStatus('复制失败，请手动选中文本复制。', 'error');
+                selectedCaptionIndex = index;
+                renderCaptionList();
+                if (await writeTextToClipboard(text)) {
+                    setCaptionStatus(`已复制「${captionStyleName(index)}」到剪贴板 ✅`, 'success');
+                } else {
+                    setCaptionStatus('复制失败，请手动选中文本复制。', 'error');
+                }
+            }
+
+            // 底部「复制选中文案」：复制当前选中的那条
+            async function copyCaption() {
+                if (!captionItems.length) return;
+                await copyCaptionAt(selectedCaptionIndex);
             }
 
             function updateWatermarkUI() {
@@ -2056,11 +2169,11 @@
                 await attachCaptionToExport();
             }
 
-            // 导出后附带复制文案：文案区已有内容（可能被手动改过）就直接复用，不重新生成
+            // 导出后附带复制文案：文案弹窗里已有结果就直接复用选中那条，不重新生成
             async function attachCaptionToExport() {
-                let text = (captionBody.textContent || '').trim();
+                let text = selectedCaptionText().trim();
                 if (!text) {
-                    setStatus('两张海报已导出，正在生成文案…');
+                    setStatus('两张海报已导出，正在生成 3 条文案…');
                     const generated = await generateCaption();
                     if (!generated) {
                         setStatus('两张海报已导出；文案生成失败，可点「生成文案」重试。', 'error');
@@ -2070,11 +2183,11 @@
                 }
 
                 if (await writeTextToClipboard(text)) {
-                    setCaptionStatus('已随海报一起复制到剪贴板，可直接粘贴发布 ✅', 'success');
+                    setCaptionStatus(`已随海报复制「${captionStyleName(selectedCaptionIndex)}」到剪贴板，可直接粘贴发布 ✅`, 'success');
                     setStatus('已导出 2 张海报，文案已复制到剪贴板。', 'success');
                 } else {
                     openCaptionModal();
-                    setCaptionStatus('自动复制失败，请点下方「复制文案」。', 'error');
+                    setCaptionStatus('自动复制失败，请在弹窗里点「复制」。', 'error');
                     setStatus('两张海报已导出；文案复制失败，请手动复制。', 'error');
                 }
             }
