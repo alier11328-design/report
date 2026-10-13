@@ -1,6 +1,6 @@
 // Cloudflare Pages Functions - 课程规划
-const BASE_URL = 'https://ark.cn-beijing.volces.com/api/plan/v3';
-const MODEL = 'doubao-seed-2-0-lite';
+const BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+const MODEL = 'qwen3-vl-plus';
 
 const JSON_ONLY_SYSTEM_PROMPT = [
     '你是一个用于教辅报告生成的后端 AI 助手。',

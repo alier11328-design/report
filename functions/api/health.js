@@ -1,5 +1,5 @@
 // Cloudflare Pages Functions - 健康检查
-const MODEL = 'doubao-seed-2-0-lite';
+const MODEL = 'qwen3-vl-plus';
 
 function createResponse(data, status = 200) {
     return new Response(JSON.stringify(data), {

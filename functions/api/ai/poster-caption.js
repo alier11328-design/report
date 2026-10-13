@@ -1,6 +1,6 @@
 // Cloudflare Pages Functions - 朋友圈海报 AI 文案生成
 const BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
-const MODEL = 'qwen3-vl-flash';
+const MODEL = 'qwen3-vl-plus';
 
 const JSON_ONLY_SYSTEM_PROMPT = [
     '你是一个用于教辅报告生成的后端 AI 助手。',
