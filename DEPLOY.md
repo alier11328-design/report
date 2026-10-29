@@ -52,9 +52,13 @@
 |---|---|---|
 | `DASHSCOPE_API_KEY` | Secret | 火山方舟 API Key |
 | `DASHSCOPE_BASE_URL` | Plain | `https://ark.cn-beijing.volces.com/api/plan/v3` |
-| `DASHSCOPE_MODEL` | Plain | `doubao-seed-2-0-lite` |
+| `DASHSCOPE_MODEL` | Plain | `doubao-seed-2.1-lite`（2026-10-29 起；`doubao-seed-2-0-lite` 已被火山从 Agent Plan 下架） |
 
 ⚠️ **改完环境变量必须重新部署一次才生效**（Pages 不会热更）。
+
+> **模型名会被下架，不是 key 过期**：报 `404 UnsupportedModel / "The requested model does not support the agent plan feature"`
+> 说明当前模型已不在套餐可用列表里，换模型名即可。可用模型清单见 `memory/2026-10-29.md`。
+> 只想让环境变量生效时，可用 `POST /pages/projects/{proj}/deployments/{id}/retry` 重跑最近一次部署，不必改代码。
 
 ---
 
@@ -85,7 +89,7 @@ Cloudflare 控制台 → `classbroreport` → Deployments，看最新一条是�
 
 ```bash
 curl https://classbroreport.pages.dev/api/health
-# 期望：{"ok":true,"model":"doubao-seed-2-0-lite","configured":true}
+# 期望：{"ok":true,"model":"doubao-seed-2.1-lite","configured":true}
 ```
 
 ### 3. 线上页面自检
@@ -123,7 +127,7 @@ npm start          # 或 npm run dev（--watch 热重载）
 ```env
 DASHSCOPE_API_KEY=你的火山方舟API密钥
 DASHSCOPE_BASE_URL=https://ark.cn-beijing.volces.com/api/plan/v3
-DASHSCOPE_MODEL=doubao-seed-2-0-lite
+DASHSCOPE_MODEL=doubao-seed-2.1-lite
 PORT=3000
 ```
 

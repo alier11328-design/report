@@ -6,7 +6,7 @@ dotenv.config();
 
 const apiKey = process.env.DASHSCOPE_API_KEY;
 const baseURL = process.env.DASHSCOPE_BASE_URL || "https://ark.cn-beijing.volces.com/api/plan/v3";
-const model = process.env.DASHSCOPE_MODEL || "doubao-seed-2-0-lite";
+const model = process.env.DASHSCOPE_MODEL || "doubao-seed-2.1-lite";
 const imagePath = "./examples/ai-sample-screenshots/period-feedback-schedule.png";
 
 let imageBase64 = "";
