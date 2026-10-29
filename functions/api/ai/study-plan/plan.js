@@ -2,6 +2,12 @@
 const BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
 const MODEL = 'qwen3-vl-plus';
 
+// 火山方舟 doubao-seed 2.x 默认开启深度思考，长任务会超过 Cloudflare 边缘 100s 超时（返回 524），这里显式关闭。
+// 注意：百炼 qwen 用的是 enable_thinking（布尔），与火山的 thinking:{type:'disabled'} 不是一回事，别混用。
+function arkThinking(baseUrl) {
+    return /volces\.com/i.test(String(baseUrl)) ? { thinking: { type: 'disabled' } } : {};
+}
+
 const JSON_ONLY_SYSTEM_PROMPT = [
     '你是一个用于教辅报告生成的后端 AI 助手。',
     '你的任务是根据输入材料输出严格合法的 JSON。',
@@ -121,6 +127,7 @@ async function callAI({ prompt, images = [], textBlocks = [] }, env) {
             'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
+            ...arkThinking(baseUrl),
             model, temperature: 0.2, max_tokens: 8192,
             messages: [
                 { role: 'system', content: JSON_ONLY_SYSTEM_PROMPT },

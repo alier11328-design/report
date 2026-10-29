@@ -64,27 +64,27 @@ async function callAI({ prompt, images = [], withThinking = true }, env) {
         }
     });
 
+    // 百炼 qwen 用 enable_thinking 关思考；火山方舟用 thinking:{type:'disabled'}，两者不能混发
+    const isArk = /volces\.com/i.test(String(baseUrl));
+    const thinkingParams = isArk
+        ? { thinking: { type: 'disabled' } }
+        : (withThinking ? { enable_thinking: false } : {});
+
     let response = await fetch(`${baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`
         },
-        body: JSON.stringify(withThinking
-            ? { model, temperature: 0.8, enable_thinking: false,
-                messages: [
-                    { role: 'system', content: JSON_ONLY_SYSTEM_PROMPT },
-                    { role: 'user', content }
-                ] }
-            : { model, temperature: 0.8,
-                messages: [
-                    { role: 'system', content: JSON_ONLY_SYSTEM_PROMPT },
-                    { role: 'user', content }
-                ] })
+        body: JSON.stringify({ model, temperature: 0.8, ...thinkingParams,
+            messages: [
+                { role: 'system', content: JSON_ONLY_SYSTEM_PROMPT },
+                { role: 'user', content }
+            ] })
     });
 
-    // 部分模型不支持 enable_thinking 参数，失败时自动退回普通调用
-    if (!response.ok && withThinking) {
+    // 部分模型不支持思考开关参数，失败时自动退回普通调用
+    if (!response.ok && Object.keys(thinkingParams).length) {
         response = await fetch(`${baseUrl}/chat/completions`, {
             method: 'POST',
             headers: {
