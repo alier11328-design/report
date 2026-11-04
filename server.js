@@ -15,7 +15,7 @@ const __dirname = path.dirname(__filename);
 
 const HOST = process.env.HOST || '0.0.0.0';
 const PORT = Number(process.env.PORT || 3000);
-const MODEL = process.env.DASHSCOPE_MODEL || 'doubao-seed-2-0-lite';
+const MODEL = process.env.DASHSCOPE_MODEL || 'doubao-seed-2.1-lite';
 const BASE_URL = process.env.DASHSCOPE_BASE_URL || 'https://ark.cn-beijing.volces.com/api/plan/v3';
 
 const app = express();
@@ -117,6 +117,40 @@ function normalizeString(value) {
     return typeof value === 'string' ? stripInvisibleChars(value).trim() : '';
 }
 
+// 海报文案无图硬校验：识别文案里是否出现具体分数/等级字样。
+// 只用于「本次没有附带识图图片」的场景——有图时分数来自真实识图，不做拦截。
+function hasFabricatedGrade(text) {
+    // 字母等级：Distinction/HD 全词匹配；单字母等级（A/A-等）要求紧跟在中文字后面（避免误伤 Plan B 这类英文搭配）
+    const gradePattern = /(?:High\s*Distinction|Distinction|(?:^|[^\p{L}\p{N}])HD(?:$|[^\p{L}\p{N}])|[\u4e00-\u9fff]\s*[ABCDF][+\-]?)/iu;
+    // 数字分数：78分 / 78 分 / 78/100（「30分钟」不误伤）
+    const scorePattern = /\d{2,3}\s*(?:分(?!钟)|\/\s*100)/u;
+    return gradePattern.test(text) || scorePattern.test(text);
+}
+
+// 性别指向称呼归一化：提示词拦不住模型偶发的「姐妹们」，直接替换成中性称呼。
+// 先替换长词再替换短词，避免「姐妹们」被拆成「朋友们」。
+function normalizeGenderedAddress(text) {
+    return text
+        .replace(/姐妹们|兄弟们|集美们|帅哥美女/g, '大家')
+        .replace(/小姐姐|小哥哥/g, '同学')
+        .replace(/姐妹|兄弟/g, '朋友')
+        .replace(/宝妈|宝爸/g, '家长');
+}
+
+// 老师名去重：完整「名字 + 老师」在一条文案里只保留第一次出现，其余替换成「老师」，
+// 避免同一条里老师名出现两三遍显得像模板。
+function dedupeTeacherMentions(text, teacher) {
+    const base = String(teacher || '').replace(/老师\s*$/, '').trim();
+    if (!base) return text;
+    const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*');
+    const pattern = new RegExp(escaped + '\\s*老师', 'g');
+    let seen = false;
+    return text.replace(pattern, match => {
+        if (!seen) { seen = true; return match; }
+        return '老师';
+    });
+}
+
 function normalizeStringArray(items) {
     return Array.isArray(items)
         ? items.map(normalizeString).filter(Boolean)
@@ -147,6 +181,18 @@ function normalizeWeekPlans(items) {
         .filter(item => item.week || item.focus || item.activities || item.assessment);
 }
 
+function scheduleSortKey(value) {
+    const s = normalizeString(value);
+    // 匹配 "26-09-27 17:56" / "2026-09-27 17:56" / "2026/9/27 17:56" 等；两位年份按 20YY 处理
+    const m = s.match(/(\d{2,4})[-/年.](\d{1,2})[-/月.](\d{1,2})[日]?\s+(\d{1,2}):(\d{2})/);
+    if (!m) return { hasDate: false, key: s };
+    const year = m[1].length === 2 ? 2000 + Number(m[1]) : Number(m[1]);
+    return {
+        hasDate: true,
+        key: year * 1e8 + Number(m[2]) * 1e6 + Number(m[3]) * 1e4 + Number(m[4]) * 100 + Number(m[5])
+    };
+}
+
 function normalizeScheduleRows(items) {
     if (!Array.isArray(items)) return [];
     return items
@@ -156,7 +202,14 @@ function normalizeScheduleRows(items) {
             endTime: normalizeString(item?.endTime),
             duration: normalizeString(item?.duration)
         }))
-        .filter(item => item.courseName || item.startTime || item.endTime || item.duration);
+        .filter(item => item.courseName || item.startTime || item.endTime || item.duration)
+        // 强制按开始时间从早到晚排序（不能依赖模型自觉）
+        .sort((a, b) => {
+            const ka = scheduleSortKey(a.startTime);
+            const kb = scheduleSortKey(b.startTime);
+            if (ka.hasDate && kb.hasDate) return ka.key - kb.key;
+            return normalizeString(a.startTime).localeCompare(normalizeString(b.startTime));
+        });
 }
 
 function formatTextBlocks(textBlocks = []) {
@@ -272,7 +325,10 @@ function normalizeStudyPlanPlan(data = {}) {
     };
 }
 
-async function askQwenForJson({ prompt, images = [], textBlocks = [], temperature = 0.2, disableThinking = false }) {
+// disableThinking 默认 true：与线上 functions 的无条件 arkThinking(baseUrl) 保持一致。
+// 火山 doubao-seed 2.x 默认开深度思考，单个请求要 60~95s，会撞 Cloudflare 边缘 100s 超时（524）；
+// 关掉后实测 5~20s，输出质量相当。需要思考的个别场景再显式传 false。
+async function askQwenForJson({ prompt, images = [], textBlocks = [], temperature = 0.2, disableThinking = true }) {
     ensureClient();
 
     const textParts = [prompt];
@@ -302,16 +358,24 @@ async function askQwenForJson({ prompt, images = [], textBlocks = [], temperatur
             { role: 'user', content }
         ]
     };
-    if (disableThinking) requestParams.thinking = { type: 'disabled' };
+    // 思考开关按供应商分支：
+    // - 火山方舟 doubao-seed 2.x 用 thinking:{type:'disabled'}，默认开思考会让长任务超过 Cloudflare 边缘 100s 超时（524）
+    // - 百炼 qwen3 系列用 enable_thinking:false（布尔），非流式请求不关会因「思考模式仅支持流式」直接报错
+    const isVolces = /volces\.com/i.test(String(BASE_URL));
+    if (disableThinking) {
+        if (isVolces) requestParams.thinking = { type: 'disabled' };
+        else requestParams.enable_thinking = false;
+    }
 
-    // 若所选模型不支持 thinking 参数，自动退回普通调用
+    // 若所选模型不支持思考开关参数，自动退回普通调用
     const createCompletion = async params => {
         try {
             return await openai.chat.completions.create(params);
         } catch (error) {
-            if (!params.thinking) throw error;
+            if (params.thinking === undefined && params.enable_thinking === undefined) throw error;
             const fallback = { ...params };
             delete fallback.thinking;
+            delete fallback.enable_thinking;
             return await openai.chat.completions.create(fallback);
         }
     };
@@ -763,6 +827,186 @@ ${pdfExtraText ? `以下是 PDF 文档提取的文本内容（请以其为主要
     }
 });
 
+// 结课报告（多门）字段规整
+function normalizeMultiCourseOutcomeArray(items) {
+    if (!Array.isArray(items)) return [];
+    return items
+        .map(item => ({
+            subtitle: normalizeString(item?.subtitle),
+            content: normalizeString(item?.content)
+        }))
+        .filter(item => item.subtitle || item.content);
+}
+
+function normalizeFinalReportMulti(data = {}) {
+    return {
+        studentName: normalizeString(data.studentName),
+        university: normalizeString(data.university),
+        periodStart: normalizeString(data.periodStart),
+        periodEnd: normalizeString(data.periodEnd),
+        attendanceRate: normalizeString(data.attendanceRate),
+        attendanceDesc: normalizeString(data.attendanceDesc),
+        taskCompletionRate: normalizeString(data.taskCompletionRate),
+        taskCompletionDesc: normalizeString(data.taskCompletionDesc),
+        interactionRate: normalizeString(data.interactionRate),
+        interactionDesc: normalizeString(data.interactionDesc),
+        reportOverview: normalizeString(data.reportOverview),
+        courses: Array.isArray(data.courses)
+            ? data.courses.map(c => ({
+                courseName: normalizeString(c?.courseName),
+                hours: normalizeString(c?.hours),
+                orderNumber: normalizeString(c?.orderNumber),
+                learningGoal: normalizeString(c?.learningGoal),
+                outcomes: normalizeMultiCourseOutcomeArray(c?.outcomes),
+                totalScore: normalizeString(c?.totalScore),
+                teacherMessage: normalizeString(c?.teacherMessage)
+            })).filter(c => c.courseName || c.orderNumber || c.learningGoal || c.outcomes.length || c.totalScore || c.teacherMessage)
+            : [],
+        suggestionsIntro: normalizeString(data.suggestionsIntro),
+        suggestions: normalizeMultiCourseOutcomeArray(data.suggestions),
+        assistantMessage: normalizeString(data.assistantMessage)
+    };
+}
+
+app.post('/api/ai/final-report-multi', async (req, res, next) => {
+    try {
+        const images = Array.isArray(req.body?.images) ? req.body.images : [];
+        const textBlocks = Array.isArray(req.body?.textBlocks) ? req.body.textBlocks : [];
+        if (!images.length && !textBlocks.length) {
+            return res.status(400).json({ error: '请至少上传一张截图或 PDF 文档' });
+        }
+
+        const context = req.body?.context || {};
+        const courseCount = Number(context.courseCount) > 0 ? Number(context.courseCount) : 1;
+
+        const prompt = `
+请根据以下材料为「结课报告（多门）」表单生成可直接回填的内容。该报告覆盖学生一个辅导周期内的多门课程。
+
+当前表单上下文（已有信息，缺失的请补充）：
+${JSON.stringify(context, null, 2)}
+
+请输出 JSON，结构如下：
+{
+  "studentName": "学生姓名，若材料可识别则填，否则留空字符串",
+  "university": "在读院校，若材料可识别则填，否则留空字符串",
+  "periodStart": "辅导周期开始，如 2024.09，若可识别则填，否则留空字符串",
+  "periodEnd": "辅导周期结束，如 2025.01，若可识别则填，否则留空字符串",
+  "attendanceRate": "出勤率，如 100%，若可识别则填，否则留空字符串",
+  "attendanceDesc": "出勤说明（一句话）",
+  "taskCompletionRate": "任务完成率，若可识别则填，否则留空字符串",
+  "taskCompletionDesc": "任务完成说明（一句话）",
+  "interactionRate": "课堂互动率，若可识别则填，否则留空字符串",
+  "interactionDesc": "课堂互动说明（一句话）",
+  "reportOverview": "报告概述，总结学生在包课护航计划中的整体学习表现与服务成果，遵循学术诚信原则",
+  "courses": [
+    {
+      "courseName": "课程名称",
+      "hours": "该课程课时数，如 24，若不可识别留空",
+      "orderNumber": "订单编号，若不可识别留空",
+      "learningGoal": "学习目标回顾（一段完整描述）",
+      "outcomes": [ { "subtitle": "成果小标题，如：数学基础与分析", "content": "该成果的具体内容描述" } ],
+      "totalScore": "总成绩，如 60 / 100，若不可识别留空",
+      "teacherMessage": "讲师寄语，以讲师口吻写至少两段，用 \\n 分隔段落，每段至少40字"
+    }
+  ],
+  "suggestionsIntro": "下学期学习建议的整体概述（一段话）",
+  "suggestions": [ { "subtitle": "建议小标题", "content": "具体建议内容" } ],
+  "assistantMessage": "教辅寄语，以教辅老师口吻写多段，用 \\n 分隔段落，语气亲切可带 emoji"
+}
+
+要求：
+1. courses 数组的课程数量以材料中实际能识别到的课程为准；材料未指明时输出 ${courseCount} 门课程的内容。
+2. 每门课程的 learningGoal、outcomes（至少 3 条）、teacherMessage 必须有实质内容，不能留空。
+3. 成绩、课时、订单编号等客观数据若材料中没有，留空字符串，不要编造。
+4. 输出适合正式中文报告的语气，不要输出结构外字段。
+5. ${textBlocks.length ? '优先根据 PDF/文本附件内容分析，截图和附件信息冲突时以附件为准。' : '根据截图内容分析生成。'}
+`;
+
+        const result = await askQwenForJson({ prompt, images, textBlocks });
+        res.json({ data: normalizeFinalReportMulti(result) });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// 结课报告（多门）· 单门课程识别：只输出学习目标回顾 / 学习成果概述 / 讲师寄语
+app.post('/api/ai/final-report-multi/course', async (req, res, next) => {
+    try {
+        const images = Array.isArray(req.body?.images) ? req.body.images : [];
+        const textBlocks = Array.isArray(req.body?.textBlocks) ? req.body.textBlocks : [];
+        if (!images.length && !textBlocks.length) {
+            return res.status(400).json({ error: '请至少上传一张截图或 PDF 文档' });
+        }
+
+        const context = req.body?.context || {};
+        const prompt = `
+请根据以下材料，为「结课报告」中这一门课程生成报告内容。
+
+课程上下文（可能部分为空，可从材料中识别补充）：
+${JSON.stringify(context, null, 2)}
+
+请输出 JSON：
+{
+  "learningGoal": "学习目标回顾：一段完整描述（至少80字），概括这门课的学习目标与核心内容",
+  "outcomes": [ { "subtitle": "成果小标题（6-10字）", "content": "该成果的具体内容描述" } ],
+  "teacherMessage": "讲师寄语：以讲师口吻写至少两段，用 \\n 分隔段落，每段至少40字"
+}
+
+要求：
+1. outcomes 至少 3 条，subtitle 简洁、content 具体详实。
+2. 材料中没有的客观数据不要编造；寄语与学习目标要贴合课程内容。
+3. 输出适合正式中文报告的语气，不要输出结构外字段。
+4. ${textBlocks.length ? '优先根据 PDF/文本附件内容分析，截图和附件信息冲突时以附件为准。' : '根据截图内容分析生成。'}
+`;
+
+        const result = await askQwenForJson({ prompt, images, textBlocks });
+        res.json({
+            data: {
+                learningGoal: normalizeString(result.learningGoal),
+                outcomes: normalizeMultiCourseOutcomeArray(result.outcomes),
+                teacherMessage: normalizeString(result.teacherMessage)
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// 结课报告（多门）· 教辅寄语生成（纯文本，无需上传材料）
+app.post('/api/ai/final-report-multi/assistant', async (req, res, next) => {
+    try {
+        const context = req.body?.context || {};
+        const previousMessage = normalizeString(context.previousMessage);
+
+        const prompt = `
+请为「结课报告」生成一段教辅寄语（以教辅老师/学管师口吻写给学生的学期总结寄语）。
+
+上下文信息：
+${JSON.stringify({
+    studentName: context.studentName || '',
+    university: context.university || '',
+    attendanceRate: context.attendanceRate || '',
+    taskCompletionRate: context.taskCompletionRate || '',
+    interactionRate: context.interactionRate || '',
+    courses: Array.isArray(context.courses) ? context.courses : []
+}, null, 2)}
+
+要求：
+1. 寄语写多段，用 \\n 分隔段落，总长度 150-300 字。
+2. 风格：${normalizeString(context.style) || '亲切自然，鼓励为主'}。
+3. ${previousMessage ? '用户对上一版不满意，请确保与之前的版本在语气、开头、用词上明显不同。之前版本：\n' + previousMessage.slice(0, 500) : '语气亲切，可适当使用 emoji。'}
+4. 结合学生的学习表现与课程情况，给予肯定与下学期展望。
+5. 上下文中为空的字段直接略过，不要在寄语里出现 [studentName]、[courses] 之类的占位符或方括号。
+6. 请输出 JSON：{ "assistantMessage": "寄语内容" }，不要输出结构外字段。
+`;
+
+        const result = await askQwenForJson({ prompt });
+        res.json({ data: { assistantMessage: normalizeString(result.assistantMessage) } });
+    } catch (error) {
+        next(error);
+    }
+});
+
 app.post('/api/ai/period-feedback/schedule', async (req, res, next) => {
     try {
         const images = Array.isArray(req.body?.images) ? req.body.images : [];
@@ -788,9 +1032,10 @@ app.post('/api/ai/period-feedback/schedule', async (req, res, next) => {
 ${JSON.stringify(req.body?.context || {}, null, 2)}
 
 要求：
-1. 尽量保留原始课程名、开始时间、结束时间、时长。
-2. 无法识别的字段留空字符串。
-3. 不要补造不存在的排课记录。`;
+1. 课程名、开始时间、结束时间、时长均按截图/文档原样提取，不要改写。开始时间和结束时间必须包含日期（如 "26-09-27 17:56" 或 "2026-09-27 17:56"），不要只保留时刻。
+2. rows 必须按「开始时间」的日期+时间从早到晚升序排列：先比日期、再比时刻，不要只按时刻排序。
+3. 时长优先取表格中的「实际时长」列；只有当表中不存在实际时长列时才取「预计时长」。原样保留时长字符串（如 "0hr43.10min"）。
+4. 截图里有多少条记录就输出多少条，不要合并、不要省略、不要补造不存在的排课记录；无法识别的字段留空字符串。`;
 
         const result = await askQwenForJson({ prompt, images, textBlocks });
         res.json({ data: { rows: normalizeScheduleRows(result.rows) } });
@@ -808,7 +1053,7 @@ app.post('/api/ai/period-feedback/feedback', async (req, res, next) => {
         }
 
         const prompt = `
-请根据这些课堂反馈/聊天截图或PDF文件，整理成阶段性反馈报告中的四段文字。
+请根据这些课堂反馈/聊天记录截图或PDF文件，为阶段性反馈报告撰写四段文字。
 
 当前表单上下文：
 ${JSON.stringify(req.body?.context || {}, null, 2)}
@@ -821,10 +1066,22 @@ ${JSON.stringify(req.body?.context || {}, null, 2)}
   "suggestion": ""
 }
 
-要求：
-1. 使用正式、自然、可直接给家长/学生查看的中文。
-2. 每个字段 1-3 句话为宜。
-3. 不要编造截图中没有体现的具体成绩或时长。`;
+各字段定位与写法：
+- performance（平时课堂表现）：先一句概括整个阶段的互动状态（答疑接话、跟推导、专注度等），再用 1-2 个具体课堂场景佐证——把课次/周次自然揉进句子里（如「第四周讲两种存货系统时」「两次复习课上」），像老师写评语，不要写成「第X课：…」的清单。
+- progress（当前辅导进度）：一段连贯的推进概述，**严禁写成「第X周（主题）→第X周（主题）」的逐周链条**。正确结构依次是：①一句总体跨度与完成状态（如「本阶段按 XX 课程的顺序推进，八次课从第1周 Lecture1 讲到了第7周 Lecture7A，各章核心内容已全部讲解完成」）；②一句平铺列举覆盖的知识点名称——「覆盖知识点包括 A、B、C、D」，只列名称本身，不加括号注释、不标周次；③一句交代特殊课型（如「其中两次是考前复习课，做了第1讲到第6讲的串讲」）；④一句说明考试安排是否确认。全段只允许出现「从第X讲到第X」这一个跨度锚点。
+- mastery（课程掌握情况）：分「掌握扎实的部分」和「薄弱环节」两半连贯叙述，以能力表现为主线，不要按课次推进。扎实部分列举具体知识点并说明凭什么判断（「当堂就能接住」「能一步步推下去」「能独立写出」）；薄弱环节集中写具体卡点和表现（会判断错/书写不熟练/记忆模糊/尚未开始刷题）。周次/课次锚点全文最多 1-2 个且必须揉在句中（如「第三周的调整分录、第四周的 Inventory error 影响推导，当堂就能接住」），禁止「第X课后能…」「第X课后虽…」这种逐条挂课次的句式。
+- suggestion（后续学习建议）：按优先级写成一串具体动作流（不用序号，用「先…，再…；…；最后…」衔接）：每个动作锚定材料里出现的具体名称（练习名、案例名、题库来源、章节），写明动作类型（补齐/重做/刷/背下来/重新走一遍/预习），需要记忆的明确说「要背」，最后可带一条考试相关提醒（如留意考试通知、尽早刷往年题）。
+
+风格要求：
+A. 每个字段都是连贯的书面散文段落，信息密度要高，每段约 100-180 字；全文禁止使用「→」箭头符号和「周次（主题注释）」式的括号配对；除 suggestion 可用「先/再/最后」衔接外，一律不用序号、不用分点符号、不用链式列举。
+B. 专有名词、课程名、章节名、案例名保留原文（英文照写），这正是专业感的来源。
+C. 语气是任课老师在写给家长/学生的阶段评语：肯定要具体（好在哪、凭什么），批评也要具体（卡在哪、什么表现），不用「表现良好」「继续努力」这类空话。
+
+硬性约束：
+一、严禁脑补：所有数字、用时、正确率、日期、专有名词、事例必须能在截图/文档中找到原文依据，材料没提的绝对不写（材料没说正确率就不能写正确率，没提格式规范就不能提）。可以重组语言、补充解释，但不得新增事实。
+二、直接陈述事实与观点，正文中不要出现「截图」「材料」「隐含时间线」这类元叙述措辞。
+三、以材料实际信息量为准：材料内容少时每段写 1-3 句即可，宁短勿编。
+四、使用正式、自然、可直接给家长/学生查看的中文。`;
 
         const result = await askQwenForJson({ prompt, images, textBlocks });
         res.json({
@@ -1039,75 +1296,99 @@ app.post('/api/ai/poster-caption', async (req, res, next) => {
 产品类型：${productType}
 素材类型：${materialType}
 辅导老师：${teacher || '（未填写）'}
-课程名称：${courseName || '（未填写）'}
 
-请输出 JSON：{ "caption": "" }
+请输出 JSON：{ "captions": ["", "", ""] }
 
-【文案结构】
-1. 标题行必须严格等于：1 个贴合语义的 emoji + 「${productType}」+「${materialType}」，顺序固定，不得写成其它产品类型或素材类型的字样（例如本次产品类型=毕业论文、素材类型=课后答疑 时，标题写成「💬毕业论文课后答疑」）。标题内不要空格、不要加 # 号。
-2. 第二行起写 4-5 行短句，每行 12-20 字。整个 caption 是一个多行字符串，行与行之间用换行符分隔。
+【文案结构（标题行规则只约束第 1、3 条「品牌经典风」）】
+1. 第 1、3 条的第一行（标题行）必须严格等于：1 个贴合语义的 emoji + 「${productType}」+「${materialType}」，顺序固定，不得写成其它产品类型或素材类型的字样（例如本次产品类型=毕业论文、素材类型=课后答疑 时，标题写成「💬毕业论文课后答疑」）。标题内不要空格、不要加 # 号。第 2 条的第一行自由发挥，完全不受标题行规则约束。
+2. 品牌经典风（第 1、3 条）标题行之后写 4 行短句（整条共 5 行，与下方示例一致），每行 8-20 字。整个 caption 是一个多行字符串，行与行之间用换行符分隔。
 
 【图片识图】
 - 本条消息可能附带用户上传的课堂图片；如果附带了图片，请先读图，把图中“真实可见”的分数、等级（例如 78/100、Distinction、A）写进文案。
 - 分数和等级只能来自图片；图片里没有分数就不要写具体分数，严禁编造。
-- 没有附带图片时一律不要出现任何具体分数。
+- 没有附带图片时，正文里严禁出现任何具体分数或等级字样（78、89、A、A-、Distinction、HD 等都不行），无论写成已发生、承诺还是目标（「拿下」「锁死」「稳拿」「冲个 A」都算违规）；只能用「上岸」「高分」「拿捏」这类不落到具体分数等级的说法。
 
 【必须融入的信息】
-- 已填写辅导老师：文案中至少出现一次该老师，统一写成「名字 + 老师」，英文名与「老师」之间保留一个空格（例如给到「Tilley」就写「Tilley 老师」，给到「Sofia」就写「Sofia 老师」；若给到的名字本身已含「老师」则直接照用）。
-- 已填写课程名称：文案中必须自然带上这门课；英文原名保留英文，不要翻译。
-- 这两项都是用户提供的事实，可以放心写；没有填写的字段一律不要编造。
+- 已填写辅导老师：整条文案里完整的「名字 + 老师」只出现 1 次（只占一行），同一行或后面再提到时一律只用「老师」两个字泛指，严禁把完整老师名写两遍。老师名字必须与提供的一字不差，不得漏字母、改拼或缩写（给到「Russell Feng 冯」就只能写「Russell Feng 冯老师」）。英文名直接连着「老师」写，不加空格（与下方示例一致，例如给到「Tilley」就写「Tilley老师」；若给到的名字本身已含「老师」则直接照用）。这是用户提供的事实，可以放心写；没有填写就一律不要编造。
+- 严禁在文案里出现课程名称、课程代码（哪怕图片里能看到），一律用「这门课」「课程」泛指。
 
-【风格参考：以下 6 条是品牌真实发布过的文案，必须严格参照它们的语气、节奏、分行方式和用词习惯】
+【一次生成 3 条文案：两条品牌经典风 + 一条元气热情风】
+captions 数组必须按顺序给出 3 条，风格定义如下：
+1. 第 1 条「品牌经典风」：严格参照下方品牌示例的语气、节奏和分行方式，标题行 + 4 行短句，稳重耐看。
+2. 第 2 条「元气热情风」：情绪更饱满、更有号召感（如「闭眼冲」「稳了」「直接锁死」），节奏更跳跃，emoji 可用足 4 个，感叹号可以更多；第一行不用标题行，直接用情绪钩子或喊话开头；行数与品牌经典风不同（3-4 行），至少有一行把两件事写进同一句；严禁用「姐妹们」「兄弟们」这类性别称呼，喊人就用「大家」「同学们」。措辞必须尊重老师：严禁出现「甩锅」「丢给」「扔给」「推给」「包给」老师这类把功课、难题、责任推到老师身上的说法——老师是接住问题、带着学生解决的一方，不是被甩锅的一方。
+3. 第 3 条「品牌经典风」：风格与第 1 条相同（标题行 + 4 行短句，同样参照下方示例），但内容必须和第 1 条完全不同——换一个切入角度（例如第 1 条从老师的动作/服务切入，第 3 条从学生的收获/场景切入），开头句式、用词、各行内容都不得与第 1 条雷同，严禁只换几个词交差。
+
+【打破公式化结构（非常重要，三条都要做到）】
+1. 第 2 条的行数、断句位置、信息出现顺序必须与两条品牌经典风明显不同，严禁三条共用同一个顺序模板。
+2. 两条品牌经典风虽然同为「标题行 + 4 行」，但每行的内容、切入角度、开头句式必须完全不同，两条放在一起读不能有「同一篇换皮」的感觉。
+3. 辅导老师在三条里出现的行位置要错开，不要三条都在同一行位置提老师。
+4. 三条的第一句正文开头方式必须不同（不能用同一个句式只换词）。
+5. 无论有没有附带图片，严禁出现「没图」「无图」「有图吗」「图呢」「没分数」这类元描述。
+每条都要独立满足下面所有硬性文风要求和信息要求。
+
+【风格参考：以下 7 条是品牌真实发布过的文案，是第 1、3 条「品牌经典风」的参照基准，第 2 条可借鉴分行习惯】
 示例1）
 💬毕业论文课后答疑
 课后有疑问 老师随时出现！
-Sofia 老师细致清晰的答疑
+Sofia老师细致清晰的答疑
 解决写作过程中大小难题
 毕业论文全包的安全感谁懂💗
 
 示例2）
-🪶包课辅导课堂展示
-VIP 的包课辅导跟进服务
+🎶包课辅导课堂展示
+VIP的包课辅导跟进服务
 课上对知识点和公式的详细拆分
 课后耐心仔细的答疑
-占比再大的 final 也不在话下✅
+占比再大的final也不在话下✅
 
 示例3）
+🌞论文辅导高分反馈
+wy老师辅导的商业管理
+再带学生轻松斩获68分🔥
+内容逐句精修 密密麻麻的批注
+学生对wy老师的好评直接拉满！
+
+示例4）
 📚毕业论文教师产出
 保姆全包式毕业论文辅导谁能不爱✨
-outline 像剥洋葱一样层层清晰
+outline像剥洋葱一样层层清晰
 老师批改更是细致到“像素级”
 跟着老师全程清晰规划拿下大论文✅
 
-示例4）
-🏔️修改润色教师产出
-教育学论文 5 月扎堆来临⚡
-Pengpeng 老师精致化修改润色
-直观可见的细致程度
-论文想不拿高分都难👍
-
 示例5）
+📖修改润色教师产出
+教育学论文5月扎堆来临⚡
+Pengpeng老师精致化修改润色
+直观可见的细致程度
+论文想不拿高分都难[好的]
+
+示例6）
 🔔包课辅导课后答疑
-课程 & 作业总是有大小问题？
-kate 老师带你度过每一场考核
+课程&作业总是有大小问题？
+kate老师带你度过每一场考核
 上课规划辅导➕课后答疑
 再也不怕任何学业困难了🤞
 
-示例6）
-✔️课时卡好评分享
-Jerrie 老师又收获好评咯～
-不愧是会计王牌专业🤩
-结课之后的满分好评
-谁辅导谁知道的可见效果 [社会社会]
+示例7）
+📦毕业论文课后答疑
+dissertation高峰期来临
+Luna老师群内进行详细答疑
+过于复杂的问题直接上课解决
+全包辅导无需担心任何难题✅
+
+注意：示例3 是历史旧文，其中「wy老师」出现了两次——现在的新规则是每条只出现 1 次，不要模仿这一点。
+示例3 的「68分」是当时素材里的真实成绩：本次只有附带图片且图中真实可见分数时才可以这样写，否则严禁出现任何分数。
 
 【从示例中提炼的硬性文风要求（全部必须做到）】
 1. 每行 8-20 字，短句独立成行，行末不加句号；可用 ！？ 和空格来断句。
 2. 多用口语钩子：谁懂 / 谁不爱 / 谁能不爱 / 谁辅导谁知道 / 安排得明明白白 / 保姆式 / 拿捏 / 一键 / 一眼 / 太…了。
-3. 提到老师时写成「老师名字 + 动作」（如「Sofia 老师细致清晰的答疑」「kate 老师带你度过每一场考核」）。
-4. 课程名称直接嵌进句子，英文原名保留英文，不翻译。
-5. 整条最多 3 个 emoji（标题 1 个 + 正文 0-2 个），常用 ✅🔥💗✨🤩👍🤝💯⚡。
+3. 提到老师时写成「老师名字 + 动作」（如「Sofia老师细致清晰的答疑」「kate老师带你度过每一场考核」）。
+4. 不要在文案里出现课程名称或课程代码，泛指就用「这门课」「课程」。
+5. 整条最多 3 个 emoji（标题 1 个 + 正文 0-2 个），常用 ✅🔥💗✨🤩👍🤝💯⚡；行末收束也可以用微信表情文字（如示例5 的 [好的]）。
 6. 禁止公文腔（不要「致力于」「为您提供」「全方位」「专业团队」这类词）。
-7. 示例中的老师名（Sofia/kate/Pengpeng/Jerrie）、课程名、分数均来自真实案例，严禁照抄或编造；只允许使用本次提供的辅导老师与课程名称。
+7. 示例中的老师名（Sofia/wy/Pengpeng/kate/Luna）、课程名、分数均来自真实案例，严禁照抄或编造；只允许使用本次提供的辅导老师，课程名一律不写。
+8. 禁止任何性别指向单一的称呼词（姐妹们、姐妹、兄弟们、兄弟、妹子、小姐姐、帅哥美女、宝妈等都不行）；需要称呼时用「大家」「同学们」这类中性词，或者干脆不称呼直接说话。
+9. 禁止低俗、粗俗或油腻的网络梗、脏话和谐音（如「稳如老狗」「老铁」「YYDS」「绝绝子」「拴Q」「牛马」「内卷到吐」以及任何脏话谐音都不行）；语言可以活泼有梗，但必须干净体面，符合品牌调性。
 
 【素材类型对应的内容方向】
 - 课堂展示：课堂讲解、知识点或公式拆解、课堂互动与节奏
@@ -1118,22 +1399,43 @@ Jerrie 老师又收获好评咯～
 - 客户复购：老学员继续续课、复购与长期陪伴
 
 【语气】
-真诚、口语化、有画面感，像老师或学生的真实分享；整体最多点缀 2 个 emoji（如 ✅🔥💗🤝✨）。
+真诚、口语化、有画面感，像老师或学生的真实分享；单条正文最多点缀 2 个 emoji（如 ✅🔥💗🤝✨），「元气热情风」按其风格定义放宽到 4 个。
 
 【硬性要求】
-1. 只输出 JSON，不要 markdown、不要代码块、不要任何解释。
-2. 除已提供的辅导老师、课程名称，以及图片中真实可见的分数/等级外，严禁编造具体人名、学校名、专业名、课程代码、分数、日期；需要泛指时用「老师」「这门课」。
-3. 不要出现「素材」「产品类型」「文案」「（未填写）」等内部术语或占位文字。
+1. 只输出 JSON，不要 markdown、不要代码块、不要任何解释；captions 数组必须恰好 3 个元素。
+2. 除已提供的辅导老师，以及图片中真实可见的分数/等级外，严禁编造具体人名、学校名、专业名、课程代码、分数、日期；需要泛指时用「老师」「这门课」。
+3. 不要出现「素材」「产品类型」「文案」「（未填写）」等内部术语或占位文字；严禁出现「没图」「无图」「没分数」等元描述。
 4. 不要输出 JSON 以外的任何字段。
-5. 输出前自检：第一行是否恰为「emoji + ${productType} + ${materialType}」；辅导老师「${teacher || '（未填写）'}」是否已按「名字 + 老师」写进正文；课程名称「${courseName || '（未填写）'}」是否已自然带上（未填写的字段则不要出现具体老师名或课程名）。`;
+5. 输出前对 3 条文案逐条自检：第 1、3 条第一行是否恰为「emoji + ${productType} + ${materialType}」（第 2 条不受此约束）；第 3 条与第 1 条的切入角度、开头、用词是否完全不同；辅导老师「${teacher || '（未填写）'}」在每条里是否只完整出现 1 次（第二次提及只用「老师」）；全文是否没有出现任何课程名称或课程代码、没有任何「甩锅/丢给老师」式措辞。最后再做一次三条横向对比：开头句式、老师出现位置是否互不相同，有雷同就重写雷同的那条。`;
 
-        const result = await askQwenForJson({ prompt, images, temperature: 0.8, disableThinking: true });
-        const caption = normalizeString(result?.caption).trim();
-        if (!caption) {
+        const result = await askQwenForJson({ prompt, images, temperature: 0.9, disableThinking: true });
+        // 兼容：优先取 captions 数组；老格式 caption 字段也兜底接住
+        let captions = (Array.isArray(result?.captions) ? result.captions : [])
+            .map(item => normalizeString(item).trim())
+            .filter(Boolean);
+        if (!captions.length) {
+            const legacy = normalizeString(result?.caption).trim();
+            if (legacy) captions.push(legacy);
+        }
+        // 兜底清洗：性别指向称呼直接替换成中性词（无论有没有图都不允许）
+        captions = captions.map(normalizeGenderedAddress);
+        // 老师名去重：同一条里完整老师名只保留第一次出现，其余替换成「老师」
+        captions = captions.map(caption => dedupeTeacherMentions(caption, teacher));
+        // 课程名硬过滤：产品要求文案不出现课程名（防止识图图片里带出的课程名漏进文案）
+        if (courseName && courseName.length >= 4 && captions.length) {
+            const escaped = courseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*');
+            const coursePattern = new RegExp(escaped, 'i');
+            captions = captions.filter(caption => !coursePattern.test(caption));
+        }
+        // 无图硬校验：提示词禁不住高温下偶发的编造，凡含具体分数/等级字样的一律剔除
+        if (!hasImages && captions.length) {
+            captions = captions.filter(caption => !hasFabricatedGrade(caption));
+        }
+        if (!captions.length) {
             return res.status(502).json({ error: 'AI 未返回文案，请重试' });
         }
 
-        res.json({ data: { caption } });
+        res.json({ data: { captions } });
     } catch (error) {
         next(error);
     }

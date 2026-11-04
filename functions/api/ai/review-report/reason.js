@@ -1,6 +1,6 @@
 // Cloudflare Pages Functions - 复习报告原因分析
-const BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
-const MODEL = 'qwen3-vl-plus';
+const BASE_URL = 'https://ark.cn-beijing.volces.com/api/plan/v3';
+const MODEL = 'doubao-seed-2.1-lite';
 
 // 火山方舟 doubao-seed 2.x 默认开启深度思考，长任务会超过 Cloudflare 边缘 100s 超时（返回 524），这里显式关闭。
 // 注意：百炼 qwen 用的是 enable_thinking（布尔），与火山的 thinking:{type:'disabled'} 不是一回事，别混用。

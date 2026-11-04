@@ -1,6 +1,6 @@
 // Cloudflare Pages Functions - 朋友圈海报 AI 文案生成
-const BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
-const MODEL = 'qwen3-vl-plus';
+const BASE_URL = 'https://ark.cn-beijing.volces.com/api/plan/v3';
+const MODEL = 'doubao-seed-2.1-lite';
 
 const JSON_ONLY_SYSTEM_PROMPT = [
     '你是一个用于教辅报告生成的后端 AI 助手。',
@@ -50,12 +50,18 @@ function hasFabricatedGrade(text) {
 }
 
 async function callAI({ prompt, images = [], withThinking = true }, env) {
-    // 注意：线上 DASHSCOPE_* 变量名下暂存的是火山引擎旧值（其他接口还在用），
-    // 文案接口改用 POSTER_AI_* 专属变量，缺省值即阿里云百炼 DashScope。
-    const apiKey = env.POSTER_AI_API_KEY;
-    const model = env.POSTER_AI_MODEL || MODEL;
-    const baseUrl = env.POSTER_AI_BASE_URL || BASE_URL;
-    if (!apiKey) throw new Error('缺少 POSTER_AI_API_KEY 环境变量');
+    // 全站统一走 DASHSCOPE_*（火山方舟 agent plan），文案接口不再单独指向阿里云百炼。
+    // POSTER_AI_* 只作为「成对覆盖」保留：必须 key 和 baseUrl 同时配齐才生效，
+    // 否则会出现「火山端点 + 阿里云 key」的 401（线上曾经只配了 POSTER_AI_API_KEY）。
+    const posterKey = env.POSTER_AI_API_KEY;
+    const posterBase = env.POSTER_AI_BASE_URL;
+    const usePosterOverride = Boolean(posterKey && posterBase);
+    const apiKey = usePosterOverride ? posterKey : env.DASHSCOPE_API_KEY;
+    const baseUrl = usePosterOverride ? posterBase : (env.DASHSCOPE_BASE_URL || BASE_URL);
+    const model = usePosterOverride
+        ? (env.POSTER_AI_MODEL || MODEL)
+        : (env.DASHSCOPE_MODEL || MODEL);
+    if (!apiKey) throw new Error('缺少 DASHSCOPE_API_KEY 环境变量');
 
     const content = [{ type: 'text', text: prompt }];
     images.slice(0, 3).forEach(url => {
