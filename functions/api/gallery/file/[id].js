@@ -36,6 +36,16 @@ export async function onRequestGet(context) {
     try {
         if (!ID_RE.test(id)) return fail('图片编号不合法。', 400);
         if (!env[DB_BINDING]) return fail('图库数据库尚未绑定。', 503);
+
+        // 图片内容永不改变，命中边缘缓存就直接返回，不再回源查 D1。
+        // 国内访问 Cloudflare 边缘本身不稳定，少一次回源就少一次抖动。
+        const cache = typeof caches !== 'undefined' ? caches.default : null;
+        const cacheKey = new Request(request.url, { method: 'GET' });
+        if (cache) {
+            const hit = await cache.match(cacheKey);
+            if (hit) return hit;
+        }
+
         await ensureSchema(env);
 
         const row = await env[DB_BINDING]
@@ -94,7 +104,15 @@ export async function onRequestGet(context) {
                 `attachment; filename="poster.${ext}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
         }
 
-        return new Response(body, { status: 200, headers });
+        const response = new Response(body, { status: 200, headers });
+        if (cache) {
+            try {
+                context.waitUntil(cache.put(cacheKey, response.clone()));
+            } catch (error) {
+                console.warn('[gallery file] 写边缘缓存失败', id, error?.message);
+            }
+        }
+        return response;
     } catch (error) {
         console.error('[gallery file]', error);
         return fail(`读取图片失败：${error?.message || '请稍后重试'}`, 500);

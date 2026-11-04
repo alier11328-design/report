@@ -308,7 +308,8 @@
     'use strict';
 
     const API = '/api/gallery';
-    const PAGE_SIZE = 24;
+    // 一页少一点：跨境回源偶发慢，首屏并发低一些加载更稳，滚动会接着补
+    const PAGE_SIZE = 12;
 
     const grid = document.getElementById('grid');
     const loadingRow = document.getElementById('loadingRow');
@@ -416,16 +417,23 @@
         img.decoding = 'async';
         img.alt = cardTitle(item);
         img.src = item.url;
+        // 跨境链路偶发超时，失败先自动重试两次再判定为失效
+        let retries = 0;
         img.addEventListener('load', () => {
             img.classList.add('loaded');
             skeleton.remove();
         });
         img.addEventListener('error', () => {
+            if (retries < 2) {
+                retries += 1;
+                setTimeout(() => { img.src = item.url; }, 1200 * retries);
+                return;
+            }
             skeleton.remove();
             img.remove();
             const broken = document.createElement('div');
             broken.className = 'broken-thumb';
-            broken.innerHTML = '<i class="fas fa-triangle-exclamation"></i><span>图片已失效</span>';
+            broken.innerHTML = '<i class="fas fa-triangle-exclamation"></i><span>图片加载失败</span>';
             thumb.appendChild(broken);
         });
 
@@ -499,11 +507,13 @@
 
     function openLightbox(item, source) {
         lastFocused = source || null;
+        const bits = [item.productType, item.materialType, metaLine(item), formatDate(item.createdAt)]
+            .filter(Boolean);
+        lbImage.onerror = () => { lbMeta.textContent = '图片加载失败，可能是网络抖动，关掉重开试试'; };
+        lbImage.onload = () => { lbMeta.textContent = bits.join(' · '); };
         lbImage.src = item.url;
         lbImage.alt = cardTitle(item);
         lbTitle.textContent = cardTitle(item);
-        const bits = [item.productType, item.materialType, metaLine(item), formatDate(item.createdAt)]
-            .filter(Boolean);
         lbMeta.textContent = bits.join(' · ');
         lbDownload.href = item.downloadUrl;
         lightbox.hidden = false;
@@ -518,8 +528,7 @@
         if (lastFocused && document.contains(lastFocused)) lastFocused.focus();
     }
 
-    lbClose.addEventListener('click', closeLightbox);
-    lightbox.addEventListener('click', event => {
+    lbClose.addEventListener('click', closeLightbox);    lightbox.addEventListener('click', event => {
         if (event.target === lightbox) closeLightbox();
     });
     document.addEventListener('keydown', event => {
