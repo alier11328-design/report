@@ -1572,6 +1572,14 @@
                     input.accept = 'image/png,image/jpeg,image/webp';
                     input.multiple = true;
                     input.dataset.boxInput = String(group);
+                    // 直接绑在 input 上，不依赖冒泡到 form：这个节点随时可能被 render 重建，
+                    // 事件委托一旦丢了祖先链就静默失效（本地选图失效就是这么来的）。
+                    // stopPropagation 防止 form 上的 change 委托再处理一遍，否则同一批图会加两次。
+                    input.addEventListener('change', event => {
+                        event.stopPropagation();
+                        handleImages(input.files, group);
+                        input.value = '';
+                    });
                     const label = document.createElement('label');
                     label.className = 'upload-button';
                     label.setAttribute('for', input.id);
@@ -3247,7 +3255,11 @@
                 setTimeout(() => flash.remove(), 1600);
             }
 
-            form.addEventListener('input', () => {
+            form.addEventListener('input', event => {
+                // 文件框选完文件时会先派发 input、再派发 change。
+                // 这里一 render 就会把粘贴框整个重建，文件框脱离文档，
+                // 紧接着的 change 就冒泡不到 form，表现为「选了图片但什么都没发生」。
+                if (event.target && event.target.type === 'file') return;
                 state = readFormState();
                 render();
                 queueSave();
