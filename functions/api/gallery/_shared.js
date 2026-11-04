@@ -65,15 +65,30 @@ export const SCHEMA_SQL = [
     `CREATE INDEX IF NOT EXISTS idx_gallery_ip ON gallery(ip_hash, created_at)`
 ];
 
-// 每个 isolate 只建一次表；建表语句是幂等的，冷启动重复执行无害
-let schemaReady = false;
+// 每个 isolate 只做一次建表检查。用 Promise 缓存而不是布尔值：
+// 页面打开时 list 和 facets 会同时打进来，布尔值会让两边都跑一遍 DDL，
+// 并发 DDL 在 D1 上会互相排队甚至报错。
+// 先查 sqlite_master，表已经存在就跳过（正常情况只花 1 行读，不写）。
+let schemaPromise = null;
 
 export async function ensureSchema(env) {
-    if (schemaReady || !env[DB_BINDING]) return;
-    for (const sql of SCHEMA_SQL) {
-        await env[DB_BINDING].prepare(sql).run();
+    if (!env[DB_BINDING]) return;
+    if (!schemaPromise) {
+        schemaPromise = (async () => {
+            const table = await env[DB_BINDING]
+                .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'gallery'")
+                .first();
+            if (table) return;
+            for (const sql of SCHEMA_SQL) {
+                await env[DB_BINDING].prepare(sql).run();
+            }
+        })().catch(error => {
+            // 建表失败不阻塞业务（表通常早就建好了），下次请求再试
+            schemaPromise = null;
+            console.warn('[gallery] 建表检查失败', error?.message);
+        });
     }
-    schemaReady = true;
+    return schemaPromise;
 }
 
 export function json(data, status = 200, headers = {}) {
