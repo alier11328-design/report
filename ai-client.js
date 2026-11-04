@@ -119,21 +119,26 @@ async function parsePdfClientSide(file) {
             fullText += pageText + '\n';
         }
 
-        // 首页（封面）通常含校名校徽 logo，是图片而非文字层。
-        // 把首页渲染成图片，让 AI 走视觉识别校名等文字层缺失的信息。
+        // 扫描/图片型 PDF 没有文字层，必须把每一页都渲染成图片给 AI 视觉识别。
+        // 此前只渲染首页（为识别封面校名设计），会导致多页 PDF 的第 2 页起内容全部丢失、AI 按首页脑补。
+        // 上限 8 页：与接口端 images.slice(0, 8) 及 prepareFiles 的 maxImages 对齐。
+        const MAX_PDF_PAGES = 8;
         const pageImages = [];
         try {
-            const firstPage = await pdf.getPage(1);
-            const viewport = firstPage.getViewport({ scale: 2 });
-            const canvas = document.createElement('canvas');
-            canvas.width = viewport.width;
-            canvas.height = viewport.height;
-            const ctx = canvas.getContext('2d');
-            await firstPage.render({ canvasContext: ctx, viewport }).promise;
-            pageImages.push(canvas.toDataURL('image/jpeg', 0.9));
+            const pageCount = Math.min(pdf.numPages, MAX_PDF_PAGES);
+            for (let pageNo = 1; pageNo <= pageCount; pageNo++) {
+                const page = await pdf.getPage(pageNo);
+                const viewport = page.getViewport({ scale: 2 });
+                const canvas = document.createElement('canvas');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                const ctx = canvas.getContext('2d');
+                await page.render({ canvasContext: ctx, viewport }).promise;
+                pageImages.push(canvas.toDataURL('image/jpeg', 0.9));
+            }
         } catch (renderErr) {
             // 渲染失败不影响文字提取，仅记录日志
-            console.warn('PDF 首页渲染失败:', renderErr);
+            console.warn('PDF 页面渲染失败:', renderErr);
         }
 
         return { text: fullText, pageImages };
@@ -153,7 +158,6 @@ async function parseFileOnServer(file) {
     if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
         return await parsePdfClientSide(file);
     }
-    
     // 其他文件类型返回错误
     throw new Error('仅支持 PDF 文件解析');
 }
