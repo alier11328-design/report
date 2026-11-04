@@ -224,14 +224,9 @@
         .field-toggle {
             display: inline-flex;
             align-items: center;
-            gap: 5px;
             margin: 0;
-            font-size: 12px;
-            font-weight: 600;
-            color: #94a3b8;
             cursor: pointer;
             user-select: none;
-            white-space: nowrap;
         }
         .field-toggle input {
             appearance: none;
@@ -262,12 +257,103 @@
         }
         .field-toggle input:checked { background: var(--primary-color); }
         .field-toggle input:checked::after { transform: translateX(13px); }
-        .field-toggle input:checked + span { color: var(--primary-color); }
         .field-toggle input:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+        .field-toggle input:disabled { opacity: 0.4; cursor: not-allowed; background: #cbd5e1; }
+        .field-toggle input:disabled::after { box-shadow: none; }
         /* 关掉显示时输入框变淡，但内容保留，随时可以再打开 */
         .form-group.field-off > input,
         .form-group.field-off > select { opacity: 0.5; }
         .custom-material-input { margin-top: 8px; }
+
+        /* 分区标题带上总开关时改成两端对齐 */
+        .form-section-title.has-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        /* 成品图分组：每行一张成品图，勾选要拼进这张图的图片 */
+        .group-editor {
+            margin: 14px 0 0;
+            padding: 14px;
+            border: 1.5px dashed #cbd5e1;
+            border-radius: 12px;
+            background: #f8fafc;
+        }
+        .group-editor-head {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .group-editor-title { font-size: 13px; font-weight: 700; color: #334155; }
+        .group-editor-hint { font-size: 12px; color: #94a3b8; }
+        .group-matrix { display: flex; flex-direction: column; gap: 8px; }
+        .group-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 10px;
+            border-radius: 9px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+        }
+        .group-row-name {
+            flex: 0 0 auto;
+            min-width: 58px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #475569;
+        }
+        .group-choice {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 9px 3px 7px;
+            border-radius: 999px;
+            border: 1px solid #e2e8f0;
+            font-size: 12px;
+            color: #64748b;
+            cursor: pointer;
+            user-select: none;
+        }
+        .group-choice:has(input:checked) {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            font-weight: 700;
+            background: rgba(var(--primary-rgb), 0.06);
+        }
+        .group-choice input { margin: 0; accent-color: var(--primary-color); cursor: pointer; }
+
+        /* 预览区的成品图切换标签 */
+        .group-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 0 0 12px;
+        }
+        .group-tab {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border-radius: 999px;
+            border: 1.5px solid #e2e8f0;
+            background: #fff;
+            color: #475569;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .group-tab:hover { border-color: var(--primary-color); color: var(--primary-color); }
+        .group-tab[aria-selected="true"] {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            background: rgba(var(--primary-rgb), 0.07);
+        }
 
         .btn {
             background: white;
@@ -350,6 +436,16 @@
         .upload-file-list:empty { display: none; }
         .upload-file-row { display: flex; align-items: center; gap: 10px; padding-top: 8px; border-top: 1px solid #eef2f6; }
         .upload-file-index { flex: none; color: var(--primary-color); font-size: 13px; font-weight: 700; }
+        .upload-file-group {
+            flex: none;
+            margin-left: auto;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: rgba(var(--primary-rgb), 0.08);
+            color: var(--primary-color);
+            font-size: 11px;
+            font-weight: 700;
+        }
         .save-state { margin-top: 14px; font-size: 12px; color: #94a3b8; font-variant-numeric: tabular-nums; }
 
         .preview-meta {
@@ -822,8 +918,7 @@
                             <div class="field-head">
                                 <label for="titleSecondary"><i class="fas fa-images"></i> 素材类型</label>
                                 <label class="field-toggle" title="取消勾选后，素材类型不会出现在海报上">
-                                    <input type="checkbox" id="showTitleSecondary" name="showTitleSecondary" checked>
-                                    <span>显示</span>
+                                    <input type="checkbox" id="showTitleSecondary" name="showTitleSecondary" aria-label="在海报上显示" checked>
                                 </label>
                             </div>
                             <select id="titleSecondary" name="titleSecondary">
@@ -840,14 +935,18 @@
                         </div>
                     </div>
 
-                    <div class="form-section-title">课程信息</div>
+                    <div class="form-section-title has-toggle">
+                        <span>课程信息</span>
+                        <label class="field-toggle" title="关掉后，下面六项信息全部不在海报上显示（各自的开关状态会保留）">
+                            <input type="checkbox" id="showCourseInfo" name="showCourseInfo" aria-label="在海报上显示课程信息" checked>
+                        </label>
+                    </div>
                     <div class="form-row">
                         <div class="form-group" data-toggle-group="showRegion">
                             <div class="field-head">
                                 <label for="region">🌍 国家或地区</label>
                                 <label class="field-toggle" title="取消勾选后，国家或地区不会出现在海报上">
-                                    <input type="checkbox" id="showRegion" name="showRegion" checked>
-                                    <span>显示</span>
+                                    <input type="checkbox" id="showRegion" name="showRegion" aria-label="在海报上显示" checked>
                                 </label>
                             </div>
                             <input id="region" name="region" maxlength="18" placeholder="例如：澳洲">
@@ -856,8 +955,7 @@
                             <div class="field-head">
                                 <label for="school">🏫 学校</label>
                                 <label class="field-toggle" title="取消勾选后，学校不会出现在海报上">
-                                    <input type="checkbox" id="showSchool" name="showSchool" checked>
-                                    <span>显示</span>
+                                    <input type="checkbox" id="showSchool" name="showSchool" aria-label="在海报上显示" checked>
                                 </label>
                             </div>
                             <input id="school" name="school" maxlength="30" placeholder="例如：昆士兰大学">
@@ -868,8 +966,7 @@
                             <div class="field-head">
                                 <label for="major">📚 专业</label>
                                 <label class="field-toggle" title="取消勾选后，专业不会出现在海报上">
-                                    <input type="checkbox" id="showMajor" name="showMajor" checked>
-                                    <span>显示</span>
+                                    <input type="checkbox" id="showMajor" name="showMajor" aria-label="在海报上显示" checked>
                                 </label>
                             </div>
                             <input id="major" name="major" maxlength="24" placeholder="例如：食品科学">
@@ -878,8 +975,7 @@
                             <div class="field-head">
                                 <label for="courseCode">📦 课程代码</label>
                                 <label class="field-toggle" title="取消勾选后，课程代码不会出现在海报上">
-                                    <input type="checkbox" id="showCourseCode" name="showCourseCode" checked>
-                                    <span>显示</span>
+                                    <input type="checkbox" id="showCourseCode" name="showCourseCode" aria-label="在海报上显示" checked>
                                 </label>
                             </div>
                             <input id="courseCode" name="courseCode" maxlength="20" placeholder="例如：BIOL1020">
@@ -890,8 +986,7 @@
                             <div class="field-head">
                                 <label for="teacher">🧑‍🏫 辅导老师</label>
                                 <label class="field-toggle" title="取消勾选后，辅导老师不会出现在海报上">
-                                    <input type="checkbox" id="showTeacher" name="showTeacher" checked>
-                                    <span>显示</span>
+                                    <input type="checkbox" id="showTeacher" name="showTeacher" aria-label="在海报上显示" checked>
                                 </label>
                             </div>
                             <input id="teacher" name="teacher" maxlength="24" placeholder="例如：Michelle.许">
@@ -900,14 +995,13 @@
                             <div class="field-head">
                                 <label for="courseName">📖 课程名称</label>
                                 <label class="field-toggle" title="取消勾选后，课程名称不会出现在海报上">
-                                    <input type="checkbox" id="showCourseName" name="showCourseName" checked>
-                                    <span>显示</span>
+                                    <input type="checkbox" id="showCourseName" name="showCourseName" aria-label="在海报上显示" checked>
                                 </label>
                             </div>
                             <input id="courseName" name="courseName" maxlength="70" placeholder="例如：Genes, Cells &amp; Evolution">
                         </div>
                     </div>
-                    <span class="field-help">右侧「显示」开关关掉后，对应内容不会出现在海报上（填的内容会保留）；素材类型选「自定义…」后可自己输入文字。辅导老师会自动补上「老师」——填 <b>Michelle.许</b>，海报显示 <b>Michelle.许老师</b>；课程名称保留英文原名会更符合参考海报的视觉节奏。</span>
+                    <span class="field-help">字段名右侧的开关关掉后，对应内容不会出现在海报上（填的内容会保留）；「课程信息」标题旁的总开关可以一次性关掉下面六项。素材类型选「自定义…」后可自己输入文字。辅导老师会自动补上「老师」——填 <b>Michelle.许</b>，海报显示 <b>Michelle.许老师</b>；课程名称保留英文原名会更符合参考海报的视觉节奏。</span>
 
                     <div class="form-section-title">课堂图片</div>
                     <div class="upload-window">
@@ -922,6 +1016,15 @@
                         <span class="upload-hint">点击此处选择，也可以把图片拖进来，或按 Ctrl / ⌘ + V 粘贴截图</span>
                         <div class="upload-file-list" id="imageFileList" aria-live="polite"></div>
                         <span class="field-help" id="imageError">支持 JPG、PNG 和 WebP，最多 3 张，单张建议不超过 12 MB。</span>
+                    </div>
+
+                    <!-- 成品图分组：每行一张海报，勾选要拼进这张海报的图片 -->
+                    <div class="group-editor" id="groupEditor" hidden>
+                        <div class="group-editor-head">
+                            <span class="group-editor-title">成品图分组</span>
+                            <span class="group-editor-hint">每张成品图单独出一张海报</span>
+                        </div>
+                        <div class="group-matrix" id="groupMatrix"></div>
                     </div>
                     <div class="save-state" id="saveState" role="status" aria-live="polite">已自动保存</div>
                 </form>
@@ -945,6 +1048,8 @@
                         <button class="btn btn-primary" id="exportBothButton" type="button"><i class="fas fa-layer-group"></i> 导出双版本</button>
                     </div>
                 </div>
+
+                <div class="group-tabs" id="groupTabs" role="tablist" aria-label="成品图切换" hidden></div>
 
                 <div class="preview-viewport" id="previewViewport">
                     <div class="poster-host" id="posterHost">
@@ -1061,6 +1166,7 @@
                 teacher: '',
                 courseName: '',
                 // 每一项是否显示在海报上（关掉只是不显示，填的内容照旧保留）
+                showCourseInfo: true,
                 showTitleSecondary: true,
                 showRegion: true,
                 showSchool: true,
@@ -1072,6 +1178,7 @@
 
             // 每一项是否显示在海报上的开关（存档键名与表单 checkbox 的 name 一致）
             const FIELD_TOGGLE_KEYS = [
+                'showCourseInfo',
                 'showTitleSecondary',
                 'showRegion',
                 'showSchool',
@@ -1119,6 +1226,9 @@
             const previewChipCourse = document.getElementById('previewChipCourse');
             const previewCourseName = document.getElementById('previewCourseName');
             const posterChips = document.querySelector('.poster-chips');
+            const groupEditor = document.getElementById('groupEditor');
+            const groupMatrix = document.getElementById('groupMatrix');
+            const groupTabs = document.getElementById('groupTabs');
             const previewMeta = document.getElementById('previewMeta');
             const captionButton = document.getElementById('captionButton');
             const captionModal = document.getElementById('captionModal');
@@ -1130,6 +1240,8 @@
 
             let state = loadState();
             let imageItems = [];
+            // 当前预览的是第几张成品图（1 起）。一张成品图 = 一张要发出去的海报。
+            let activeGroup = 1;
             let saveTimer = null;
             // 导出 / 复制图片期间临时接管水印方案：只作用于渲染，不改 state，
             // 因此不会写入存档、也不会改动左侧水印按钮的高亮状态。
@@ -1238,23 +1350,24 @@
             // 海报上要显示的各项文字。空字符串 = 该项被关掉，预览与导出都不出现。
             // 开关全开但内容为空时，用字段名当占位提示（与改造前的行为一致）。
             function posterTexts() {
+                const infoOn = state.showCourseInfo !== false;   // 「课程信息」总开关
                 const schoolParts = [];
                 const schoolLabels = [];
-                if (state.showRegion !== false) { schoolParts.push(state.region); schoolLabels.push('国家或地区'); }
-                if (state.showSchool !== false) { schoolParts.push(state.school); schoolLabels.push('学校'); }
+                if (infoOn && state.showRegion !== false) { schoolParts.push(state.region); schoolLabels.push('国家或地区'); }
+                if (infoOn && state.showSchool !== false) { schoolParts.push(state.school); schoolLabels.push('学校'); }
 
                 const courseParts = [];
                 const courseLabels = [];
-                if (state.showMajor !== false) { courseParts.push(state.major); courseLabels.push('专业'); }
-                if (state.showCourseCode !== false) { courseParts.push(state.courseCode); courseLabels.push('课程代码'); }
-                if (state.showTeacher !== false) { courseParts.push(teacherDisplayName(state.teacher)); courseLabels.push('辅导老师'); }
+                if (infoOn && state.showMajor !== false) { courseParts.push(state.major); courseLabels.push('专业'); }
+                if (infoOn && state.showCourseCode !== false) { courseParts.push(state.courseCode); courseLabels.push('课程代码'); }
+                if (infoOn && state.showTeacher !== false) { courseParts.push(teacherDisplayName(state.teacher)); courseLabels.push('辅导老师'); }
 
                 return {
                     titlePrimary: THEME_TITLES[state.theme] || THEME_TITLES.course,
                     titleSecondary: state.showTitleSecondary === false ? '' : materialTypeText(),
                     schoolChip: joinVisible(schoolParts) || joinVisible(schoolLabels),
                     courseChip: joinVisible(courseParts) || joinVisible(courseLabels),
-                    courseName: state.showCourseName === false
+                    courseName: !infoOn || state.showCourseName === false
                         ? ''
                         : textOrFallback(state.courseName, '课程名称')
                 };
@@ -1262,14 +1375,123 @@
 
             // 开关与「自定义」输入框的可见状态跟着 state 走
             function syncFieldUI() {
+                const infoOn = state.showCourseInfo !== false;
                 form.querySelectorAll('[data-toggle-group]').forEach(group => {
-                    const toggle = form.elements.namedItem(group.dataset.toggleGroup);
-                    group.classList.toggle('field-off', Boolean(toggle) && !toggle.checked);
+                    const key = group.dataset.toggleGroup;
+                    const toggle = form.elements.namedItem(key);
+                    if (!toggle) return;
+                    // 「课程信息」总开关关掉时，六个子开关置灰不可点，但各自的勾选状态保留
+                    const isCourseField = key !== 'showTitleSecondary';
+                    const enabled = isCourseField ? infoOn : true;
+                    toggle.disabled = !enabled;
+                    group.classList.toggle('field-off', !enabled || !toggle.checked);
                 });
                 titleSecondaryCustom.hidden = state.titleSecondary !== CUSTOM_MATERIAL;
             }
 
+            // ---------- 成品图（一张成品图 = 一张要发出去的海报） ----------
+            function groupsOf() {
+                return [...new Set(imageItems.map(item => item.group || 1))].sort((a, b) => a - b);
+            }
+
+            function itemsOfGroup(group) {
+                return imageItems.filter(item => (item.group || 1) === group);
+            }
+
+            // 当前预览这张成品图上的图片
+            function currentItems() {
+                return itemsOfGroup(activeGroup);
+            }
+
+            // 每次增删图片 / 改分组后，把编号压成连续的 1..n，避免出现「成品图 2 是空的」
+            function normalizeGroups() {
+                const groups = groupsOf();
+                if (!groups.length) { activeGroup = 1; return; }
+                const map = new Map(groups.map((group, index) => [group, index + 1]));
+                imageItems.forEach(item => { item.group = map.get(item.group || 1) || 1; });
+                const count = groups.length;
+                activeGroup = Math.min(Math.max(1, activeGroup), count);
+            }
+
+            function setActiveGroup(group) {
+                activeGroup = group;
+                render();
+            }
+
+            // 预览区的成品图切换标签（只有一张成品图时不显示）
+            function renderGroupTabs() {
+                const groups = groupsOf();
+                groupTabs.replaceChildren();
+                groupTabs.hidden = groups.length <= 1;
+                if (groups.length <= 1) return;
+                groups.forEach(group => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'group-tab';
+                    button.setAttribute('role', 'tab');
+                    button.setAttribute('aria-selected', String(group === activeGroup));
+                    button.textContent = `成品图 ${group} · ${itemsOfGroup(group).length} 张`;
+                    button.addEventListener('click', () => setActiveGroup(group));
+                    groupTabs.appendChild(button);
+                });
+            }
+
+            // 左侧分组矩阵：每行一张成品图，每张图片用单选按钮决定归到哪一张
+            function renderGroupMatrix() {
+                const rows = imageItems.length;
+                groupEditor.hidden = rows < 2;
+                groupMatrix.replaceChildren();
+                if (rows < 2) return;
+
+                for (let group = 1; group <= rows; group++) {
+                    const row = document.createElement('div');
+                    row.className = 'group-row';
+
+                    const name = document.createElement('span');
+                    name.className = 'group-row-name';
+                    name.textContent = `成品图 ${group}`;
+                    row.appendChild(name);
+
+                    imageItems.forEach((item, index) => {
+                        const choice = document.createElement('label');
+                        choice.className = 'group-choice';
+                        const radio = document.createElement('input');
+                        radio.type = 'radio';
+                        radio.name = `image-group-${index}`;
+                        radio.value = String(group);
+                        radio.checked = (item.group || 1) === group;
+                        radio.setAttribute('aria-label', `图 ${index + 1} 放进成品图 ${group}`);
+                        radio.addEventListener('change', () => {
+                            if (!radio.checked) return;
+                            item.group = group;
+                            normalizeGroups();
+                            // 切到刚选中的那张成品图，改完立刻能看到效果
+                            activeGroup = item.group;
+                            render();
+                        });
+                        const text = document.createElement('span');
+                        text.textContent = `图 ${index + 1}`;
+                        choice.append(radio, text);
+                        row.appendChild(choice);
+                    });
+
+                    groupMatrix.appendChild(row);
+                }
+            }
+
+            function renderGroupUI() {
+                renderGroupTabs();
+                renderGroupMatrix();
+            }
+
+            // 分组矩阵里的单选按钮：分组变化只影响图片，不影响表单里那些文字状态
+            function isGroupRadio(target) {
+                return Boolean(target && target.type === 'radio' && String(target.name || '').startsWith('image-group-'));
+            }
+
             function render() {
+                // 先把成品图编号压成连续的 1..n，后面所有渲染都基于已经整理过的分组
+                normalizeGroups();
                 const texts = posterTexts();
                 poster.dataset.theme = state.theme;
                 // 水印选「无」时：上下红条保留，条内 logo / 奖章 / 文字隐藏，预览与导出一致
@@ -1288,6 +1510,7 @@
                 syncFieldUI();
                 renderMediaSlots();
                 renderImageList();
+                renderGroupUI();
                 requestAnimationFrame(scalePreview);
             }
 
@@ -1315,8 +1538,10 @@
             }
 
             function renderMediaSlots() {
-                const visibleItems = imageItems.length ? imageItems : [null];
-                const slotHeights = computeMediaHeights(imageItems);
+                // 只渲染当前这张成品图上的图片；没有图片时留一个占位块
+                const items = currentItems();
+                const visibleItems = items.length ? items : [null];
+                const slotHeights = computeMediaHeights(items);
                 posterContent.replaceChildren();
                 posterContent.dataset.count = String(visibleItems.length);
 
@@ -1339,7 +1564,7 @@
 
                 // 水印只加一次，盖在整块图片区的中间
                 const watermark = WATERMARK_MAP[activeWatermark()];
-                if (watermark && imageItems.length) {
+                if (watermark && items.length) {
                     const overlay = document.createElement('span');
                     overlay.className = 'poster-watermark';
                     overlay.setAttribute('aria-hidden', 'true');
@@ -1350,7 +1575,10 @@
 
             function renderImageList() {
                 imageFileList.replaceChildren();
-                imageCount.textContent = imageItems.length ? `已选择 ${imageItems.length} 张图片` : '尚未选择图片';
+                const groupCount = groupsOf().length;
+                imageCount.textContent = imageItems.length
+                    ? `已选择 ${imageItems.length} 张图片${groupCount > 1 ? ` · ${groupCount} 张成品图` : ''}`
+                    : '尚未选择图片';
 
                 imageItems.forEach((item, index) => {
                     const row = document.createElement('div');
@@ -1372,6 +1600,15 @@
                     removeButton.setAttribute('aria-label', `移除图片 ${index + 1}：${item.name}`);
 
                     row.append(number, name, removeButton);
+
+                    // 分组后每张图属于哪张成品图，直接在列表里标出来
+                    if (groupCount > 1) {
+                        const badge = document.createElement('span');
+                        badge.className = 'upload-file-group';
+                        badge.textContent = `成品图 ${item.group || 1}`;
+                        row.insertBefore(badge, removeButton);
+                    }
+
                     imageFileList.appendChild(row);
                 });
             }
@@ -1474,12 +1711,14 @@
                 });
             }
 
-            // 只有「高分喜报」通道需要识图读分；其余通道不传图
+            // 只有「高分喜报」通道需要识图读分；其余通道不传图。
+            // 只送当前这张成品图上的图片，AI 读到的分和正在生成的海报对得上。
             async function collectCaptionImages() {
                 if ((state.titleSecondary || '') !== HIGH_SCORE_MATERIAL) return [];
-                if (!imageItems.length) return [];
+                const items = currentItems();
+                if (!items.length) return [];
                 const urls = [];
-                for (const item of imageItems.slice(0, 3)) {
+                for (const item of items.slice(0, 3)) {
                     const url = await downscaleImageForAi(item.dataUrl);
                     if (url) urls.push(url);
                 }
@@ -1636,6 +1875,7 @@
 
             function removeImage(index) {
                 imageItems.splice(index, 1);
+                normalizeGroups();
                 resetImageMessage();
                 render();
             }
@@ -1683,7 +1923,10 @@
                 try {
                     const loaded = [];
                     for (const file of candidates) loaded.push(await readImageFile(file));
+                    // 新图片默认并进当前正在预览的那张成品图
+                    loaded.forEach(item => { item.group = activeGroup; });
                     imageItems.push(...loaded);
+                    normalizeGroups();
                     render();
                     if (selected.length > remaining) {
                         imageInput.setAttribute('aria-invalid', 'true');
@@ -2159,13 +2402,15 @@
                 ctx.fillRect(0, y, POSTER_WIDTH, contentHeight);
                 const imageX = MEDIA_PADDING_X;
                 const imageWidth = MEDIA_WIDTH;
-                const canvasItems = imageItems.length ? imageItems : [null];
+                // 当前这张成品图上的图片（导出时会先切到对应成品图再渲染）
+                const mediaItems = currentItems();
+                const canvasItems = mediaItems.length ? mediaItems : [null];
                 const placeholderTexts = [
                     '课堂截图 / 笔记图片占位',
                     '课堂截图 / 板书图片占位',
                     '课堂补充图片占位'
                 ];
-                const slotHeights = computeMediaHeights(imageItems);
+                const slotHeights = computeMediaHeights(mediaItems);
 
                 let nextImageY = y + MEDIA_PADDING_TOP;
                 const imageSlots = canvasItems.map((item, index) => {
@@ -2173,7 +2418,7 @@
                         y: nextImageY,
                         height: slotHeights[index],
                         object: item?.image || null,
-                        placeholder: imageItems.length ? placeholderTexts[index] : '请上传 1–3 张课堂图片'
+                        placeholder: mediaItems.length ? placeholderTexts[index] : '请上传 1–3 张课堂图片'
                     };
                     nextImageY += slot.height + MEDIA_GAP;
                     return slot;
@@ -2194,7 +2439,7 @@
                     }
                 });
                 // 水印只画一次，盖在整块图片区的正中间
-                if (watermarkImage && imageItems.length) {
+                if (watermarkImage && mediaItems.length) {
                     drawWatermark(ctx, watermarkImage, imageX, mediaTop, imageWidth, mediaHeight);
                 }
                 ctx.restore();
@@ -2248,30 +2493,53 @@
                 return value.replace(/[\\/:*?"<>|\s]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 36) || '朋友圈海报';
             }
 
+            // 本次要导出的成品图编号；没有图片时也按 1 张（占位版）处理
+            function exportGroups() {
+                const groups = groupsOf();
+                return groups.length ? groups : [1];
+            }
+
             async function exportPoster() {
+                const groups = exportGroups();
+                const base = posterFileBase();
+                const multiple = groups.length > 1;
+                const restoreGroup = activeGroup;
+                let exported = 0;
+
                 exportButton.disabled = true;
                 exportButton.dataset.state = 'loading';
-                setStatus('正在生成双倍清晰度 PNG…');
+                setExportBusy(true);   // 导出多张期间把其余按钮也锁住，避免渲染被插队
+                setStatus(multiple ? `正在生成 ${groups.length} 张成品图…` : '正在生成双倍清晰度 PNG…');
+
                 try {
-                    const canvas = await buildCanvas();
-                    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-                    if (!blob) throw new Error('浏览器未生成图片数据');
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = `${safeFilePart(THEME_TITLES[state.theme])}_${safeFilePart(state.courseCode || state.courseName)}.png`;
-                    document.body.appendChild(link);
-                    link.click();
-                    link.remove();
-                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                    for (const group of groups) {
+                        if (multiple) setStatus(`正在生成成品图 ${group}/${groups.length}…`);
+                        // 逐张切换成品图再画：每张成品图都是一张独立海报
+                        setActiveGroup(group);
+                        await nextPaint();
+                        const canvas = await buildCanvas();
+                        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                        if (!blob) throw new Error('浏览器未生成图片数据');
+                        downloadBlob(blob, `${base}${multiple ? `_成品图${group}` : ''}.png`);
+                        exported += 1;
+                        // 多次下载之间留间隔，避免后一张被浏览器当成非手势下载丢掉
+                        await new Promise(resolve => setTimeout(resolve, 320));
+                    }
                     exportButton.dataset.state = 'success';
-                    setStatus('海报已导出，请在浏览器下载目录查看。', 'success');
+                    setStatus(
+                        multiple
+                            ? `已导出 ${exported} 张成品图，请在浏览器下载目录查看。`
+                            : '海报已导出，请在浏览器下载目录查看。',
+                        'success'
+                    );
                 } catch (error) {
                     console.error('[poster export]', error);
                     exportButton.dataset.state = 'error';
-                    setStatus(`海报未导出。${error.message || '请稍后重试。'}`, 'error');
+                    setStatus(`海报未导出${exported ? `（已出 ${exported} 张）` : ''}。${error.message || '请稍后重试。'}`, 'error');
                 } finally {
-                    exportButton.disabled = false;
+                    // 导完回到用户原来正在看的那张成品图
+                    if (multiple) setActiveGroup(restoreGroup);
+                    setExportBusy(false);
                     setTimeout(() => { delete exportButton.dataset.state; }, 1800);
                 }
             }
@@ -2339,23 +2607,31 @@
             async function exportPosterBoth() {
                 const originalLabel = exportBothButton.innerHTML;
                 const base = posterFileBase();
+                const groups = exportGroups();
+                const multiple = groups.length > 1;
+                const restoreGroup = activeGroup;
                 let exported = 0;
 
                 setExportBusy(true);
                 exportBothButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 导出中…';
 
                 try {
-                    // 先把两个版本都渲染成 Blob，再连续触发下载：
-                    // 下载动作集中在同一次点击手势的时间窗内，避免第二张被浏览器当成非手势下载丢弃
+                    // 先把所有版本都渲染成 Blob，再连续触发下载：
+                    // 下载动作集中在同一次点击手势的时间窗内，避免后面的被浏览器当成非手势下载丢弃
                     const rendered = [];
-                    for (const variant of EXPORT_VARIANTS) {
-                        setVeil(true, `正在生成${variant.suffix}版本…`);
-                        rendered.push({ variant, blob: await renderVariantBlob(variant.watermark) });
+                    for (const group of groups) {
+                        setActiveGroup(group);
+                        for (const variant of EXPORT_VARIANTS) {
+                            setVeil(true, multiple
+                                ? `正在生成成品图 ${group}/${groups.length} · ${variant.suffix}…`
+                                : `正在生成${variant.suffix}版本…`);
+                            rendered.push({ group, variant, blob: await renderVariantBlob(variant.watermark) });
+                        }
                     }
 
                     setVeil(true, '正在保存文件…');
-                    for (const { variant, blob } of rendered) {
-                        downloadBlob(blob, `${base}_${variant.suffix}.png`);
+                    for (const { group, variant, blob } of rendered) {
+                        downloadBlob(blob, `${base}${multiple ? `_成品图${group}` : ''}_${variant.suffix}.png`);
                         exported += 1;
                         await new Promise(resolve => setTimeout(resolve, 320));
                     }
@@ -2365,24 +2641,31 @@
                     return;
                 } finally {
                     watermarkOverride = null;
+                    // 导完回到用户原来正在看的那张成品图
+                    activeGroup = restoreGroup;
                     render();
                     setVeil(false);
                     setExportBusy(false);
                     exportBothButton.innerHTML = originalLabel;
                 }
 
-                setStatus(`已导出 2 张：${base}_带水印.png、${base}_无水印.png`, 'success');
-                await attachCaptionToExport();
+                setStatus(
+                    multiple
+                        ? `已导出 ${exported} 张：${groups.length} 张成品图 × 带水印 / 无水印`
+                        : `已导出 2 张：${base}_带水印.png、${base}_无水印.png`,
+                    'success'
+                );
+                await attachCaptionToExport(exported);
             }
 
             // 导出后附带复制文案：文案弹窗里已有结果就直接复用选中那条，不重新生成
-            async function attachCaptionToExport() {
+            async function attachCaptionToExport(exported = 2) {
                 let text = selectedCaptionText().trim();
                 if (!text) {
-                    setStatus('两张海报已导出，正在生成 3 条文案…');
+                    setStatus(`${exported} 张海报已导出，正在生成 3 条文案…`);
                     const generated = await generateCaption();
                     if (!generated) {
-                        setStatus('两张海报已导出；文案生成失败，可点「生成文案」重试。', 'error');
+                        setStatus(`${exported} 张海报已导出；文案生成失败，可点「生成文案」重试。`, 'error');
                         return;
                     }
                     text = generated;
@@ -2390,11 +2673,11 @@
 
                 if (await writeTextToClipboard(text)) {
                     setCaptionStatus(`已随海报复制「${captionStyleName(selectedCaptionIndex)}」到剪贴板，可直接粘贴发布 ✅`, 'success');
-                    setStatus('已导出 2 张海报，文案已复制到剪贴板。', 'success');
+                    setStatus(`已导出 ${exported} 张海报，文案已复制到剪贴板。`, 'success');
                 } else {
                     openCaptionModal();
                     setCaptionStatus('自动复制失败，请在弹窗里点「复制」。', 'error');
-                    setStatus('两张海报已导出；文案复制失败，请手动复制。', 'error');
+                    setStatus(`${exported} 张海报已导出；文案复制失败，请手动复制。`, 'error');
                 }
             }
 
@@ -2435,7 +2718,8 @@
                     // 先起一个不 await 的渲染任务，让 clipboard.write 仍留在点击手势的同一 tick 内
                     const blobPromise = renderVariantBlob(watermark);
                     await writeImageToClipboard(blobPromise);
-                    setStatus(`已复制${label}图片到剪贴板，可直接粘贴。`, 'success');
+                    const groupNote = groupsOf().length > 1 ? `（成品图 ${activeGroup}）` : '';
+                    setStatus(`已复制${label}图片${groupNote}到剪贴板，可直接粘贴。`, 'success');
                 } catch (error) {
                     console.error('[poster copy image]', error);
                     setStatus(`图片复制失败：${error.message || '请改用「导出 PNG」'}`, 'error');
@@ -2448,7 +2732,9 @@
                 }
             }
 
-            form.addEventListener('input', () => {
+            form.addEventListener('input', event => {
+                // 成品图分组的单选按钮自己会更新分组并渲染，这里不用再读一遍表单
+                if (isGroupRadio(event.target)) return;
                 state = readFormState();
                 render();
                 queueSave();
@@ -2459,6 +2745,7 @@
                     handleImages(imageInput.files);
                     return;
                 }
+                if (isGroupRadio(event.target)) return;
                 state = readFormState();
                 render();
                 queueSave();
