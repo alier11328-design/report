@@ -207,6 +207,13 @@
         font-size: 17px; cursor: pointer; display: grid; place-items: center;
     }
     .lb-close:hover { background: rgba(255,255,255,.26); }
+    .lb-delete {
+        border: 0; background: none; color: #94a3b8; font-size: 12.5px;
+        cursor: pointer; padding: 8px 6px; display: inline-flex; align-items: center; gap: 5px;
+        border-radius: 8px;
+    }
+    .lb-delete:hover { color: #fca5a5; background: rgba(255,255,255,.08); }
+    .lb-delete[disabled] { opacity: .5; cursor: not-allowed; }
 
     @media (max-width: 720px) {
         .topbar-inner, .filters, .active-filters, .grid-wrap { padding-left: 14px; padding-right: 14px; }
@@ -299,6 +306,9 @@
                 <span id="lbMeta"></span>
             </div>
             <a class="btn btn-primary" id="lbDownload" href="#" download><i class="fas fa-download"></i> 下载原图</a>
+            <button class="lb-delete" id="lbDelete" type="button" title="只有上传这张图的人才能删除">
+                <i class="fas fa-trash"></i> 删除
+            </button>
         </div>
     </div>
 </div>
@@ -327,6 +337,7 @@
     const lbMeta = document.getElementById('lbMeta');
     const lbDownload = document.getElementById('lbDownload');
     const lbClose = document.getElementById('lbClose');
+    const lbDelete = document.getElementById('lbDelete');
 
     const inputs = {
         product: document.getElementById('fProduct'),
@@ -353,6 +364,7 @@
     let exhausted = false;
     let itemCount = 0;
     let lastFocused = null;
+    let currentItem = null;
 
     const readFilters = () => {
         const out = {};
@@ -507,6 +519,7 @@
 
     function openLightbox(item, source) {
         lastFocused = source || null;
+        currentItem = item;
         const bits = [item.productType, item.materialType, metaLine(item), formatDate(item.createdAt)]
             .filter(Boolean);
         lbImage.onerror = () => { lbMeta.textContent = '图片加载失败，可能是网络抖动，关掉重开试试'; };
@@ -525,8 +538,37 @@
         lightbox.hidden = true;
         lbImage.removeAttribute('src');
         document.body.style.overflow = '';
+        currentItem = null;
         if (lastFocused && document.contains(lastFocused)) lastFocused.focus();
     }
+
+    lbDelete.addEventListener('click', async () => {
+        if (!currentItem) return;
+        const target = currentItem;
+        if (!window.confirm('确定删除这张图吗？删除后所有人都看不到，也无法恢复。')) return;
+
+        lbDelete.disabled = true;
+        try {
+            const res = await fetch(`${API}/file/${target.id}`, { method: 'DELETE' });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.ok) throw new Error(data.error || `删除失败（${res.status}）`);
+
+            const card = grid.querySelector(`.card[data-id="${target.id}"]`);
+            if (card) card.remove();
+            itemCount = Math.max(0, itemCount - 1);
+            closeLightbox();
+            if (itemCount === 0) {
+                emptyState.hidden = false;
+                emptyTitle.textContent = '还没有成品图';
+                emptyText.textContent = '去「朋友圈海报」做一张，导出时点「存入图库」，这里就会出现，任何人都能打开下载。';
+            }
+            loadFacets();
+        } catch (error) {
+            window.alert(error.message);
+        } finally {
+            lbDelete.disabled = false;
+        }
+    });
 
     lbClose.addEventListener('click', closeLightbox);    lightbox.addEventListener('click', event => {
         if (event.target === lightbox) closeLightbox();

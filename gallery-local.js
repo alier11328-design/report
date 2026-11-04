@@ -235,6 +235,21 @@ export function registerGalleryRoutes(app, rootDir) {
         }
     });
 
+    app.delete('/api/gallery/file/:id', (req, res) => {
+        try {
+            const rows = load();
+            const index = rows.findIndex(r => r.id === req.params.id);
+            if (index < 0) return res.status(404).json({ ok: false, error: '这张图不存在，可能已经删掉了。' });
+            const [row] = rows.splice(index, 1);
+            persist();
+            try { fs.unlinkSync(path.join(IMAGE_DIR, `${row.id}.${row.ext}`)); } catch {}
+            res.json({ ok: true, id: row.id });
+        } catch (error) {
+            console.error('[local gallery delete]', error);
+            res.status(500).json({ ok: false, error: `删除失败：${error.message}` });
+        }
+    });
+
     app.get('/api/gallery/file/:id', (req, res) => {
         try {
             const row = load().find(r => r.id === req.params.id);

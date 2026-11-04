@@ -4,7 +4,7 @@
  *
  * 图片内容长期不变，回应带 immutable 缓存，回访不再消耗 D1 行读。
  */
-import { BUCKET_BINDING, DB_BINDING, ensureSchema, fail } from '../_shared.js';
+import { BUCKET_BINDING, DB_BINDING, ensureSchema, fail, hashIp, json } from '../_shared.js';
 
 const ID_RE = /^[0-9a-fA-F-]{16,40}$/;
 
@@ -116,5 +116,58 @@ export async function onRequestGet(context) {
     } catch (error) {
         console.error('[gallery file]', error);
         return fail(`读取图片失败：${error?.message || '请稍后重试'}`, 500);
+    }
+}
+
+/**
+ * DELETE /api/gallery/file/:id
+ * 删除权限：上传时的来源 IP，或持有环境变量 GALLERY_ADMIN_KEY 对应的口令
+ *（请求头 X-Gallery-Key）。公开图库不设账号体系，这样既能自己删，也不会被随便清空。
+ */
+export async function onRequestDelete(context) {
+    const { params, env, request } = context;
+    const id = String(params.id || '');
+
+    try {
+        if (!ID_RE.test(id)) return fail('图片编号不合法。', 400);
+        if (!env[DB_BINDING]) return fail('图库数据库尚未绑定。', 503);
+
+        const row = await env[DB_BINDING]
+            .prepare('SELECT ip_hash, object_key FROM gallery WHERE id = ?1')
+            .bind(id)
+            .first();
+        if (!row) return fail('这张图不存在，可能已经删掉了。', 404);
+
+        const adminKey = env.GALLERY_ADMIN_KEY;
+        const providedKey = request.headers.get('x-gallery-key');
+        const fromSameIp = row.ip_hash === await hashIp(request);
+        const allowed = fromSameIp || Boolean(adminKey && providedKey && providedKey === adminKey);
+        if (!allowed) {
+            return fail('只能删除自己上传的图片。', 403);
+        }
+
+        await env[DB_BINDING].prepare('DELETE FROM gallery WHERE id = ?1').bind(id).run();
+
+        const bucket = env[BUCKET_BINDING];
+        if (bucket && row.object_key) {
+            try { await bucket.delete(row.object_key); } catch (error) {
+                console.warn('[gallery delete] R2 删除失败', id, error?.message);
+            }
+        }
+
+        // 顺便清掉边缘缓存，避免删完还能按原链接看到图
+        if (typeof caches !== 'undefined') {
+            const origin = new URL(request.url).origin;
+            for (const suffix of ['', '?download=1']) {
+                try {
+                    await caches.default.delete(new Request(`${origin}/api/gallery/file/${id}${suffix}`, { method: 'GET' }));
+                } catch {}
+            }
+        }
+
+        return json({ ok: true, id });
+    } catch (error) {
+        console.error('[gallery delete]', error);
+        return fail(`删除失败：${error?.message || '请稍后重试'}`, 500);
     }
 }
