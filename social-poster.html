@@ -212,6 +212,63 @@
         .field-help { display: block; margin: 6px 0 0; font-size: 12px; color: #94a3b8; line-height: 1.5; }
         .field-help[role="alert"] { color: #dc2626; }
 
+        /* 字段标题行：左边字段名，右边「是否显示在海报上」开关 */
+        .field-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        .field-head > label { margin-bottom: 0; }
+        .field-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin: 0;
+            font-size: 12px;
+            font-weight: 600;
+            color: #94a3b8;
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+        .field-toggle input {
+            appearance: none;
+            -webkit-appearance: none;
+            position: relative;
+            flex: 0 0 auto;
+            width: 30px;
+            height: 17px;
+            padding: 0;
+            margin: 0;
+            border: none;
+            border-radius: 999px;
+            background: #cbd5e1;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .field-toggle input::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.25);
+            transition: transform 0.2s;
+        }
+        .field-toggle input:checked { background: var(--primary-color); }
+        .field-toggle input:checked::after { transform: translateX(13px); }
+        .field-toggle input:checked + span { color: var(--primary-color); }
+        .field-toggle input:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+        /* 关掉显示时输入框变淡，但内容保留，随时可以再打开 */
+        .form-group.field-off > input,
+        .form-group.field-off > select { opacity: 0.5; }
+        .custom-material-input { margin-top: 8px; }
+
         .btn {
             background: white;
             border: 1px solid #cbd5e1;
@@ -557,6 +614,10 @@
             transition: color .4s ease, border-color .4s ease;
         }
 
+        /* 关掉素材类型时标题第二块隐藏（.poster-title span 原本是 display:block，
+           普通 [hidden] 会被这条规则盖掉，所以必须 !important） */
+        .poster-title > span[hidden] { display: none !important; }
+
         .poster-chips {
             display: flex;
             flex-direction: column;
@@ -564,6 +625,10 @@
             gap: 10px;
             min-width: 0;
         }
+
+        /* 关掉某个字段后整条标签 / 课程名隐藏（display:none 才能让 hero 高度真正缩短） */
+        .poster-chips[hidden],
+        .poster-chips > [hidden] { display: none !important; }
 
         .poster-chip {
             max-width: 100%;
@@ -753,8 +818,14 @@
                                 <option value="papercustom">论文定制</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label for="titleSecondary"><i class="fas fa-images"></i> 素材类型</label>
+                        <div class="form-group" data-toggle-group="showTitleSecondary">
+                            <div class="field-head">
+                                <label for="titleSecondary"><i class="fas fa-images"></i> 素材类型</label>
+                                <label class="field-toggle" title="取消勾选后，素材类型不会出现在海报上">
+                                    <input type="checkbox" id="showTitleSecondary" name="showTitleSecondary" checked>
+                                    <span>显示</span>
+                                </label>
+                            </div>
                             <select id="titleSecondary" name="titleSecondary">
                                 <option value="课堂展示">课堂展示</option>
                                 <option value="好评分享">好评分享</option>
@@ -762,42 +833,81 @@
                                 <option value="高分喜报">高分喜报</option>
                                 <option value="课后答疑">课后答疑</option>
                                 <option value="客户复购">客户复购</option>
+                                <option value="辅导下单">辅导下单</option>
+                                <option value="自定义">自定义…</option>
                             </select>
+                            <input class="custom-material-input" id="titleSecondaryCustom" name="titleSecondaryCustom" maxlength="12" placeholder="输入自定义素材类型，例如：辅导下单" hidden>
                         </div>
                     </div>
 
                     <div class="form-section-title">课程信息</div>
                     <div class="form-row">
-                        <div class="form-group">
-                            <label for="region">🌍 国家或地区</label>
+                        <div class="form-group" data-toggle-group="showRegion">
+                            <div class="field-head">
+                                <label for="region">🌍 国家或地区</label>
+                                <label class="field-toggle" title="取消勾选后，国家或地区不会出现在海报上">
+                                    <input type="checkbox" id="showRegion" name="showRegion" checked>
+                                    <span>显示</span>
+                                </label>
+                            </div>
                             <input id="region" name="region" maxlength="18" placeholder="例如：澳洲">
                         </div>
-                        <div class="form-group">
-                            <label for="school">🏫 学校</label>
+                        <div class="form-group" data-toggle-group="showSchool">
+                            <div class="field-head">
+                                <label for="school">🏫 学校</label>
+                                <label class="field-toggle" title="取消勾选后，学校不会出现在海报上">
+                                    <input type="checkbox" id="showSchool" name="showSchool" checked>
+                                    <span>显示</span>
+                                </label>
+                            </div>
                             <input id="school" name="school" maxlength="30" placeholder="例如：昆士兰大学">
                         </div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group">
-                            <label for="major">📚 专业</label>
+                        <div class="form-group" data-toggle-group="showMajor">
+                            <div class="field-head">
+                                <label for="major">📚 专业</label>
+                                <label class="field-toggle" title="取消勾选后，专业不会出现在海报上">
+                                    <input type="checkbox" id="showMajor" name="showMajor" checked>
+                                    <span>显示</span>
+                                </label>
+                            </div>
                             <input id="major" name="major" maxlength="24" placeholder="例如：食品科学">
                         </div>
-                        <div class="form-group">
-                            <label for="courseCode">📦 课程代码</label>
+                        <div class="form-group" data-toggle-group="showCourseCode">
+                            <div class="field-head">
+                                <label for="courseCode">📦 课程代码</label>
+                                <label class="field-toggle" title="取消勾选后，课程代码不会出现在海报上">
+                                    <input type="checkbox" id="showCourseCode" name="showCourseCode" checked>
+                                    <span>显示</span>
+                                </label>
+                            </div>
                             <input id="courseCode" name="courseCode" maxlength="20" placeholder="例如：BIOL1020">
                         </div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group">
-                            <label for="teacher">🧑‍🏫 辅导老师</label>
+                        <div class="form-group" data-toggle-group="showTeacher">
+                            <div class="field-head">
+                                <label for="teacher">🧑‍🏫 辅导老师</label>
+                                <label class="field-toggle" title="取消勾选后，辅导老师不会出现在海报上">
+                                    <input type="checkbox" id="showTeacher" name="showTeacher" checked>
+                                    <span>显示</span>
+                                </label>
+                            </div>
                             <input id="teacher" name="teacher" maxlength="24" placeholder="例如：Michelle.许">
                         </div>
-                        <div class="form-group">
-                            <label for="courseName">📖 课程名称</label>
+                        <div class="form-group" data-toggle-group="showCourseName">
+                            <div class="field-head">
+                                <label for="courseName">📖 课程名称</label>
+                                <label class="field-toggle" title="取消勾选后，课程名称不会出现在海报上">
+                                    <input type="checkbox" id="showCourseName" name="showCourseName" checked>
+                                    <span>显示</span>
+                                </label>
+                            </div>
                             <input id="courseName" name="courseName" maxlength="70" placeholder="例如：Genes, Cells &amp; Evolution">
                         </div>
                     </div>
-                    <span class="field-help">辅导老师会自动补上「老师」——填 <b>Michelle.许</b>，海报显示 <b>Michelle.许老师</b>；课程名称保留英文原名会更符合参考海报的视觉节奏。</span>
+                    <span class="field-help">右侧「显示」开关关掉后，对应内容不会出现在海报上（填的内容会保留）；素材类型选「自定义…」后可自己输入文字。辅导老师会自动补上「老师」——填 <b>Michelle.许</b>，海报显示 <b>Michelle.许老师</b>；课程名称保留英文原名会更符合参考海报的视觉节奏。</span>
 
                     <div class="form-section-title">课堂图片</div>
                     <div class="upload-window">
@@ -917,6 +1027,7 @@
                 none: null
             };
             const HIGH_SCORE_MATERIAL = '高分喜报';   // 该素材类型启用 AI 识图读分
+            const CUSTOM_MATERIAL = '自定义';          // 素材类型选它时可自由输入文字
             const MAX_AI_IMAGE_SIDE = 1600;           // 送 AI 前压缩到长边 1600，够读分又不至于太大
             const WATERMARK_SIZE = 0.8;
             const WATERMARK_POSITION_Y = 0.5;
@@ -939,6 +1050,8 @@
             const DEFAULT_STATE = {
                 theme: 'course',
                 titleSecondary: '课堂展示',
+                // 「自定义」素材类型时手填的文字
+                titleSecondaryCustom: '',
                 watermark: 'w1',
                 // 「课程信息」默认全部留空，由使用者自己填写
                 region: '',
@@ -946,8 +1059,27 @@
                 major: '',
                 courseCode: '',
                 teacher: '',
-                courseName: ''
+                courseName: '',
+                // 每一项是否显示在海报上（关掉只是不显示，填的内容照旧保留）
+                showTitleSecondary: true,
+                showRegion: true,
+                showSchool: true,
+                showMajor: true,
+                showCourseCode: true,
+                showTeacher: true,
+                showCourseName: true
             };
+
+            // 每一项是否显示在海报上的开关（存档键名与表单 checkbox 的 name 一致）
+            const FIELD_TOGGLE_KEYS = [
+                'showTitleSecondary',
+                'showRegion',
+                'showSchool',
+                'showMajor',
+                'showCourseCode',
+                'showTeacher',
+                'showCourseName'
+            ];
 
             // 早期版本给「课程信息」预填过示例内容，这里把仍是示例值的旧存档清空；
             // 使用者自己改过的内容不会被误删。
@@ -981,6 +1113,12 @@
             const imageError = document.getElementById('imageError');
             const posterLogo = document.getElementById('posterLogo');
             const titleSecondarySelect = document.getElementById('titleSecondary');
+            const titleSecondaryCustom = document.getElementById('titleSecondaryCustom');
+            const previewTitleSecondary = document.getElementById('previewTitleSecondary');
+            const previewChipSchool = document.getElementById('previewChipSchool');
+            const previewChipCourse = document.getElementById('previewChipCourse');
+            const previewCourseName = document.getElementById('previewCourseName');
+            const posterChips = document.querySelector('.poster-chips');
             const previewMeta = document.getElementById('previewMeta');
             const captionButton = document.getElementById('captionButton');
             const captionModal = document.getElementById('captionModal');
@@ -1023,6 +1161,9 @@
                     Object.entries(LEGACY_DEMO_VALUES).forEach(([key, demo]) => {
                         if (String(next[key] || '').trim() === demo) next[key] = '';
                     });
+                    // 显示开关统一成布尔值：老存档没有这些键时按「显示」处理
+                    FIELD_TOGGLE_KEYS.forEach(key => { next[key] = next[key] !== false; });
+                    next.titleSecondaryCustom = String(next.titleSecondaryCustom || '');
                     return next;
                 } catch {
                     return { ...DEFAULT_STATE };
@@ -1031,10 +1172,15 @@
 
             function readFormState() {
                 const data = new FormData(form);
-                return {
+                const isChecked = name => {
+                    const control = form.elements.namedItem(name);
+                    return control ? Boolean(control.checked) : true;
+                };
+                const next = {
                     theme: String(data.get('theme') || 'course'),
                     watermark: state.watermark || DEFAULT_STATE.watermark,
                     titleSecondary: String(data.get('titleSecondary') || '').trim(),
+                    titleSecondaryCustom: String(data.get('titleSecondaryCustom') || '').trim(),
                     region: String(data.get('region') || '').trim(),
                     school: String(data.get('school') || '').trim(),
                     major: String(data.get('major') || '').trim(),
@@ -1042,12 +1188,17 @@
                     teacher: String(data.get('teacher') || '').trim(),
                     courseName: String(data.get('courseName') || '').trim()
                 };
+                FIELD_TOGGLE_KEYS.forEach(key => { next[key] = isChecked(key); });
+                return next;
             }
 
             function writeStateToForm(nextState) {
                 Object.entries(nextState).forEach(([key, value]) => {
                     const control = form.elements.namedItem(key);
-                    if (control) control.value = value;
+                    if (!control) return;
+                    // 显示开关是 checkbox，不能按 value 赋值
+                    if (control.type === 'checkbox') control.checked = value !== false;
+                    else control.value = value;
                 });
             }
 
@@ -1076,16 +1227,65 @@
                 return watermarkOverride || state.watermark;
             }
 
+            // 素材类型文字：选「自定义」时用手填内容（空则回落到「自定义」）
+            function materialTypeText() {
+                if (state.titleSecondary === CUSTOM_MATERIAL) {
+                    return String(state.titleSecondaryCustom || '').trim() || CUSTOM_MATERIAL;
+                }
+                return state.titleSecondary || DEFAULT_STATE.titleSecondary;
+            }
+
+            // 海报上要显示的各项文字。空字符串 = 该项被关掉，预览与导出都不出现。
+            // 开关全开但内容为空时，用字段名当占位提示（与改造前的行为一致）。
+            function posterTexts() {
+                const schoolParts = [];
+                const schoolLabels = [];
+                if (state.showRegion !== false) { schoolParts.push(state.region); schoolLabels.push('国家或地区'); }
+                if (state.showSchool !== false) { schoolParts.push(state.school); schoolLabels.push('学校'); }
+
+                const courseParts = [];
+                const courseLabels = [];
+                if (state.showMajor !== false) { courseParts.push(state.major); courseLabels.push('专业'); }
+                if (state.showCourseCode !== false) { courseParts.push(state.courseCode); courseLabels.push('课程代码'); }
+                if (state.showTeacher !== false) { courseParts.push(teacherDisplayName(state.teacher)); courseLabels.push('辅导老师'); }
+
+                return {
+                    titlePrimary: THEME_TITLES[state.theme] || THEME_TITLES.course,
+                    titleSecondary: state.showTitleSecondary === false ? '' : materialTypeText(),
+                    schoolChip: joinVisible(schoolParts) || joinVisible(schoolLabels),
+                    courseChip: joinVisible(courseParts) || joinVisible(courseLabels),
+                    courseName: state.showCourseName === false
+                        ? ''
+                        : textOrFallback(state.courseName, '课程名称')
+                };
+            }
+
+            // 开关与「自定义」输入框的可见状态跟着 state 走
+            function syncFieldUI() {
+                form.querySelectorAll('[data-toggle-group]').forEach(group => {
+                    const toggle = form.elements.namedItem(group.dataset.toggleGroup);
+                    group.classList.toggle('field-off', Boolean(toggle) && !toggle.checked);
+                });
+                titleSecondaryCustom.hidden = state.titleSecondary !== CUSTOM_MATERIAL;
+            }
+
             function render() {
-                const titlePrimary = THEME_TITLES[state.theme] || THEME_TITLES.course;
+                const texts = posterTexts();
                 poster.dataset.theme = state.theme;
                 // 水印选「无」时：上下红条保留，条内 logo / 奖章 / 文字隐藏，预览与导出一致
                 poster.dataset.brand = activeWatermark() === 'none' ? 'off' : 'on';
-                document.getElementById('previewTitlePrimary').textContent = titlePrimary;
-                document.getElementById('previewTitleSecondary').textContent = textOrFallback(state.titleSecondary, '课堂展示');
-                document.getElementById('previewChipSchool').textContent = textOrFallback(joinVisible([state.region, state.school]), '国家或地区 | 学校');
-                document.getElementById('previewChipCourse').textContent = textOrFallback(joinVisible([state.major, state.courseCode, teacherDisplayName(state.teacher)]), '专业 | 课程代码 | 辅导老师');
-                document.getElementById('previewCourseName').textContent = textOrFallback(state.courseName, '课程名称');
+                document.getElementById('previewTitlePrimary').textContent = texts.titlePrimary;
+                previewTitleSecondary.textContent = texts.titleSecondary;
+                previewTitleSecondary.hidden = !texts.titleSecondary;
+                previewChipSchool.textContent = texts.schoolChip;
+                previewChipSchool.hidden = !texts.schoolChip;
+                previewChipCourse.textContent = texts.courseChip;
+                previewChipCourse.hidden = !texts.courseChip;
+                previewCourseName.textContent = texts.courseName;
+                previewCourseName.hidden = !texts.courseName;
+                // 三条信息全关时整块隐藏，hero 高度随之收缩
+                posterChips.hidden = !(texts.schoolChip || texts.courseChip || texts.courseName);
+                syncFieldUI();
                 renderMediaSlots();
                 renderImageList();
                 requestAnimationFrame(scalePreview);
@@ -1249,7 +1449,7 @@
             function currentCaptionInput() {
                 return {
                     productType: THEME_TITLES[state.theme] || THEME_TITLES.course,
-                    materialType: state.titleSecondary || DEFAULT_STATE.titleSecondary,
+                    materialType: materialTypeText(),
                     teacher: teacherDisplayName(state.teacher),
                     courseName: String(state.courseName || '').trim()
                 };
@@ -1865,14 +2065,19 @@
                 ctx.fillStyle = glow2;
                 ctx.fillRect(0, heroTop, POSTER_WIDTH, heroHeight);
 
-                const titlePrimary = THEME_TITLES[state.theme] || THEME_TITLES.course;
-                const titleSecondary = textOrFallback(state.titleSecondary, '课堂展示');
+                const texts = posterTexts();
+                // 关掉素材类型时第二块是 display:none（offsetWidth = 0），画布里必须跳过，
+                // 否则会多画一个宽度为 0 的空色块
+                const visibleTitleSpans = Array.from(titleRowEl.children)
+                    .filter(spanEl => spanEl.offsetWidth > 0);
                 setLetterSpacing(ctx, '2px');
                 let titleSize = 52;
                 do {
                     ctx.font = `900 ${titleSize}px ${displayFont}`;
-                    const combined = ctx.measureText(titlePrimary).width + ctx.measureText(titleSecondary).width + 100;
-                    if (combined <= POSTER_WIDTH - 48 || titleSize <= 32) break;
+                    const textWidth = visibleTitleSpans
+                        .reduce((sum, spanEl) => sum + ctx.measureText(spanEl.textContent).width, 0);
+                    const gaps = Math.max(0, visibleTitleSpans.length - 1) * 12;
+                    if (textWidth + gaps + 100 <= POSTER_WIDTH - 48 || titleSize <= 32) break;
                     titleSize -= 1;
                 } while (titleSize > 31);
 
@@ -1881,7 +2086,7 @@
                 // 色块宽度/高度/内边距全部取 DOM 实测值：flex 的 align-items:center 决定各自的垂直位置，
                 // 文字用 lineBoxBaselineOffset 反算基线，导出与预览就能逐像素对上。
                 let titleLeft = 24;
-                Array.from(titleRowEl.children).forEach((spanEl, index) => {
+                visibleTitleSpans.forEach((spanEl, index) => {
                     const spanStyle = getComputedStyle(spanEl);
                     const spanWidth = spanEl.offsetWidth;
                     const spanHeight = spanEl.offsetHeight;
@@ -1912,8 +2117,7 @@
                 });
                 setLetterSpacing(ctx, '0px');
 
-                const schoolText = textOrFallback(joinVisible([state.region, state.school]), '国家或地区 | 学校');
-                const detailText = textOrFallback(joinVisible([state.major, state.courseCode, teacherDisplayName(state.teacher)]), '专业 | 课程代码 | 辅导老师');
+                const chipTexts = [texts.schoolChip, texts.courseChip].filter(Boolean);
                 const maxChipTextWidth = POSTER_WIDTH - 84;
                 let chipY = titleY + titleHeight + 22;
 
@@ -1921,7 +2125,7 @@
                 const chipStyle = getComputedStyle(chipEl);
                 const chipPadLeft = parseFloat(chipStyle.paddingLeft);
                 const chipPadTop = parseFloat(chipStyle.paddingTop);
-                [schoolText, detailText].forEach(text => {
+                chipTexts.forEach(text => {
                     const fontSize = fitFontSize(ctx, text, maxChipTextWidth, 22, 14, 700, bodyFont);
                     ctx.font = `700 ${fontSize}px ${bodyFont}`;
                     const boxWidth = Math.min(POSTER_WIDTH - 48, ctx.measureText(text).width + 36);
@@ -1932,15 +2136,17 @@
                     chipY += chipHeight + 10;
                 });
 
-                const courseText = textOrFallback(state.courseName, '课程名称');
-                const courseSize = fitFontSize(ctx, courseText, POSTER_WIDTH - 48, 30, 18, 900, displayFont);
-                setLetterSpacing(ctx, '0.6px');
-                const courseStyle = getComputedStyle(courseEl);
-                ctx.font = `900 ${courseSize}px ${displayFont}`;
-                ctx.fillStyle = colors.accentDeep;
-                ctx.textBaseline = 'alphabetic';
-                // 课程名上方有 2px 外边距（.poster-course 的 margin-top）
-                ctx.fillText(courseText, 24, chipY + 2 + lineBoxBaselineOffset(ctx, courseStyle));
+                const courseText = texts.courseName;
+                if (courseText) {
+                    const courseSize = fitFontSize(ctx, courseText, POSTER_WIDTH - 48, 30, 18, 900, displayFont);
+                    setLetterSpacing(ctx, '0.6px');
+                    const courseStyle = getComputedStyle(courseEl);
+                    ctx.font = `900 ${courseSize}px ${displayFont}`;
+                    ctx.fillStyle = colors.accentDeep;
+                    ctx.textBaseline = 'alphabetic';
+                    // 课程名上方有 2px 外边距（.poster-course 的 margin-top）
+                    ctx.fillText(courseText, 24, chipY + 2 + lineBoxBaselineOffset(ctx, courseStyle));
+                }
                 setLetterSpacing(ctx, '0px');
                 y += heroHeight;
 
