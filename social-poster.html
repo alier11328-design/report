@@ -1191,7 +1191,11 @@
             'use strict';
 
             const STORAGE_KEY = 'clasbro-social-poster-v1';
-            const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
+            // 原图上限。超过长边 1600px 的图读进来后会自动缩小，所以这里可以放得宽一些
+            const MAX_IMAGE_BYTES = 30 * 1024 * 1024;
+            // 素材图读入后统一压到长边 1600px 内：海报成品宽 1500px，素材区更小，完全够用，
+            // 也能避免手机原图（10MB+）把内存和存档撑爆
+            const IMAGE_MAX_SIDE = 1600;
             // 一个粘贴框最多放几张图（上下拼接成一张成品图）
             const MAX_IMAGES_PER_BOX = 3;
             // 最多几张成品图（= 最多几个粘贴框）
@@ -2058,7 +2062,7 @@
 
             function resetImageMessage() {
                 imageError.removeAttribute('role');
-                imageError.textContent = '支持 JPG、PNG 和 WebP，每个粘贴框最多 3 张，单张建议不超过 12 MB。';
+                imageError.textContent = '支持 JPG、PNG、WebP，每个粘贴框最多 3 张，大图会自动缩小。';
             }
 
             function imageMessage(message) {
@@ -2075,27 +2079,83 @@
                 render();
             }
 
-            function readImageFile(file) {
+            // 有些系统给不出 file.type（微信保存的图、自己改过扩展名的截图、部分安卓机），
+            // 只看 MIME 会把正常图片当成「格式不支持」拒掉，所以按 MIME → 扩展名 → 文件头逐级兜底。
+            function guessImageMime(name) {
+                const match = /\.(jpe?g|png|webp)$/i.exec(String(name || ''));
+                if (!match) return '';
+                const ext = match[1].toLowerCase();
+                return (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg' : `image/${ext}`;
+            }
+
+            function sniffImageMime(bytes) {
+                if (!bytes || bytes.length < 12) return '';
+                if (bytes[0] === 0xFF && bytes[1] === 0xD8) return 'image/jpeg';
+                if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return 'image/png';
+                if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
+                    && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return 'image/webp';
+                // HEIC / HEIF 是 iPhone 的默认格式，浏览器解不了，单独认出来给一句明确提示
+                if (bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70) {
+                    const brand = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
+                    if (/^(hei[cxfs]|mif1|msf1|heis)/.test(brand)) return 'image/heic';
+                }
+                return '';
+            }
+
+            // 长边超过 1600px 的用 canvas 重编码；优先 WebP（体积小且保得住透明通道），
+            // 浏览器不支持 WebP 编码时退回 PNG，避免透明背景变黑。
+            function shrinkImage(dataUrl, image) {
+                const maxSide = Math.max(image.naturalWidth || 0, image.naturalHeight || 0);
+                if (!maxSide || maxSide <= IMAGE_MAX_SIDE) return dataUrl;
+                const ratio = IMAGE_MAX_SIDE / maxSide;
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(1, Math.round(image.naturalWidth * ratio));
+                canvas.height = Math.max(1, Math.round(image.naturalHeight * ratio));
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+                const webp = canvas.toDataURL('image/webp', 0.9);
+                return webp.startsWith('data:image/webp') ? webp : canvas.toDataURL('image/png');
+            }
+
+            async function readImageFile(file) {
                 const supported = ['image/jpeg', 'image/png', 'image/webp'];
-                if (!file || !supported.includes(file.type)) {
-                    return Promise.reject(new Error(`${file?.name || '文件'} 格式不支持，请选择 JPG、PNG 或 WebP。`));
+                let mime = supported.includes(file.type) ? file.type : guessImageMime(file.name);
+                if (!supported.includes(mime)) {
+                    try {
+                        const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+                        mime = sniffImageMime(head);
+                    } catch {
+                        // 读不到文件头就走下面的报错，不影响主流程
+                    }
+                }
+                if (mime === 'image/heic') {
+                    throw new Error(`${file.name || '这张照片'} 是 iPhone 的 HEIC 格式，浏览器读不了。请在相册里导出成 JPG 再上传。`);
+                }
+                if (!supported.includes(mime)) {
+                    throw new Error(`${file.name || '这个文件'} 不是 JPG / PNG / WebP 图片。`);
+                }
+                if (!file.size) {
+                    throw new Error(`${file.name || '这个文件'} 是空的，换一张试试。`);
                 }
                 if (file.size > MAX_IMAGE_BYTES) {
-                    return Promise.reject(new Error(`${file.name} 超过 12 MB，请压缩后重试。`));
+                    throw new Error(`${file.name} 有 ${(file.size / 1024 / 1024).toFixed(1)}MB，超过 ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024)}MB，请先压缩再上传。`);
                 }
 
-                return new Promise((resolve, reject) => {
+                const dataUrl = await new Promise((resolve, reject) => {
                     const reader = new FileReader();
-                    reader.onload = () => {
-                        const dataUrl = String(reader.result || '');
-                        const img = new Image();
-                        img.onload = () => resolve({ name: file.name, dataUrl, image: img });
-                        img.onerror = () => reject(new Error(`${file.name} 可能已损坏，请换一张图片。`));
-                        img.src = dataUrl;
-                    };
-                    reader.onerror = () => reject(new Error(`${file.name} 无法读取，请重新选择。`));
+                    reader.onload = () => resolve(String(reader.result || ''));
+                    reader.onerror = () => reject(new Error(`${file.name || '这个文件'} 读取失败，请重新选择。`));
                     reader.readAsDataURL(file);
                 });
+
+                const image = await new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.onload = () => resolve(img);
+                    img.onerror = () => reject(new Error(`${file.name || '这张图片'} 打不开，可能已损坏。`));
+                    img.src = dataUrl;
+                });
+
+                return { name: file.name, dataUrl: shrinkImage(dataUrl, image), image };
             }
 
             // 把文件读进指定的粘贴框（= 指定成品图）。超出每框 3 张的部分丢弃并提示。
@@ -2133,7 +2193,7 @@
                     setStatus(`成品图 ${target}：已加入 ${loaded.length} 张图片，共 ${itemsOfGroup(target).length} 张。`, 'success');
                 } catch (error) {
                     imageMessage(`图片未读取。${error.message}`);
-                    setStatus('图片未读取，请换一张试试。', 'error');
+                    setStatus(`图片未读取：${error.message}`, 'error');
                 }
             }
 
