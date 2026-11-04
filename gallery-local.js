@@ -12,11 +12,19 @@ import path from 'node:path';
 import multer from 'multer';
 import crypto from 'node:crypto';
 
-const MAX_IMAGE_BYTES = 900 * 1024;
+const MAX_IMAGE_BYTES = 500 * 1024;
+// 本地默认按线上的 500MB 模拟；用 GALLERY_CAPACITY_BYTES 可以调小，方便测「库满了」的表现
+const D1_CAPACITY_BYTES = Number(process.env.GALLERY_CAPACITY_BYTES) || 500 * 1024 * 1024;
 const RATE_LIMIT_PER_HOUR = 20;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
 const MAX_SIDE = 4000;
 const MIN_SIDE = 200;
+
+// 容量提示用：不到 1MB 时显示 KB
+function formatSize(bytes) {
+    const n = Math.max(0, Number(bytes) || 0);
+    return n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)}MB` : `${Math.round(n / 1024)}KB`;
+}
 
 const META_FIELDS = {
     product_type: 40,
@@ -83,7 +91,9 @@ export function registerGalleryRoutes(app, rootDir) {
 
     const galleryUpload = multer({
         storage: multer.memoryStorage(),
-        limits: { fileSize: MAX_IMAGE_BYTES, files: 1 }
+        // 留出 2 倍空间，让超限的文件能走到下面的体积检查，
+        // 由我们自己返回「超过多少 KB」的中文提示，而不是 multer 的英文报错
+        limits: { fileSize: MAX_IMAGE_BYTES * 2, files: 1 }
     });
 
     const item = row => ({
@@ -124,6 +134,17 @@ export function registerGalleryRoutes(app, rootDir) {
             }
 
             const rows = load();
+            // 与线上一致：D1 单库 500MB，满了给能看懂的错误而不是一句英文
+            const used = rows.reduce((sum, r) => sum + (Number(r.bytes) || 0), 0);
+            if (D1_CAPACITY_BYTES - used < file.size) {
+                return res.status(507).json({
+                    ok: false,
+                    error: `图库空间不足：已用 ${formatSize(used)} / ${formatSize(D1_CAPACITY_BYTES)}，`
+                        + `剩余 ${formatSize(Math.max(0, D1_CAPACITY_BYTES - used))}，`
+                        + `放不下这张 ${formatSize(file.size)} 的图。`
+                        + '请先删掉一些旧图，或开通 R2 对象存储扩容。'
+                });
+            }
             const since = Date.now() - RATE_WINDOW_MS;
             const ip = req.ip || 'local';
             const recent = rows.filter(r => r.ip === ip && r.created_at > since).length;
@@ -221,7 +242,7 @@ export function registerGalleryRoutes(app, rootDir) {
                 total: rows.length,
                 // 与线上 facet 返回保持一致：D1 单库上限 500MB
                 usedBytes: rows.reduce((sum, r) => sum + (r.bytes || 0), 0),
-                capacityBytes: 500 * 1024 * 1024,
+                capacityBytes: D1_CAPACITY_BYTES,
                 product: bucket('product_type'),
                 material: bucket('material_type'),
                 teacher: bucket('teacher').slice(0, 100),

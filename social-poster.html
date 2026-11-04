@@ -2885,8 +2885,10 @@
 
             // ---------- 存入成品图库 ----------
             // 图库存 WebP：同尺寸下约为 PNG 的四分之一，免费额度能多放好几倍的图。
-            const GALLERY_MAX_BYTES = 900 * 1024;
-            const GALLERY_QUALITY_STEPS = [0.92, 0.84, 0.76];
+            // 压到 400KB：D1 免费版单库只有 500MB，同样空间能多存一倍多的图。
+            // 海报是大色块 + 文字，WebP 在这个体积下肉眼看不出差别。
+            const GALLERY_MAX_BYTES = 400 * 1024;
+            const GALLERY_QUALITY_STEPS = [0.92, 0.84, 0.76, 0.68, 0.6];
 
             // 元数据全部取自左侧表单，存进去之后图库可以按这些字段筛
             function galleryMeta(width, height) {

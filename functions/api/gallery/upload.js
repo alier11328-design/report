@@ -11,6 +11,7 @@ import {
     MAX_IMAGE_BYTES,
     RATE_LIMIT_PER_HOUR,
     RATE_WINDOW_MS,
+    D1_CAPACITY_BYTES,
     ALLOWED_MIME,
     BUCKET_BINDING,
     DB_BINDING,
@@ -25,6 +26,12 @@ import {
 
 const MIN_SIDE = 200;
 const MAX_SIDE = 4000;
+
+// 容量提示用：不到 1MB 时显示 KB，比「已用 0MB / 500MB」直观
+function formatSize(bytes) {
+    const n = Math.max(0, Number(bytes) || 0);
+    return n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)}MB` : `${Math.round(n / 1024)}KB`;
+}
 
 export async function onRequestPost(context) {
     const { request, env } = context;
@@ -83,6 +90,24 @@ export async function onRequestPost(context) {
             .first();
         if ((recent?.c || 0) >= RATE_LIMIT_PER_HOUR) {
             return fail(`一小时内最多存 ${RATE_LIMIT_PER_HOUR} 张，请稍后再试。`, 429);
+        }
+
+        // 存 D1 时先看剩余空间。写满之后 INSERT 只会抛一句英文的 SQLITE_FULL，
+        // 前端只会显示「保存失败」，所以这里提前拦下来给人话。
+        if (!env[BUCKET_BINDING]) {
+            const usedRow = await env[DB_BINDING]
+                .prepare('SELECT COALESCE(SUM(bytes), 0) AS used FROM gallery')
+                .first();
+            const used = Number(usedRow?.used) || 0;
+            const room = D1_CAPACITY_BYTES - used;
+            if (room < file.size) {
+                return fail(
+                    `图库空间不足：已用 ${formatSize(used)} / ${formatSize(D1_CAPACITY_BYTES)}，` +
+                    `剩余 ${formatSize(Math.max(0, room))}，放不下这张 ${formatSize(file.size)} 的图。` +
+                    '请到图库里删掉一些旧图，或开通 R2 对象存储扩容。',
+                    507
+                );
+            }
         }
 
         const id = crypto.randomUUID();
@@ -162,7 +187,12 @@ export async function onRequestPost(context) {
         return json({ ok: true, item, remaining: RATE_LIMIT_PER_HOUR - (recent?.c || 0) - 1 }, 201);
     } catch (error) {
         console.error('[gallery upload]', error);
-        return fail(`保存失败：${error?.message || '请稍后重试'}`, 500);
+        // 并发写入时仍可能撞上 D1 满库，这句英文原文对使用者没有意义
+        const message = String(error?.message || '');
+        if (/SQLITE_FULL|database or disk is full|database is full/i.test(message)) {
+            return fail('图库空间已满，请到图库里删掉一些旧图，或开通 R2 对象存储扩容。', 507);
+        }
+        return fail(`保存失败：${message || '请稍后重试'}`, 500);
     }
 }
 

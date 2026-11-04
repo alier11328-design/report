@@ -12,8 +12,9 @@ export const DB_BINDING = 'DB';
 // 存 R2 之后 capacityBytes 返回 null，前端不再显示容量条。
 export const D1_CAPACITY_BYTES = 500 * 1024 * 1024;
 
-// 单张上限。客户端输出的是 1500px 宽 WebP（约 300~600KB），留一点余量。
-export const MAX_IMAGE_BYTES = 900 * 1024;
+// 单张上限。客户端会把海报压到 400KB 以内再上传，这里留 100KB 余量做兜底，
+// 防止有人绕过前端直接打接口把库塞满。
+export const MAX_IMAGE_BYTES = 500 * 1024;
 // 防滥用：同一 IP 每小时最多存这么多张
 export const RATE_LIMIT_PER_HOUR = 20;
 export const RATE_WINDOW_MS = 60 * 60 * 1000;
