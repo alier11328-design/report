@@ -523,6 +523,46 @@
             background: var(--primary-color);
             color: #fff;
         }
+        /* 双击任意一张成品图即可单独复制这张（多张并排时最顺手） */
+        .poster-host[data-group] {
+            cursor: copy;
+            user-select: none;
+        }
+        /* 描边压在红色顶栏上看不出来，所以再叠一层外发光，让「这张可点」有明确反馈 */
+        .poster-host[data-group]:hover {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 3px;
+            border-radius: 3px;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.22);
+        }
+        .poster-host-flash {
+            position: absolute;
+            left: var(--flash-x, 50%);
+            top: var(--flash-y, 26%);
+            z-index: 5;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 999px;
+            /* 深色底，叠加在任何颜色的海报上都看得清 */
+            background: rgba(15, 23, 42, 0.92);
+            color: #fff;
+            font-size: 13px;
+            font-weight: 700;
+            white-space: nowrap;
+            pointer-events: none;
+            box-shadow: 0 8px 22px rgba(15, 23, 42, 0.2);
+            transform: translate(-50%, -50%);
+            animation: hostFlash 1.5s ease forwards;
+        }
+        .poster-host-flash.is-error { background: rgba(220, 38, 38, 0.95); }
+        @keyframes hostFlash {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+            14% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            76% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+        }
         .caption-modal {
             position: fixed;
             inset: 0;
@@ -1075,7 +1115,7 @@
                     <div class="group-editor" id="groupEditor" hidden>
                         <div class="group-editor-head">
                             <span class="group-editor-title">成品图分组</span>
-                            <span class="group-editor-hint">每张成品图单独出一张海报；多张时点「复制」，当前这张进剪贴板、其余自动下载</span>
+                            <span class="group-editor-hint">每张成品图单独出一张海报。双击预览里任意一张可直接复制这张；点「复制」则是当前这张进剪贴板、其余自动下载</span>
                         </div>
                         <div class="group-matrix" id="groupMatrix"></div>
                     </div>
@@ -1575,6 +1615,7 @@
             function renderPosterStage() {
                 posterStage.querySelectorAll('.poster-host.is-extra').forEach(node => node.remove());
                 posterHost.dataset.group = String(activeGroup);
+                posterHost.title = '双击复制这张成品图';
 
                 const groups = groupsOf();
                 const multi = groups.length > 1;
@@ -1590,6 +1631,7 @@
                     const host = document.createElement('div');
                     host.className = 'poster-host is-extra';
                     host.dataset.group = String(group);
+                    host.title = '双击复制这张成品图';
                     host.appendChild(clonePosterForGroup(group));
                     setHostLabel(host, group, true);
                     hosts.push(host);
@@ -2884,14 +2926,17 @@
             }
 
             // 复制指定水印版本的图片。
-            // 单张成品图：原样复制这一张。
-            // 多张成品图：剪贴板一次只能装一张图（浏览器明确不支持多 ClipboardItem），
+            // 单张成品图 / 指定了 onlyGroup（双击某张）：只复制这一张。
+            // 多张成品图且没指定：剪贴板一次只能装一张图（浏览器明确不支持多 ClipboardItem），
             // 所以当前预览的这张进剪贴板，其余几张自动下载——点一次就能拿到整批成品图。
-            async function copyPosterImage(watermark, button) {
+            async function copyPosterImage(watermark, button, options = {}) {
+                const onlyGroup = Number.isInteger(options.onlyGroup) ? options.onlyGroup : null;
                 const label = watermark === 'none' ? '无水印' : '带水印';
                 const groups = exportGroups();
-                const multiple = groups.length > 1;
+                // 只有「点按钮 + 多张成品图」才走批量；双击单张永远只处理这一张
+                const batch = onlyGroup === null && groups.length > 1;
                 const restoreGroup = activeGroup;
+                const targetGroup = onlyGroup === null ? activeGroup : onlyGroup;
                 const base = posterFileBase();
                 // 要复制的版本和当前预览一致时不必上遮罩，点下去几乎瞬间完成
                 const needsSwitch = activeWatermark() !== watermark;
@@ -2901,13 +2946,14 @@
 
                 setExportBusy(true);
                 button.dataset.busy = '1';
-                button.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${multiple ? `复制 1/${groups.length}…` : '复制中…'}`;
-                setStatus(multiple ? `正在生成 ${groups.length} 张成品图（${label}）…` : `正在生成${label}图片…`);
-                if (multiple || needsSwitch) setVeil(true, `正在生成${label}图片…`);
+                button.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${batch ? `复制 1/${groups.length}…` : '复制中…'}`;
+                setStatus(batch ? `正在生成 ${groups.length} 张成品图（${label}）…` : `正在生成${label}图片…`);
+                if (batch || needsSwitch) setVeil(true, `正在生成${label}图片…`);
 
                 try {
-                    // 第一张（当前预览的这张）要趁点击手势还在时提交给 clipboard.write，
-                    // 所以先起一个不 await 的渲染任务，把它的 Promise 直接交给剪贴板 API。
+                    // 先切到目标成品图，再起一个不 await 的渲染任务，
+                    // 把它的 Promise 直接交给 clipboard.write —— 这样剪贴板写入仍留在点击/双击的手势窗口内。
+                    activeGroup = targetGroup;
                     const firstBlobPromise = renderVariantBlob(watermark);
                     try {
                         await writeImageToClipboard(firstBlobPromise);
@@ -2917,10 +2963,10 @@
                         console.error('[poster copy image]', error);
                     }
 
-                    if (multiple) {
+                    if (batch) {
                         // 剪贴板已拿到当前这张，剩下的逐张出图后直接下载
                         for (const group of groups) {
-                            if (copied && group === restoreGroup) continue;
+                            if (copied && group === targetGroup) continue;
                             activeGroup = group;
                             const note = `保存 ${group}/${groups.length}…`;
                             setVeil(true, `正在保存成品图 ${group}/${groups.length}…`);
@@ -2933,13 +2979,18 @@
                         }
                     }
 
-                    if (copied && multiple) {
+                    if (copied && batch) {
                         setStatus(
-                            `已复制成品图 ${restoreGroup}（${label}）到剪贴板，另外 ${downloaded} 张已下载（剪贴板一次只能放 1 张图）。`,
+                            `已复制成品图 ${targetGroup}（${label}）到剪贴板，另外 ${downloaded} 张已下载（剪贴板一次只能放 1 张图）。`,
                             'success'
                         );
                     } else if (copied) {
-                        setStatus(`已复制${label}图片到剪贴板，可直接粘贴。`, 'success');
+                        setStatus(
+                            groups.length > 1
+                                ? `已复制成品图 ${targetGroup}（${label}）到剪贴板，可直接粘贴。`
+                                : `已复制${label}图片到剪贴板，可直接粘贴。`,
+                            'success'
+                        );
                     } else if (downloaded) {
                         setStatus(
                             `剪贴板复制不可用，${downloaded} 张成品图已改为下载。${clipboardError?.message || ''}`,
@@ -2953,12 +3004,51 @@
                     setStatus(`图片复制失败：${error.message || '请改用「导出 PNG」'}`, 'error');
                 } finally {
                     watermarkOverride = null;
-                    activeGroup = restoreGroup;
+                    // 双击某张时停在这一张（双击即选中）；点按钮则回到原来正在看的那张
+                    activeGroup = onlyGroup === null ? restoreGroup : targetGroup;
                     delete button.dataset.busy;
                     render();   // render 里会调用 syncCopyButtons 恢复按钮文案与角标
                     setVeil(false);
                     setExportBusy(false);
                 }
+
+                return { copied, downloaded };
+            }
+
+            // 双击某张成品图就地复制这一张，并在双击的位置闪一下结果
+            async function copyPosterGroup(group, point) {
+                if (!Number.isInteger(group) || group < 1) return;
+                const watermark = activeWatermark();   // 所见即所得：复制当前预览的水印方案
+                const button = watermark === 'none' ? copyNoneButton : copyW1Button;
+                const result = await copyPosterImage(watermark, button, { onlyGroup: group });
+                flashHostResult(group, result?.copied
+                    ? `✓ 已复制成品图 ${group}`
+                    : '复制失败，请用「导出 PNG」',
+                    result?.copied ? '' : 'is-error',
+                    point);
+            }
+
+            // 在指定成品图的鼠标位置弹一个短提示，1.5s 后随动画结束移除。
+            // 海报可能很高，所以不能固定居中，否则双击顶部时提示落在看不见的位置。
+            function flashHostResult(group, text, tone = '', point = null) {
+                const host = Array.from(posterStage.querySelectorAll('.poster-host'))
+                    .find(node => Number(node.dataset.group) === group);
+                if (!host) return;
+                host.querySelectorAll('.poster-host-flash').forEach(node => node.remove());
+                const flash = document.createElement('span');
+                flash.className = `poster-host-flash ${tone}`.trim();
+                flash.setAttribute('role', 'status');
+                flash.textContent = text;
+                if (point) {
+                    const width = host.clientWidth || host.offsetWidth || 0;
+                    const height = host.clientHeight || host.offsetHeight || 0;
+                    const x = Math.min(Math.max(point.x, 78), Math.max(78, width - 78));
+                    const y = Math.min(Math.max(point.y, 26), Math.max(26, height - 26));
+                    flash.style.setProperty('--flash-x', `${Math.round(x)}px`);
+                    flash.style.setProperty('--flash-y', `${Math.round(y)}px`);
+                }
+                host.appendChild(flash);
+                setTimeout(() => flash.remove(), 1600);
             }
 
             form.addEventListener('input', event => {
@@ -3063,6 +3153,20 @@
             exportBothButton.addEventListener('click', exportPosterBoth);
             copyW1Button.addEventListener('click', () => copyPosterImage('w1', copyW1Button));
             copyNoneButton.addEventListener('click', () => copyPosterImage('none', copyNoneButton));
+
+            // 双击某张成品图 = 单独复制这一张（多张并排时比切标签再点按钮快得多）。
+            // 用事件委托：并排预览的克隆海报每次 render 都会重建，逐个绑定会失效。
+            posterStage.addEventListener('dblclick', event => {
+                const host = event.target.closest('.poster-host');
+                if (!host) return;
+                const group = Number(host.dataset.group);
+                if (!Number.isInteger(group) || group < 1) return;
+                if (copyW1Button.disabled) return;   // 正在导出 / 复制中，别插队
+                event.preventDefault();
+                // 记住双击位置（相对这张海报），提示就弹在手指底下
+                const box = host.getBoundingClientRect();
+                copyPosterGroup(group, { x: event.clientX - box.left, y: event.clientY - box.top });
+            });
             captionButton.addEventListener('click', generateCaption);
             captionRegenerate.addEventListener('click', generateCaption);
             captionCopy.addEventListener('click', copyCaption);
