@@ -101,6 +101,12 @@ backups/
 # 视觉校验产物（scripts/*.mjs 生成的对照截图，不入库）
 scripts/_verify/
 
+# 本地成品图库数据（gallery-local.js 落盘的图片与索引）
+.gallery-data/
+
+# 临时探测脚本
+.tmp-*
+
 # 本地工具副产物（AI 项目记忆 / 设计工具元数据，不入库）
 .workbuddy/
 .hallmark/

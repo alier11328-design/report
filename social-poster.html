@@ -1116,6 +1116,10 @@
                             <span class="button-label"><span>导出 PNG</span></span>
                         </button>
                         <button class="btn btn-primary" id="exportBothButton" type="button"><i class="fas fa-layer-group"></i> 导出双版本</button>
+                        <button class="btn" id="galleryButton" type="button" title="把成品图存进公共图库，所有打开网页的人都能看到并下载">
+                            <i class="fas fa-cloud-arrow-up"></i> 存入图库
+                        </button>
+                        <a class="btn" id="galleryLink" href="gallery.html" target="_blank" rel="noopener" title="打开成品图库"><i class="fas fa-images"></i> 图库</a>
                     </div>
                 </div>
 
@@ -1291,6 +1295,7 @@
             const exportBothButton = document.getElementById('exportBothButton');
             const copyW1Button = document.getElementById('copyW1Button');
             const copyNoneButton = document.getElementById('copyNoneButton');
+            const galleryButton = document.getElementById('galleryButton');
             const previewVeil = document.getElementById('previewVeil');
             const previewVeilText = document.getElementById('previewVeilText');
             const exportStatus = document.getElementById('exportStatus');
@@ -2821,6 +2826,7 @@
                 exportBothButton.disabled = busy;
                 copyW1Button.disabled = busy;
                 copyNoneButton.disabled = busy;
+                galleryButton.disabled = busy;
             }
 
             async function exportPosterBoth() {
@@ -2875,6 +2881,105 @@
                     'success'
                 );
                 await attachCaptionToExport(exported);
+            }
+
+            // ---------- 存入成品图库 ----------
+            // 图库存 WebP：同尺寸下约为 PNG 的四分之一，免费额度能多放好几倍的图。
+            const GALLERY_MAX_BYTES = 900 * 1024;
+            const GALLERY_QUALITY_STEPS = [0.92, 0.84, 0.76];
+
+            // 元数据全部取自左侧表单，存进去之后图库可以按这些字段筛
+            function galleryMeta(width, height) {
+                return {
+                    width,
+                    height,
+                    product_type: THEME_TITLES[state.theme] || '',
+                    material_type: materialTypeText(),
+                    country: state.region || '',
+                    school: state.school || '',
+                    major: state.major || '',
+                    course_code: state.courseCode || '',
+                    teacher: state.teacher || '',
+                    course_name: state.courseName || ''
+                };
+            }
+
+            // 逐档降质直到体积达标。浏览器不支持 WebP 编码时会回退成 PNG，那种情况降质也没用，
+            // 交给调用处按体积报错。
+            function canvasToGalleryBlob(canvas) {
+                const attempt = index => new Promise(resolve => {
+                    canvas.toBlob(blob => {
+                        if (!blob) return resolve(null);
+                        if (blob.size <= GALLERY_MAX_BYTES || index >= GALLERY_QUALITY_STEPS.length - 1) {
+                            return resolve(blob);
+                        }
+                        resolve(attempt(index + 1));
+                    }, 'image/webp', GALLERY_QUALITY_STEPS[index]);
+                });
+                return attempt(0);
+            }
+
+            async function uploadPosterToGallery(canvas) {
+                const blob = await canvasToGalleryBlob(canvas);
+                if (!blob) throw new Error('浏览器未生成图片数据');
+                if (blob.size > GALLERY_MAX_BYTES) {
+                    throw new Error(`图片压到 ${Math.round(blob.size / 1024)}KB，仍超过图库 ${Math.round(GALLERY_MAX_BYTES / 1024)}KB 上限，可以少放几张素材图再试`);
+                }
+
+                const form = new FormData();
+                const ext = blob.type === 'image/png' ? 'png' : blob.type === 'image/jpeg' ? 'jpg' : 'webp';
+                form.append('file', new Blob([blob], { type: blob.type || 'image/webp' }), `poster.${ext}`);
+                form.append('meta', JSON.stringify(galleryMeta(canvas.width, canvas.height)));
+
+                const response = await fetch('/api/gallery/upload', { method: 'POST', body: form });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || !data.ok) {
+                    throw new Error(data.error || `上传失败（${response.status}）`);
+                }
+                return data.item;
+            }
+
+            async function saveToGallery() {
+                const groups = exportGroups();
+                const multiple = groups.length > 1;
+                const restoreGroup = activeGroup;
+                const originalLabel = galleryButton.innerHTML;
+                let saved = 0;
+
+                galleryButton.disabled = true;
+                setExportBusy(true);
+                galleryButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 存入中…';
+                setStatus(multiple ? `正在存入图库 1/${groups.length}…` : '正在存入图库…');
+
+                try {
+                    for (const group of groups) {
+                        if (multiple) setStatus(`正在存入图库 ${group}/${groups.length}…`);
+                        setActiveGroup(group);
+                        await nextPaint();
+                        const canvas = await buildCanvas();
+                        await uploadPosterToGallery(canvas);
+                        saved += 1;
+                    }
+
+                    galleryButton.innerHTML = '<i class="fas fa-check"></i> 已存入';
+                    setStatus(
+                        saved > 1
+                            ? `已存入图库 ${saved} 张，打开「图库」任何人都能浏览和下载。`
+                            : '已存入图库，打开「图库」任何人都能浏览和下载。',
+                        'success'
+                    );
+                    setTimeout(() => { galleryButton.innerHTML = originalLabel; }, 2600);
+                } catch (error) {
+                    console.error('[poster gallery]', error);
+                    galleryButton.innerHTML = '<i class="fas fa-triangle-exclamation"></i> 存入失败';
+                    setStatus(`未存入图库${saved ? `（已存 ${saved} 张）` : ''}。${error.message || '请稍后重试。'}`, 'error');
+                    setTimeout(() => { galleryButton.innerHTML = originalLabel; }, 2600);
+                } finally {
+                    // 存完回到用户原来在看的那张成品图
+                    if (multiple) setActiveGroup(restoreGroup);
+                    setExportBusy(false);
+                    galleryButton.disabled = false;
+                }
             }
 
             // 导出后附带复制文案：文案弹窗里已有结果就直接复用选中那条，不重新生成
@@ -3216,6 +3321,7 @@
             exportBothButton.addEventListener('click', exportPosterBoth);
             copyW1Button.addEventListener('click', () => copyPosterImage('w1', copyW1Button));
             copyNoneButton.addEventListener('click', () => copyPosterImage('none', copyNoneButton));
+            galleryButton.addEventListener('click', saveToGallery);
 
             // 双击某张成品图 = 单独复制这一张（多张并排时比切标签再点按钮快得多）。
             // 用事件委托：并排预览的克隆海报每次 render 都会重建，逐个绑定会失效。

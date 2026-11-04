@@ -7,6 +7,7 @@ import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import mammoth from 'mammoth';
 import { Buffer } from 'buffer';
 import multer from 'multer';
+import { registerGalleryRoutes } from './gallery-local.js';
 
 dotenv.config({ override: true });
 
@@ -42,6 +43,9 @@ const upload = multer({
     storage: storage,
     limits: { fileSize: '50mb' }
 });
+
+// 本地成品图库：线上由 functions/api/gallery/* 提供，接口与行为保持一致
+registerGalleryRoutes(app, __dirname);
 
 const openai = process.env.DASHSCOPE_API_KEY
     ? new OpenAI({

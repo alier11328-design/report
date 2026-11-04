@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>成品图库 · 万能班长报告工坊</title>
+<meta name="description" content="万能班长朋友圈海报成品图库，按产品类型、素材类型与课程信息筛选，点开即可下载。">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23BF2A32'/%3E%3Cpath d='M8 11h16v11H8z' fill='none' stroke='%23fff' stroke-width='2'/%3E%3Ccircle cx='13' cy='15' r='1.6' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; }
+    :root {
+        --brand: #BF2A32;
+        --brand-dark: #9d2128;
+        --ink: #0b1c2e;
+        --muted: #64748b;
+        --line: #e2e8f0;
+        --bg: #f5f7fb;
+    }
+    body { background: var(--bg); min-height: 100vh; color: var(--ink); }
+
+    /* ---------- 顶栏 ---------- */
+    .topbar {
+        position: sticky; top: 0; z-index: 20;
+        background: rgba(255,255,255,.92);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--line);
+    }
+    .topbar-inner {
+        max-width: 1440px; margin: 0 auto; padding: 16px 24px;
+        display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; margin-right: auto; }
+    .brand-mark {
+        width: 40px; height: 40px; border-radius: 12px;
+        background: linear-gradient(135deg, var(--brand), #e2575f);
+        color: #fff; display: grid; place-items: center; font-size: 18px;
+        box-shadow: 0 6px 14px rgba(191,42,50,.25);
+    }
+    .brand h1 { font-size: 19px; font-weight: 800; letter-spacing: -.2px; }
+    .brand p { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .count-pill {
+        font-size: 12px; color: var(--muted); background: #f1f5f9;
+        border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; white-space: nowrap;
+    }
+    .capacity-pill.is-warn { color: #b45309; background: #fffbeb; border-color: #fcd34d; }
+    .capacity-pill.is-full { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+    .btn {
+        display: inline-flex; align-items: center; gap: 8px;
+        border: 1px solid var(--line); background: #fff; color: var(--ink);
+        border-radius: 10px; padding: 9px 16px; font-size: 14px; cursor: pointer;
+        text-decoration: none; transition: all .18s; white-space: nowrap;
+    }
+    .btn:hover { border-color: var(--brand); color: var(--brand); }
+    .btn-primary { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 600; }
+    .btn-primary:hover { background: var(--brand-dark); border-color: var(--brand-dark); color: #fff; }
+    .btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+    /* ---------- 筛选 ---------- */
+    .filters {
+        max-width: 1440px; margin: 0 auto; padding: 18px 24px 6px;
+        display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    }
+    .field { position: relative; }
+    .field i.lead {
+        position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+        font-size: 12px; color: #94a3b8; pointer-events: none;
+    }
+    .filters input, .filters select {
+        height: 38px; border: 1px solid var(--line); background: #fff;
+        border-radius: 10px; font-size: 13px; color: var(--ink);
+        padding: 0 12px; outline: none; transition: border-color .18s, box-shadow .18s;
+    }
+    .filters input { width: 150px; padding-left: 30px; }
+    .filters select { width: 132px; cursor: pointer; }
+    .filters input:focus, .filters select:focus {
+        border-color: var(--brand); box-shadow: 0 0 0 3px rgba(191,42,50,.1);
+    }
+    .filters input::placeholder { color: #a8b3c2; }
+    .filters .spacer { flex: 1; }
+    .active-filters {
+        max-width: 1440px; margin: 0 auto; padding: 0 24px 6px;
+        display: flex; flex-wrap: wrap; gap: 8px;
+    }
+    .chip {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: #fff; border: 1px solid var(--line); border-radius: 999px;
+        padding: 5px 10px 5px 12px; font-size: 12px; color: var(--muted);
+    }
+    .chip b { color: var(--ink); font-weight: 600; }
+    .chip button {
+        border: 0; background: none; cursor: pointer; color: #94a3b8;
+        font-size: 12px; line-height: 1; padding: 2px; border-radius: 50%;
+    }
+    .chip button:hover { color: var(--brand); }
+
+    /* ---------- 网格 ---------- */
+    .grid-wrap { max-width: 1440px; margin: 0 auto; padding: 12px 24px 60px; }
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+        gap: 18px;
+        align-items: start;
+    }
+    .card {
+        background: #fff; border-radius: 16px; overflow: hidden;
+        border: 1px solid var(--line); box-shadow: 0 4px 14px rgba(15,23,42,.04);
+        transition: transform .18s, box-shadow .18s, border-color .18s;
+        position: relative; cursor: zoom-in;
+    }
+    .card:hover { transform: translateY(-3px); box-shadow: 0 12px 26px rgba(15,23,42,.1); border-color: #d5dde7; }
+    .card:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
+    .thumb {
+        position: relative; display: block; width: 100%;
+        background: #f1f5f9; overflow: hidden;
+        /* 统一按 3:4 出图：海报多是 1500×2008，几乎不裁切，网格也不会高矮不齐 */
+        aspect-ratio: 3 / 4;
+    }
+    .thumb img {
+        width: 100%; height: 100%; object-fit: contain; display: block;
+        opacity: 0; transition: opacity .3s;
+    }
+    .thumb img.loaded { opacity: 1; }
+    .thumb .skeleton {
+        position: absolute; inset: 0;
+        background: linear-gradient(100deg, #eef2f7 30%, #f8fafc 50%, #eef2f7 70%);
+        background-size: 200% 100%; animation: shine 1.3s linear infinite;
+    }
+    @keyframes shine { to { background-position: -200% 0; } }
+    .badges {
+        display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 7px;
+    }
+    .badge {
+        font-size: 10.5px; line-height: 1; padding: 4px 7px; border-radius: 5px;
+        background: #fdf1f2; color: var(--brand); font-weight: 700;
+        border: 1px solid #f8d7da; white-space: nowrap;
+    }
+    .badge-material { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
+    .dl-btn {
+        position: absolute; right: 10px; bottom: 10px;
+        width: 36px; height: 36px; border-radius: 10px; border: 0;
+        background: rgba(255,255,255,.94); color: var(--ink);
+        display: grid; place-items: center; cursor: pointer;
+        opacity: 0; transform: translateY(4px); transition: all .18s;
+        box-shadow: 0 4px 12px rgba(15,23,42,.18);
+    }
+    .card:hover .dl-btn, .card:focus-within .dl-btn { opacity: 1; transform: none; }
+    .dl-btn:hover { background: var(--brand); color: #fff; }
+    .card-body { padding: 10px 12px 12px; }
+    .card-title {
+        font-size: 13px; font-weight: 700; line-height: 1.35;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .card-meta { font-size: 11.5px; color: var(--muted); margin-top: 5px; line-height: 1.4;
+        display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+    .card-foot {
+        display: flex; align-items: center; justify-content: space-between;
+        font-size: 11px; color: #94a3b8; margin-top: 8px;
+    }
+
+    /* ---------- 状态 ---------- */
+    .sentinel { height: 1px; }
+    .loading-row { display: flex; justify-content: center; padding: 28px; gap: 10px; color: var(--muted); font-size: 13px; }
+    /* 显式覆盖：.loading-row 设了 display:flex，会盖掉 [hidden] 的默认 display:none */
+    .loading-row[hidden] { display: none; }
+    .spinner {
+        width: 16px; height: 16px; border: 2px solid #dbe3ec; border-top-color: var(--brand);
+        border-radius: 50%; animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .empty {
+        text-align: center; padding: 80px 20px; color: var(--muted);
+    }
+    .empty .ico { font-size: 46px; color: #cbd5e1; margin-bottom: 16px; }
+    .empty h2 { font-size: 17px; color: var(--ink); margin-bottom: 8px; }
+    .empty p { font-size: 13.5px; line-height: 1.7; max-width: 460px; margin: 0 auto 20px; }
+    .error-box {
+        max-width: 520px; margin: 60px auto; background: #fff; border: 1px solid #fecaca;
+        border-radius: 14px; padding: 22px; text-align: center; color: #b91c1c; font-size: 13.5px;
+    }
+
+    /* ---------- 大图 ---------- */
+    .lightbox {
+        position: fixed; inset: 0; z-index: 60; background: rgba(9,15,25,.86);
+        display: flex; align-items: center; justify-content: center; padding: 24px;
+        backdrop-filter: blur(3px);
+    }
+    .lightbox[hidden] { display: none; }
+    .lightbox-inner { max-width: min(680px, 92vw); max-height: 92vh; display: flex; flex-direction: column; gap: 12px; }
+    .lightbox img {
+        max-width: 100%; max-height: calc(92vh - 88px); object-fit: contain;
+        border-radius: 12px; background: #fff; box-shadow: 0 24px 60px rgba(0,0,0,.4);
+    }
+    .lightbox-bar { display: flex; align-items: center; gap: 12px; color: #e2e8f0; font-size: 13px; }
+    .lightbox-bar .info { flex: 1; min-width: 0; }
+    .lightbox-bar .info strong { display: block; color: #fff; font-size: 14px; margin-bottom: 2px; }
+    .lightbox-bar .info span { color: #94a3b8; font-size: 12px; }
+    .lb-close {
+        position: fixed; top: 18px; right: 22px; width: 40px; height: 40px;
+        border-radius: 50%; border: 0; background: rgba(255,255,255,.14); color: #fff;
+        font-size: 17px; cursor: pointer; display: grid; place-items: center;
+    }
+    .lb-close:hover { background: rgba(255,255,255,.26); }
+
+    @media (max-width: 720px) {
+        .topbar-inner, .filters, .active-filters, .grid-wrap { padding-left: 14px; padding-right: 14px; }
+        .brand p { display: none; }
+        .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+        .filters input { width: calc(50% - 5px); }
+        .filters select { width: calc(50% - 5px); }
+        .filters .spacer { display: none; }
+    }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+    <div class="topbar-inner">
+        <div class="brand">
+            <div class="brand-mark"><i class="fas fa-images"></i></div>
+            <div>
+                <h1>成品图库</h1>
+                <p>所有做过的朋友圈海报都在这里，点开任意一张即可下载</p>
+            </div>
+        </div>
+        <span class="count-pill" id="totalPill">共 0 张</span>
+        <span class="count-pill capacity-pill" id="capacityPill" hidden></span>
+        <a class="btn btn-primary" href="social-poster.html"><i class="fas fa-plus"></i> 去做一张</a>
+    </div>
+</header>
+
+<section class="filters" aria-label="筛选条件">
+    <div class="field">
+        <select id="fProduct" aria-label="产品类型">
+            <option value="">全部产品类型</option>
+        </select>
+    </div>
+    <div class="field">
+        <select id="fMaterial" aria-label="素材类型">
+            <option value="">全部素材类型</option>
+        </select>
+    </div>
+    <div class="field">
+        <i class="fas fa-user lead"></i>
+        <input id="fTeacher" type="search" placeholder="辅导老师" list="dlTeacher" autocomplete="off">
+        <datalist id="dlTeacher"></datalist>
+    </div>
+    <div class="field">
+        <i class="fas fa-school lead"></i>
+        <input id="fSchool" type="search" placeholder="学校" list="dlSchool" autocomplete="off">
+        <datalist id="dlSchool"></datalist>
+    </div>
+    <div class="field">
+        <i class="fas fa-book lead"></i>
+        <input id="fMajor" type="search" placeholder="专业" list="dlMajor" autocomplete="off">
+        <datalist id="dlMajor"></datalist>
+    </div>
+    <div class="field">
+        <i class="fas fa-hashtag lead"></i>
+        <input id="fCode" type="search" placeholder="课程代码" autocomplete="off">
+    </div>
+    <div class="field">
+        <i class="fas fa-bookmark lead"></i>
+        <input id="fCourse" type="search" placeholder="课程名称" autocomplete="off">
+    </div>
+    <div class="spacer"></div>
+    <button class="btn" id="resetBtn" type="button"><i class="fas fa-rotate-left"></i> 重置</button>
+</section>
+
+<div class="active-filters" id="activeFilters"></div>
+
+<div class="grid-wrap">
+    <div class="grid" id="grid"></div>
+    <div class="loading-row" id="loadingRow" hidden>
+        <span class="spinner"></span><span>正在加载…</span>
+    </div>
+    <div class="empty" id="emptyState" hidden>
+        <div class="ico"><i class="fas fa-image"></i></div>
+        <h2 id="emptyTitle">还没有成品图</h2>
+        <p id="emptyText">去「朋友圈海报」做一张，导出时点「存入图库」，这里就会出现，任何人都能打开下载。</p>
+        <a class="btn btn-primary" href="social-poster.html"><i class="fas fa-wand-magic-sparkles"></i> 去做一张海报</a>
+    </div>
+    <div class="sentinel" id="sentinel"></div>
+</div>
+
+<div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="成品图大图">
+    <button class="lb-close" id="lbClose" type="button" aria-label="关闭"><i class="fas fa-xmark"></i></button>
+    <div class="lightbox-inner">
+        <img id="lbImage" alt="">
+        <div class="lightbox-bar">
+            <div class="info">
+                <strong id="lbTitle"></strong>
+                <span id="lbMeta"></span>
+            </div>
+            <a class="btn btn-primary" id="lbDownload" href="#" download><i class="fas fa-download"></i> 下载原图</a>
+        </div>
+    </div>
+</div>
+
+<script>
+(() => {
+    'use strict';
+
+    const API = '/api/gallery';
+    const PAGE_SIZE = 24;
+
+    const grid = document.getElementById('grid');
+    const loadingRow = document.getElementById('loadingRow');
+    const emptyState = document.getElementById('emptyState');
+    const emptyTitle = document.getElementById('emptyTitle');
+    const emptyText = document.getElementById('emptyText');
+    const sentinel = document.getElementById('sentinel');
+    const totalPill = document.getElementById('totalPill');
+    const capacityPill = document.getElementById('capacityPill');
+    const activeFilters = document.getElementById('activeFilters');
+    const resetBtn = document.getElementById('resetBtn');
+    const lightbox = document.getElementById('lightbox');
+    const lbImage = document.getElementById('lbImage');
+    const lbTitle = document.getElementById('lbTitle');
+    const lbMeta = document.getElementById('lbMeta');
+    const lbDownload = document.getElementById('lbDownload');
+    const lbClose = document.getElementById('lbClose');
+
+    const inputs = {
+        product: document.getElementById('fProduct'),
+        material: document.getElementById('fMaterial'),
+        teacher: document.getElementById('fTeacher'),
+        school: document.getElementById('fSchool'),
+        major: document.getElementById('fMajor'),
+        code: document.getElementById('fCode'),
+        course: document.getElementById('fCourse')
+    };
+
+    const LABELS = {
+        product: '产品类型',
+        material: '素材类型',
+        teacher: '辅导老师',
+        school: '学校',
+        major: '专业',
+        code: '课程代码',
+        course: '课程名称'
+    };
+
+    let cursor = '';
+    let loading = false;
+    let exhausted = false;
+    let itemCount = 0;
+    let lastFocused = null;
+
+    const readFilters = () => {
+        const out = {};
+        for (const [key, el] of Object.entries(inputs)) {
+            const value = String(el.value || '').trim();
+            if (value) out[key] = value;
+        }
+        return out;
+    };
+
+    const buildQuery = (filters, nextCursor) => {
+        const params = new URLSearchParams();
+        for (const [key, value] of Object.entries(filters)) params.set(key, value);
+        params.set('limit', String(PAGE_SIZE));
+        if (nextCursor) params.set('cursor', nextCursor);
+        return params.toString();
+    };
+
+    const formatDate = ts => {
+        if (!ts) return '';
+        const d = new Date(ts);
+        const p = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    };
+
+    const sizeText = item => {
+        const kb = item.bytes / 1024;
+        return kb > 1024 ? `${(kb / 1024).toFixed(1)}MB` : `${Math.round(kb)}KB`;
+    };
+
+    const cardTitle = item => {
+        if (item.courseName) return item.courseName;
+        if (item.courseCode) return item.courseCode;
+        if (item.major) return item.major;
+        return '万能班长成品图';
+    };
+
+    const metaLine = item => {
+        const parts = [];
+        if (item.teacher) parts.push(item.teacher);
+        if (item.school) parts.push(item.school);
+        if (item.country) parts.push(item.country);
+        return parts.join(' · ');
+    };
+
+    function makeCard(item) {
+        const card = document.createElement('article');
+        card.className = 'card';
+        card.tabIndex = 0;
+        card.dataset.id = item.id;
+        card.setAttribute('role', 'button');
+        card.setAttribute('aria-label', `${cardTitle(item)}，点击查看大图`);
+
+        const thumb = document.createElement('div');
+        thumb.className = 'thumb';
+
+        const skeleton = document.createElement('div');
+        skeleton.className = 'skeleton';
+
+        const img = document.createElement('img');
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.alt = cardTitle(item);
+        img.src = item.url;
+        img.addEventListener('load', () => {
+            img.classList.add('loaded');
+            skeleton.remove();
+        });
+        img.addEventListener('error', () => {
+            skeleton.remove();
+            img.classList.remove('loaded');
+        });
+
+        const badges = document.createElement('div');
+        badges.className = 'badges';
+        if (item.productType) {
+            const b = document.createElement('span');
+            b.className = 'badge';
+            b.textContent = item.productType;
+            badges.appendChild(b);
+        }
+        if (item.materialType) {
+            const b = document.createElement('span');
+            b.className = 'badge badge-material';
+            b.textContent = item.materialType;
+            badges.appendChild(b);
+        }
+
+        const dl = document.createElement('button');
+        dl.className = 'dl-btn';
+        dl.type = 'button';
+        dl.title = '下载这张原图';
+        dl.setAttribute('aria-label', `下载 ${cardTitle(item)}`);
+        dl.innerHTML = '<i class="fas fa-download"></i>';
+        dl.addEventListener('click', event => {
+            event.stopPropagation();
+            triggerDownload(item);
+        });
+
+        thumb.append(skeleton, img, dl);
+
+        const body = document.createElement('div');
+        body.className = 'card-body';
+        const title = document.createElement('div');
+        title.className = 'card-title';
+        title.textContent = cardTitle(item);
+        const meta = document.createElement('div');
+        meta.className = 'card-meta';
+        meta.textContent = metaLine(item) || ' ';
+        const foot = document.createElement('div');
+        foot.className = 'card-foot';
+        const date = document.createElement('span');
+        date.textContent = formatDate(item.createdAt);
+        const size = document.createElement('span');
+        size.textContent = `${sizeText(item)} · ${item.width}×${item.height}`;
+        foot.append(date, size);
+        body.append(badges, title, meta, foot);
+
+        card.append(thumb, body);
+
+        const open = () => openLightbox(item, card);
+        card.addEventListener('click', open);
+        card.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                open();
+            }
+        });
+
+        return card;
+    }
+
+    function triggerDownload(item) {
+        const link = document.createElement('a');
+        link.href = item.downloadUrl;
+        link.download = '';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    }
+
+    function openLightbox(item, source) {
+        lastFocused = source || null;
+        lbImage.src = item.url;
+        lbImage.alt = cardTitle(item);
+        lbTitle.textContent = cardTitle(item);
+        const bits = [item.productType, item.materialType, metaLine(item), formatDate(item.createdAt)]
+            .filter(Boolean);
+        lbMeta.textContent = bits.join(' · ');
+        lbDownload.href = item.downloadUrl;
+        lightbox.hidden = false;
+        document.body.style.overflow = 'hidden';
+        lbClose.focus();
+    }
+
+    function closeLightbox() {
+        lightbox.hidden = true;
+        lbImage.removeAttribute('src');
+        document.body.style.overflow = '';
+        if (lastFocused && document.contains(lastFocused)) lastFocused.focus();
+    }
+
+    lbClose.addEventListener('click', closeLightbox);
+    lightbox.addEventListener('click', event => {
+        if (event.target === lightbox) closeLightbox();
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && !lightbox.hidden) closeLightbox();
+    });
+
+    function renderActiveFilters() {
+        const filters = readFilters();
+        activeFilters.replaceChildren();
+        const entries = Object.entries(filters);
+        if (!entries.length) return;
+        for (const [key, value] of entries) {
+            const chip = document.createElement('span');
+            chip.className = 'chip';
+            const label = document.createElement('span');
+            label.textContent = LABELS[key] + '：';
+            const strong = document.createElement('b');
+            strong.textContent = value;
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.innerHTML = '<i class="fas fa-xmark"></i>';
+            remove.setAttribute('aria-label', `移除 ${LABELS[key]} 筛选`);
+            remove.addEventListener('click', () => {
+                inputs[key].value = '';
+                reload();
+            });
+            chip.append(label, strong, remove);
+            activeFilters.appendChild(chip);
+        }
+    }
+
+    function syncUrl() {
+        const filters = readFilters();
+        const params = new URLSearchParams(filters);
+        const query = params.toString();
+        const next = query ? `${location.pathname}?${query}` : location.pathname;
+        history.replaceState(null, '', next);
+    }
+
+    function setLoading(on) {
+        loading = on;
+        loadingRow.hidden = !on || itemCount === 0;
+    }
+
+    async function loadMore() {
+        if (loading || exhausted) return;
+        setLoading(true);
+        const filters = readFilters();
+
+        try {
+            const res = await fetch(`${API}/list?${buildQuery(filters, cursor)}`, { headers: { Accept: 'application/json' } });
+            const data = await res.json();
+            if (!res.ok || !data.ok) throw new Error(data.error || `请求失败（${res.status}）`);
+
+            const fragment = document.createDocumentFragment();
+            for (const item of data.items) fragment.appendChild(makeCard(item));
+            grid.appendChild(fragment);
+            itemCount += data.items.length;
+
+            cursor = data.nextCursor || '';
+            exhausted = !data.hasMore;
+
+            emptyState.hidden = itemCount > 0;
+            if (itemCount === 0) {
+                const hasFilter = Object.keys(filters).length > 0;
+                emptyTitle.textContent = hasFilter ? '没有符合条件的成品图' : '还没有成品图';
+                emptyText.textContent = hasFilter
+                    ? '换个筛选条件试试，或者点下面的按钮重置。'
+                    : '去「朋友圈海报」做一张，导出时点「存入图库」，这里就会出现，任何人都能打开下载。';
+            }
+        } catch (error) {
+            console.error('[gallery]', error);
+            exhausted = true;
+            if (itemCount === 0) {
+                grid.replaceChildren();
+                const box = document.createElement('div');
+                box.className = 'error-box';
+                box.textContent = `图库加载失败：${error.message}`;
+                grid.appendChild(box);
+            }
+        } finally {
+            setLoading(false);
+            if (!exhausted) observer.observe(sentinel);
+        }
+    }
+
+    function reload() {
+        cursor = '';
+        exhausted = false;
+        itemCount = 0;
+        grid.replaceChildren();
+        emptyState.hidden = true;
+        renderActiveFilters();
+        syncUrl();
+        observer.disconnect();
+        loadMore();
+    }
+
+    const observer = new IntersectionObserver(entries => {
+        for (const entry of entries) {
+            if (entry.isIntersecting) {
+                observer.unobserve(sentinel);
+                loadMore();
+            }
+        }
+    }, { rootMargin: '600px 0px' });
+
+    // 文本输入做 350ms 防抖，下拉框立即生效
+    let debounce = null;
+    for (const [key, el] of Object.entries(inputs)) {
+        const isSelect = el.tagName === 'SELECT';
+        const handler = () => {
+            clearTimeout(debounce);
+            if (isSelect) reload();
+            else debounce = setTimeout(reload, 350);
+        };
+        el.addEventListener(isSelect ? 'change' : 'input', handler);
+        if (!isSelect) {
+            el.addEventListener('keydown', event => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    clearTimeout(debounce);
+                    reload();
+                }
+            });
+        }
+    }
+    resetBtn.addEventListener('click', () => {
+        for (const el of Object.values(inputs)) el.value = '';
+        reload();
+    });
+
+    function fillOptions(select, items, placeholder) {
+        const current = select.value;
+        select.replaceChildren();
+        const first = document.createElement('option');
+        first.value = '';
+        first.textContent = placeholder;
+        select.appendChild(first);
+        for (const entry of items) {
+            const option = document.createElement('option');
+            option.value = entry.value;
+            option.textContent = `${entry.value}（${entry.count}）`;
+            select.appendChild(option);
+        }
+        if (current && [...select.options].some(o => o.value === current)) select.value = current;
+        select.disabled = items.length === 0;
+    }
+
+    function fillDatalist(listId, items) {
+        const list = document.getElementById(listId);
+        list.replaceChildren();
+        for (const entry of items) {
+            const option = document.createElement('option');
+            option.value = entry.value;
+            list.appendChild(option);
+        }
+    }
+
+    function formatBytes(bytes) {
+        if (!bytes) return '0KB';
+        if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))}KB`;
+        return `${(bytes / 1024 / 1024).toFixed(1).replace(/\.0$/, '')}MB`;
+    }
+
+    async function loadFacets() {
+        try {
+            const res = await fetch(`${API}/facets`, { headers: { Accept: 'application/json' } });
+            const data = await res.json();
+            if (!res.ok || !data.ok) throw new Error(data.error || '筛选项加载失败');
+            fillOptions(inputs.product, data.product || [], '全部产品类型');
+            fillOptions(inputs.material, data.material || [], '全部素材类型');
+            fillDatalist('dlTeacher', data.teacher || []);
+            fillDatalist('dlSchool', data.school || []);
+            fillDatalist('dlMajor', data.major || []);
+            totalPill.textContent = `共 ${data.total || 0} 张`;
+
+            // 容量只在后端给了上限时显示（存 D1 时有 500MB 单库上限，接了 R2 就没有）
+            if (data.capacityBytes) {
+                const ratio = (data.usedBytes || 0) / data.capacityBytes;
+                capacityPill.hidden = false;
+                capacityPill.textContent = `已用 ${formatBytes(data.usedBytes)} / ${formatBytes(data.capacityBytes)}`;
+                capacityPill.classList.toggle('is-warn', ratio >= 0.8 && ratio < 0.95);
+                capacityPill.classList.toggle('is-full', ratio >= 0.95);
+                capacityPill.title = ratio >= 0.95
+                    ? '图库快满了，需要清理旧图或接入 R2 对象存储扩容'
+                    : '图库占用空间';
+            }
+        } catch (error) {
+            console.warn('[gallery facets]', error);
+            totalPill.textContent = '共 — 张';
+        }
+    }
+
+    // 用地址栏参数还原筛选条件，方便把某次筛选结果直接发给别人
+    function restoreFromUrl() {
+        const params = new URLSearchParams(location.search);
+        for (const [key, el] of Object.entries(inputs)) {
+            const value = params.get(key);
+            if (value) el.value = value;
+        }
+    }
+
+    restoreFromUrl();
+    renderActiveFilters();
+    loadFacets();
+    loadMore();
+})();
+</script>
+</body>
+</html>
