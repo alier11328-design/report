@@ -1,6 +1,6 @@
 // Cloudflare Pages Functions - 周期反馈排课
 const BASE_URL = 'https://ark.cn-beijing.volces.com/api/plan/v3';
-const MODEL = 'doubao-seed-2-0-lite';
+const MODEL = 'doubao-seed-2.1-lite';
 
 // 火山方舟 doubao-seed 2.x 默认开启深度思考，长任务会超过 Cloudflare 边缘 100s 超时（返回 524），这里显式关闭。
 // 注意：百炼 qwen 用的是 enable_thinking（布尔），与火山的 thinking:{type:'disabled'} 不是一回事，别混用。
@@ -92,6 +92,33 @@ async function callAI({ prompt, images = [], textBlocks = [] }, env) {
     return extractJsonObject(text);
 }
 
+function normalizeScheduleRows(items) {
+    if (!Array.isArray(items)) return [];
+    const str = v => (typeof v === 'string' ? v.trim() : '');
+    const sortKey = s => {
+        // 匹配 "26-09-27 17:56" / "2026-09-27 17:56" 等；两位年份按 20YY 处理
+        const m = s.match(/(\d{2,4})[-/年.](\d{1,2})[-/月.](\d{1,2})[日]?\s+(\d{1,2}):(\d{2})/);
+        if (!m) return null;
+        const year = m[1].length === 2 ? 2000 + Number(m[1]) : Number(m[1]);
+        return year * 1e8 + Number(m[2]) * 1e6 + Number(m[3]) * 1e4 + Number(m[4]) * 100 + Number(m[5]);
+    };
+    return items
+        .map(item => ({
+            courseName: str(item?.courseName),
+            startTime: str(item?.startTime),
+            endTime: str(item?.endTime),
+            duration: str(item?.duration)
+        }))
+        .filter(item => item.courseName || item.startTime || item.endTime || item.duration)
+        // 强制按开始时间从早到晚排序（不能依赖模型自觉）
+        .sort((a, b) => {
+            const ka = sortKey(a.startTime);
+            const kb = sortKey(b.startTime);
+            if (ka !== null && kb !== null) return ka - kb;
+            return a.startTime.localeCompare(b.startTime);
+        });
+}
+
 export async function onRequestPost(context) {
     const { request, env } = context;
     try {
@@ -112,10 +139,14 @@ export async function onRequestPost(context) {
 当前表单上下文：
 ${JSON.stringify(body.context || {}, null, 2)}
 
-要求：尽量保留原始课程名、开始时间、结束时间、时长。`;
+要求：
+1. 课程名、开始时间、结束时间、时长均按截图/文档原样提取，不要改写。开始时间和结束时间必须包含日期（如 "26-09-27 17:56" 或 "2026-09-27 17:56"），不要只保留时刻。
+2. rows 尽量按「开始时间」的日期+时间从早到晚升序排列。
+3. 时长优先取表格中的「实际时长」列；只有当表中不存在实际时长列时才取「预计时长」。原样保留时长字符串（如 "0hr43.10min"）。
+4. 截图里有多少条记录就输出多少条，不要合并、不要省略、不要补造不存在的排课记录；无法识别的字段留空字符串。`;
 
         const result = await callAI({ prompt, images, textBlocks }, env);
-        return createResponse({ data: { rows: Array.isArray(result.rows) ? result.rows : [] } });
+        return createResponse({ data: { rows: normalizeScheduleRows(result.rows) } });
     } catch (error) {
         return createResponse({ error: error.message || 'AI 识别失败' }, 500);
     }
