@@ -29,7 +29,7 @@
             font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
         }
         button, input, select, textarea { font-family: inherit; }
-        button, a, label[for="posterImages"] { -webkit-tap-highlight-color: transparent; }
+        button, a, .upload-button, .paste-box { -webkit-tap-highlight-color: transparent; }
 
         .app {
             width: 100%;
@@ -295,59 +295,81 @@
             gap: 9px;
         }
 
-        /* 成品图分组：每行一张成品图，勾选要拼进这张图的图片 */
-        .group-editor {
-            margin: 14px 0 0;
-            padding: 14px;
+        /* 素材粘贴框：一个框 = 一张成品图，框内的图片按顺序上下拼接 */
+        .paste-box-list { display: grid; gap: 10px; }
+        .paste-box {
+            padding: 10px 12px 12px;
             border: 1.5px dashed #cbd5e1;
-            border-radius: 12px;
-            background: #f8fafc;
+            border-radius: 14px;
+            background: #fff;
+            transition: 0.2s;
         }
-        .group-editor-head {
-            display: flex;
-            align-items: baseline;
-            justify-content: space-between;
-            gap: 10px;
-            margin-bottom: 10px;
+        .paste-box.is-active {
+            border-color: var(--primary-color);
+            border-style: solid;
+            box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.08);
         }
-        .group-editor-title { font-size: 13px; font-weight: 700; color: #334155; }
-        .group-editor-hint { font-size: 12px; color: #94a3b8; }
-        .group-matrix { display: flex; flex-direction: column; gap: 8px; }
-        .group-row {
+        .paste-box.is-dragover {
+            border-style: solid;
+            border-color: var(--primary-color);
+            background: var(--primary-bg-hover);
+        }
+        .paste-box-head {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 7px 10px;
-            border-radius: 9px;
-            background: #fff;
-            border: 1px solid #e2e8f0;
+            gap: 8px;
+            margin-bottom: 9px;
         }
-        .group-row-name {
-            flex: 0 0 auto;
-            min-width: 58px;
-            font-size: 12px;
+        .paste-box-name {
+            font-size: 13px;
             font-weight: 700;
             color: #475569;
         }
-        .group-choice {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 3px 9px 3px 7px;
+        .paste-box.is-active .paste-box-name { color: var(--primary-color); }
+        .paste-box-count {
+            padding: 1px 8px;
             border-radius: 999px;
-            border: 1px solid #e2e8f0;
-            font-size: 12px;
+            background: #f1f5f9;
             color: #64748b;
-            cursor: pointer;
-            user-select: none;
-        }
-        .group-choice:has(input:checked) {
-            border-color: var(--primary-color);
-            color: var(--primary-color);
+            font-size: 11px;
             font-weight: 700;
-            background: rgba(var(--primary-rgb), 0.06);
         }
-        .group-choice input { margin: 0; accent-color: var(--primary-color); cursor: pointer; }
+        .paste-box-remove {
+            margin-left: auto;
+            padding: 3px 9px;
+            border: 1px solid #e2e8f0;
+            border-radius: 999px;
+            background: #fff;
+            color: #94a3b8;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .paste-box-remove:hover { border-color: #dc2626; color: #dc2626; }
+        .paste-box-body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            padding: 10px;
+            border-radius: 10px;
+            background: var(--primary-bg-soft);
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .paste-box-body:hover { background: var(--primary-bg-hover); }
+        .paste-box-body .upload-hint { margin-top: 0; }
+        /* 框内已有图片时，提示区收成一行小字，不抢位置 */
+        .paste-box.has-items .paste-box-body { padding: 7px 10px; }
+        .paste-box-add {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
 
         /* 预览区的成品图切换标签 */
         .group-tabs {
@@ -399,27 +421,8 @@
         .btn[data-state="success"] { border-color: #16a34a; }
         .btn[data-state="error"] { border-color: #dc2626; }
 
-        /* 上传区：对齐其余工具的虚线拖拽区 */
-        .upload-window {
-            border: 2px dashed var(--primary-color);
-            border-radius: 20px;
-            padding: 16px;
-            text-align: center;
-            background: var(--primary-bg-soft);
-            margin-bottom: 12px;
-            transition: 0.2s;
-        }
-        .upload-window { cursor: pointer; }
-        .upload-window:hover { background: var(--primary-bg-hover); }
-        .upload-window.is-dragover {
-            background: var(--primary-bg-hover);
-            border-color: var(--primary-color);
-            border-style: solid;
-            box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.08);
-            transform: scale(1.01);
-        }
+        /* 上传区：每个粘贴框内部是浅底拖拽区，虚线边框在 .paste-box 上 */
         .upload-hint { display: block; margin-top: 8px; font-size: 12px; color: #94a3b8; }
-        .upload-row { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
         .poster-image-input {
             position: absolute;
             width: 1px;
@@ -458,16 +461,6 @@
         .upload-file-list:empty { display: none; }
         .upload-file-row { display: flex; align-items: center; gap: 10px; padding-top: 8px; border-top: 1px solid #eef2f6; }
         .upload-file-index { flex: none; color: var(--primary-color); font-size: 13px; font-weight: 700; }
-        .upload-file-group {
-            flex: none;
-            margin-left: auto;
-            padding: 2px 8px;
-            border-radius: 999px;
-            background: rgba(var(--primary-rgb), 0.08);
-            color: var(--primary-color);
-            font-size: 11px;
-            font-weight: 700;
-        }
         .save-state { margin-top: 14px; font-size: 12px; color: #94a3b8; font-variant-numeric: tabular-nums; }
 
         .preview-meta {
@@ -1096,29 +1089,13 @@
                     </div>
                     <span class="field-help">字段名右侧的开关关掉后，对应内容不会出现在海报上（填的内容会保留）；「课程信息」标题旁的总开关可以一次性关掉下面六项。素材类型选「自定义…」后可自己输入文字。辅导老师会自动补上「老师」——填 <b>Michelle.许</b>，海报显示 <b>Michelle.许老师</b>；课程名称保留英文原名会更符合参考海报的视觉节奏。</span>
 
-                    <div class="form-section-title">课堂图片</div>
-                    <div class="upload-window">
-                        <div class="upload-row">
-                            <input class="poster-image-input" id="posterImages" name="posterImages" type="file" accept="image/png,image/jpeg,image/webp" aria-describedby="imageError" multiple>
-                            <label class="upload-button" for="posterImages">
-                                <span class="upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg></span>
-                                选择 1–3 张图片
-                            </label>
-                            <span class="image-file-name" id="imageCount">尚未选择图片</span>
-                        </div>
-                        <span class="upload-hint">点击此处选择，也可以把图片拖进来，或按 Ctrl / ⌘ + V 粘贴截图</span>
-                        <div class="upload-file-list" id="imageFileList" aria-live="polite"></div>
-                        <span class="field-help" id="imageError">支持 JPG、PNG 和 WebP，最多 3 张，单张建议不超过 12 MB。</span>
+                    <div class="form-section-title">素材图片</div>
+                    <div class="paste-box-list" id="pasteBoxList"></div>
+                    <div class="paste-box-add">
+                        <button class="btn btn-sm" id="addPasteBox" type="button"><i class="fas fa-plus"></i> 新增粘贴框</button>
+                        <span class="upload-hint">一个粘贴框 = 一张成品图。框内可放 1–3 张图，按顺序上下拼接。</span>
                     </div>
-
-                    <!-- 成品图分组：每行一张海报，勾选要拼进这张海报的图片 -->
-                    <div class="group-editor" id="groupEditor" hidden>
-                        <div class="group-editor-head">
-                            <span class="group-editor-title">成品图分组</span>
-                            <span class="group-editor-hint">每张成品图单独出一张海报。双击预览里任意一张可直接复制这张；点「复制」则是当前这张进剪贴板、其余自动下载</span>
-                        </div>
-                        <div class="group-matrix" id="groupMatrix"></div>
-                    </div>
+                    <span class="field-help" id="imageError">支持 JPG、PNG 和 WebP，每个粘贴框最多 3 张，单张建议不超过 12 MB。</span>
                     <div class="save-state" id="saveState" role="status" aria-live="polite">已自动保存</div>
                 </form>
             </div>
@@ -1211,6 +1188,10 @@
 
             const STORAGE_KEY = 'clasbro-social-poster-v1';
             const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
+            // 一个粘贴框最多放几张图（上下拼接成一张成品图）
+            const MAX_IMAGES_PER_BOX = 3;
+            // 最多几张成品图（= 最多几个粘贴框）
+            const MAX_BOXES = 6;
             const POSTER_WIDTH = 750;
             const EXPORT_SCALE = 2;
             const MEDIA_PADDING_X = 24;
@@ -1302,12 +1283,10 @@
             const posterHost = document.getElementById('posterHost');
             const posterStage = document.getElementById('posterStage');
             const previewViewport = document.getElementById('previewViewport');
-            const imageInput = document.getElementById('posterImages');
             const posterContent = document.getElementById('posterContent');
-            const imageFileList = document.getElementById('imageFileList');
-            const imageCount = document.getElementById('imageCount');
             const teacherInput = document.getElementById('teacher');
-            const uploadWindow = document.querySelector('.upload-window');
+            const pasteBoxList = document.getElementById('pasteBoxList');
+            const addPasteBoxButton = document.getElementById('addPasteBox');
             const exportButton = document.getElementById('exportButton');
             const exportBothButton = document.getElementById('exportBothButton');
             const copyW1Button = document.getElementById('copyW1Button');
@@ -1325,8 +1304,6 @@
             const previewChipCourse = document.getElementById('previewChipCourse');
             const previewCourseName = document.getElementById('previewCourseName');
             const posterChips = document.querySelector('.poster-chips');
-            const groupEditor = document.getElementById('groupEditor');
-            const groupMatrix = document.getElementById('groupMatrix');
             const groupTabs = document.getElementById('groupTabs');
             const previewMeta = document.getElementById('previewMeta');
             const captionButton = document.getElementById('captionButton');
@@ -1339,6 +1316,10 @@
 
             let state = loadState();
             let imageItems = [];
+            // 粘贴框数量 = 成品图数量。一个粘贴框对应一张成品图，框内可放 1–3 张图。
+            let boxCount = 1;
+            // 每张图片的唯一编号，删图时按编号定位，避免索引错乱
+            let imageSeq = 0;
             // 当前预览的是第几张成品图（1 起）。一张成品图 = 一张要发出去的海报。
             let activeGroup = 1;
             let saveTimer = null;
@@ -1488,9 +1469,9 @@
                 titleSecondaryCustom.hidden = state.titleSecondary !== CUSTOM_MATERIAL;
             }
 
-            // ---------- 成品图（一张成品图 = 一张要发出去的海报） ----------
+            // ---------- 成品图（一个粘贴框 = 一张成品图 = 一张要发出去的海报） ----------
             function groupsOf() {
-                return [...new Set(imageItems.map(item => item.group || 1))].sort((a, b) => a - b);
+                return Array.from({ length: boxCount }, (_, index) => index + 1);
             }
 
             function itemsOfGroup(group) {
@@ -1502,17 +1483,19 @@
                 return itemsOfGroup(activeGroup);
             }
 
-            // 每次增删图片 / 改分组后，把编号压成连续的 1..n，避免出现「成品图 2 是空的」
-            function normalizeGroups() {
-                const groups = groupsOf();
-                if (!groups.length) { activeGroup = 1; return; }
-                const map = new Map(groups.map((group, index) => [group, index + 1]));
-                imageItems.forEach(item => { item.group = map.get(item.group || 1) || 1; });
-                const count = groups.length;
-                activeGroup = Math.min(Math.max(1, activeGroup), count);
+            // 框数与图片归属保持一致：框最少 1 个、最多 MAX_BOXES 个，
+            // 图片的 group 一定落在 1..boxCount 之间（删框时会连同框内图片一起删掉）。
+            function normalizeBoxes() {
+                boxCount = Math.max(1, Math.min(MAX_BOXES, Number(boxCount) || 1));
+                imageItems.forEach(item => {
+                    const group = Math.max(1, Number(item.group) || 1);
+                    item.group = Math.min(group, boxCount);
+                });
+                activeGroup = Math.min(Math.max(1, activeGroup), boxCount);
             }
 
             function setActiveGroup(group) {
+                if (!Number.isInteger(group) || group < 1 || group > boxCount) return;
                 activeGroup = group;
                 render();
             }
@@ -1529,58 +1512,105 @@
                     button.className = 'group-tab';
                     button.setAttribute('role', 'tab');
                     button.setAttribute('aria-selected', String(group === activeGroup));
-                    button.textContent = `成品图 ${group} · ${itemsOfGroup(group).length} 张`;
+                    const count = itemsOfGroup(group).length;
+                    button.textContent = `成品图 ${group} · ${count ? `${count} 张` : '空'}`;
                     button.addEventListener('click', () => setActiveGroup(group));
                     groupTabs.appendChild(button);
                 });
             }
 
-            // 左侧分组矩阵：每行一张成品图，每张图片用单选按钮决定归到哪一张
-            function renderGroupMatrix() {
-                const rows = imageItems.length;
-                groupEditor.hidden = rows < 2;
-                groupMatrix.replaceChildren();
-                if (rows < 2) return;
+            // 左侧素材粘贴框：一个框对应一张成品图，框内图片按顺序上下拼接。
+            // 框内的选择 / 拖拽 / 粘贴 / 移除全部靠事件委托处理（render 会重建这些节点）。
+            function renderPasteBoxes() {
+                pasteBoxList.replaceChildren();
 
-                for (let group = 1; group <= rows; group++) {
-                    const row = document.createElement('div');
-                    row.className = 'group-row';
+                groupsOf().forEach(group => {
+                    const items = itemsOfGroup(group);
+                    const box = document.createElement('div');
+                    box.className = 'paste-box';
+                    if (group === activeGroup) box.classList.add('is-active');
+                    if (items.length) box.classList.add('has-items');
+                    box.dataset.box = String(group);
 
+                    const head = document.createElement('div');
+                    head.className = 'paste-box-head';
                     const name = document.createElement('span');
-                    name.className = 'group-row-name';
+                    name.className = 'paste-box-name';
                     name.textContent = `成品图 ${group}`;
-                    row.appendChild(name);
+                    const count = document.createElement('span');
+                    count.className = 'paste-box-count';
+                    count.textContent = items.length ? `${items.length} 张` : '待粘贴';
+                    head.append(name, count);
 
-                    imageItems.forEach((item, index) => {
-                        const choice = document.createElement('label');
-                        choice.className = 'group-choice';
-                        const radio = document.createElement('input');
-                        radio.type = 'radio';
-                        radio.name = `image-group-${index}`;
-                        radio.value = String(group);
-                        radio.checked = (item.group || 1) === group;
-                        radio.setAttribute('aria-label', `图 ${index + 1} 放进成品图 ${group}`);
-                        radio.addEventListener('change', () => {
-                            if (!radio.checked) return;
-                            item.group = group;
-                            normalizeGroups();
-                            // 切到刚选中的那张成品图，改完立刻能看到效果
-                            activeGroup = item.group;
-                            render();
+                    // 只剩一个框时不给删，否则会没有粘贴的地方
+                    if (boxCount > 1) {
+                        const remove = document.createElement('button');
+                        remove.type = 'button';
+                        remove.className = 'paste-box-remove';
+                        remove.dataset.removeBox = String(group);
+                        remove.textContent = '删除';
+                        remove.setAttribute('aria-label', `删除成品图 ${group} 的粘贴框`);
+                        head.appendChild(remove);
+                    }
+                    box.appendChild(head);
+
+                    const body = document.createElement('div');
+                    body.className = 'paste-box-body';
+                    const input = document.createElement('input');
+                    input.className = 'poster-image-input';
+                    input.type = 'file';
+                    input.id = `posterImages-${group}`;
+                    input.accept = 'image/png,image/jpeg,image/webp';
+                    input.multiple = true;
+                    input.dataset.boxInput = String(group);
+                    const label = document.createElement('label');
+                    label.className = 'upload-button';
+                    label.setAttribute('for', input.id);
+                    label.innerHTML = '<span class="upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg></span> 选择图片';
+                    const hint = document.createElement('span');
+                    hint.className = 'upload-hint';
+                    const left = MAX_IMAGES_PER_BOX - items.length;
+                    hint.textContent = !items.length
+                        ? '拖入图片，或按 Ctrl / ⌘ + V 粘贴'
+                        : (left > 0 ? `还能加 ${left} 张` : `已满 ${MAX_IMAGES_PER_BOX} 张`);
+                    body.append(input, label, hint);
+                    box.appendChild(body);
+
+                    if (items.length) {
+                        const list = document.createElement('div');
+                        list.className = 'upload-file-list';
+                        items.forEach((item, index) => {
+                            const row = document.createElement('div');
+                            row.className = 'upload-file-row';
+
+                            const number = document.createElement('span');
+                            number.className = 'upload-file-index';
+                            number.textContent = `图 ${index + 1}`;
+
+                            const fileName = document.createElement('span');
+                            fileName.className = 'image-file-name';
+                            fileName.textContent = item.name;
+
+                            const removeButton = document.createElement('button');
+                            removeButton.className = 'btn btn-sm';
+                            removeButton.type = 'button';
+                            removeButton.dataset.removeImage = String(item.id);
+                            removeButton.textContent = '移除';
+                            removeButton.setAttribute('aria-label', `从成品图 ${group} 移除：${item.name}`);
+
+                            row.append(number, fileName, removeButton);
+                            list.appendChild(row);
                         });
-                        const text = document.createElement('span');
-                        text.textContent = `图 ${index + 1}`;
-                        choice.append(radio, text);
-                        row.appendChild(choice);
-                    });
+                        box.appendChild(list);
+                    }
 
-                    groupMatrix.appendChild(row);
-                }
+                    pasteBoxList.appendChild(box);
+                });
             }
 
             function renderGroupUI() {
                 renderGroupTabs();
-                renderGroupMatrix();
+                renderPasteBoxes();
                 renderPosterStage();
             }
 
@@ -1608,7 +1638,8 @@
                     label.className = 'poster-host-label';
                     host.appendChild(label);
                 }
-                label.textContent = `成品图 ${group} · ${itemsOfGroup(group).length} 张`;
+                const count = itemsOfGroup(group).length;
+                label.textContent = `成品图 ${group} · ${count ? `${count} 张` : '空'}`;
             }
 
             // 多张成品图时把其余几张并排铺开；主海报（当前选中的那张）始终是 #poster
@@ -1641,14 +1672,9 @@
                 posterStage.append(...hosts);
             }
 
-            // 分组矩阵里的单选按钮：分组变化只影响图片，不影响表单里那些文字状态
-            function isGroupRadio(target) {
-                return Boolean(target && target.type === 'radio' && String(target.name || '').startsWith('image-group-'));
-            }
-
             function render() {
-                // 先把成品图编号压成连续的 1..n，后面所有渲染都基于已经整理过的分组
-                normalizeGroups();
+                // 先校正粘贴框数量与图片归属，后面所有渲染都基于整理过的结果
+                normalizeBoxes();
                 const texts = posterTexts();
                 poster.dataset.theme = state.theme;
                 // 水印选「无」时：上下红条保留，条内 logo / 奖章 / 文字隐藏，预览与导出一致
@@ -1666,7 +1692,6 @@
                 posterChips.hidden = !(texts.schoolChip || texts.courseChip || texts.courseName);
                 syncFieldUI();
                 renderMediaSlots();
-                renderImageList();
                 renderGroupUI();
                 syncCopyButtons();
                 requestAnimationFrame(scalePreview);
@@ -1711,10 +1736,10 @@
                     if (item) {
                         const image = document.createElement('img');
                         image.src = item.dataUrl;
-                        image.alt = `上传的课堂图片 ${index + 1}`;
+                        image.alt = `素材图片 ${index + 1}`;
                         figure.appendChild(image);
                     } else {
-                        figure.appendChild(createPlaceholder('请上传 1–3 张课堂图片'));
+                        figure.appendChild(createPlaceholder('请粘贴素材图片'));
                     }
 
                     contentEl.appendChild(figure);
@@ -1734,46 +1759,6 @@
             function renderMediaSlots() {
                 // 只渲染当前这张成品图上的图片；没有图片时留一个占位块
                 fillPosterContent(posterContent, currentItems());
-            }
-
-            function renderImageList() {
-                imageFileList.replaceChildren();
-                const groupCount = groupsOf().length;
-                imageCount.textContent = imageItems.length
-                    ? `已选择 ${imageItems.length} 张图片${groupCount > 1 ? ` · ${groupCount} 张成品图` : ''}`
-                    : '尚未选择图片';
-
-                imageItems.forEach((item, index) => {
-                    const row = document.createElement('div');
-                    row.className = 'upload-file-row';
-
-                    const number = document.createElement('span');
-                    number.className = 'upload-file-index';
-                    number.textContent = `图 ${index + 1}`;
-
-                    const name = document.createElement('span');
-                    name.className = 'image-file-name';
-                    name.textContent = item.name;
-
-                    const removeButton = document.createElement('button');
-                    removeButton.className = 'btn btn-sm';
-                    removeButton.type = 'button';
-                    removeButton.dataset.removeImage = String(index);
-                    removeButton.textContent = '移除';
-                    removeButton.setAttribute('aria-label', `移除图片 ${index + 1}：${item.name}`);
-
-                    row.append(number, name, removeButton);
-
-                    // 分组后每张图属于哪张成品图，直接在列表里标出来
-                    if (groupCount > 1) {
-                        const badge = document.createElement('span');
-                        badge.className = 'upload-file-group';
-                        badge.textContent = `成品图 ${item.group || 1}`;
-                        row.insertBefore(badge, removeButton);
-                    }
-
-                    imageFileList.appendChild(row);
-                });
             }
 
             // 弹窗里的提示信息（加载中 / 出错），占满整个列表区
@@ -2067,14 +2052,20 @@
             }
 
             function resetImageMessage() {
-                imageInput.removeAttribute('aria-invalid');
                 imageError.removeAttribute('role');
-                imageError.textContent = '支持 JPG、PNG 和 WebP，最多 3 张，单张建议不超过 12 MB。';
+                imageError.textContent = '支持 JPG、PNG 和 WebP，每个粘贴框最多 3 张，单张建议不超过 12 MB。';
             }
 
-            function removeImage(index) {
+            function imageMessage(message) {
+                imageError.setAttribute('role', 'alert');
+                imageError.textContent = message;
+            }
+
+            function removeImage(id) {
+                const index = imageItems.findIndex(item => item.id === id);
+                if (index < 0) return;
                 imageItems.splice(index, 1);
-                normalizeGroups();
+                normalizeBoxes();
                 resetImageMessage();
                 render();
             }
@@ -2102,46 +2093,74 @@
                 });
             }
 
-            async function handleImages(files) {
+            // 把文件读进指定的粘贴框（= 指定成品图）。超出每框 3 张的部分丢弃并提示。
+            async function handleImages(files, group = activeGroup) {
                 const selected = Array.from(files || []);
                 if (!selected.length) return;
 
-                const remaining = 3 - imageItems.length;
+                const target = Math.min(Math.max(1, Number(group) || 1), boxCount);
+                const remaining = MAX_IMAGES_PER_BOX - itemsOfGroup(target).length;
                 if (remaining <= 0) {
-                    imageInput.setAttribute('aria-invalid', 'true');
-                    imageError.setAttribute('role', 'alert');
-                    imageError.textContent = '已有 3 张图片。请先移除一张，再继续添加。';
-                    imageInput.value = '';
+                    imageMessage(`成品图 ${target} 已有 ${MAX_IMAGES_PER_BOX} 张图片。请先移除一张，或点「新增粘贴框」另开一张。`);
                     return;
                 }
 
                 const candidates = selected.slice(0, remaining);
-                imageCount.textContent = '正在读取图片…';
-                imageFileList.setAttribute('aria-busy', 'true');
+                setStatus('正在读取图片…');
 
                 try {
                     const loaded = [];
-                    for (const file of candidates) loaded.push(await readImageFile(file));
-                    // 新图片默认并进当前正在预览的那张成品图
-                    loaded.forEach(item => { item.group = activeGroup; });
+                    for (const file of candidates) {
+                        const item = await readImageFile(file);
+                        item.id = ++imageSeq;
+                        item.group = target;
+                        loaded.push(item);
+                    }
                     imageItems.push(...loaded);
-                    normalizeGroups();
+                    activeGroup = target;
+                    normalizeBoxes();
                     render();
                     if (selected.length > remaining) {
-                        imageInput.setAttribute('aria-invalid', 'true');
-                        imageError.setAttribute('role', 'alert');
-                        imageError.textContent = `最多上传 3 张图片，本次已读取前 ${remaining} 张。`;
+                        imageMessage(`每个粘贴框最多 ${MAX_IMAGES_PER_BOX} 张，本次已读取前 ${remaining} 张。`);
                     } else {
                         resetImageMessage();
                     }
+                    setStatus(`成品图 ${target}：已加入 ${loaded.length} 张图片，共 ${itemsOfGroup(target).length} 张。`, 'success');
                 } catch (error) {
-                    imageInput.setAttribute('aria-invalid', 'true');
-                    imageError.setAttribute('role', 'alert');
-                    imageError.textContent = `图片未读取。${error.message}`;
-                } finally {
-                    imageInput.value = '';
-                    imageFileList.removeAttribute('aria-busy');
+                    imageMessage(`图片未读取。${error.message}`);
+                    setStatus('图片未读取，请换一张试试。', 'error');
                 }
+            }
+
+            // 新增一个空粘贴框，并切过去（接下来的粘贴 / 拖入都落在新框里）
+            function addPasteBox() {
+                if (boxCount >= MAX_BOXES) {
+                    imageMessage(`最多 ${MAX_BOXES} 张成品图。要加新的，先删掉不用的粘贴框。`);
+                    return;
+                }
+                boxCount += 1;
+                activeGroup = boxCount;
+                resetImageMessage();
+                render();
+                // 滚到新框，省得用户自己找
+                const newest = pasteBoxList.lastElementChild;
+                if (newest) newest.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+
+            // 删除整个粘贴框（连同框内图片），后面的框依次前移
+            function removePasteBox(group) {
+                if (boxCount <= 1) return;
+                imageItems = imageItems
+                    .filter(item => (item.group || 1) !== group)
+                    .map(item => {
+                        const current = item.group || 1;
+                        if (current > group) item.group = current - 1;
+                        return item;
+                    });
+                boxCount -= 1;
+                activeGroup = Math.min(group, boxCount);
+                resetImageMessage();
+                render();
             }
 
             // 部分手机浏览器（旧版 Safari / 安卓 WebView）的 canvas 不认 oklch()，
@@ -2692,10 +2711,11 @@
                 return value.replace(/[\\/:*?"<>|\s]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 36) || '朋友圈海报';
             }
 
-            // 本次要导出的成品图编号；没有图片时也按 1 张（占位版）处理
+            // 本次要导出的成品图编号：空粘贴框不导出（画出来只是一张占位图）；
+            // 一张图都没有时按 1 张占位海报处理，保持原来的行为。
             function exportGroups() {
-                const groups = groupsOf();
-                return groups.length ? groups : [1];
+                const filled = groupsOf().filter(group => itemsOfGroup(group).length);
+                return filled.length ? filled : [1];
             }
 
             async function exportPoster() {
@@ -2903,7 +2923,8 @@
 
             // 复制按钮的数量角标与提示：只有一张成品图时保持原来的文案
             function syncCopyButtons() {
-                const count = Math.max(1, groupsOf().length);
+                // 只算真正有图的成品图：空粘贴框不参与复制 / 导出
+                const count = exportGroups().length;
                 const multiple = count > 1;
                 [[copyW1Button, '带水印'], [copyNoneButton, '无水印']].forEach(([button, label]) => {
                     if (button.dataset.busy === '1') return;   // 复制进行中，别覆盖掉 spinner
@@ -2935,8 +2956,11 @@
                 const groups = exportGroups();
                 // 只有「点按钮 + 多张成品图」才走批量；双击单张永远只处理这一张
                 const batch = onlyGroup === null && groups.length > 1;
-                const restoreGroup = activeGroup;
-                const targetGroup = onlyGroup === null ? activeGroup : onlyGroup;
+                // 当前预览的框若是空的（刚新增还没贴图），从第一张有图的开始复制；
+                // originalGroup 记住用户原本在看的框，结束后要回到它，不能因为复制而被切走。
+                const originalGroup = activeGroup;
+                const restoreGroup = groups.includes(activeGroup) ? activeGroup : groups[0];
+                const targetGroup = onlyGroup === null ? restoreGroup : onlyGroup;
                 const base = posterFileBase();
                 // 要复制的版本和当前预览一致时不必上遮罩，点下去几乎瞬间完成
                 const needsSwitch = activeWatermark() !== watermark;
@@ -3005,7 +3029,7 @@
                 } finally {
                     watermarkOverride = null;
                     // 双击某张时停在这一张（双击即选中）；点按钮则回到原来正在看的那张
-                    activeGroup = onlyGroup === null ? restoreGroup : targetGroup;
+                    activeGroup = onlyGroup === null ? originalGroup : targetGroup;
                     delete button.dataset.busy;
                     render();   // render 里会调用 syncCopyButtons 恢复按钮文案与角标
                     setVeil(false);
@@ -3018,6 +3042,11 @@
             // 双击某张成品图就地复制这一张，并在双击的位置闪一下结果
             async function copyPosterGroup(group, point) {
                 if (!Number.isInteger(group) || group < 1) return;
+                // 空粘贴框画出来只是占位图，复制它没有意义
+                if (!itemsOfGroup(group).length) {
+                    flashHostResult(group, '这张还没有图片', 'is-error', point);
+                    return;
+                }
                 const watermark = activeWatermark();   // 所见即所得：复制当前预览的水印方案
                 const button = watermark === 'none' ? copyNoneButton : copyW1Button;
                 const result = await copyPosterImage(watermark, button, { onlyGroup: group });
@@ -3051,20 +3080,20 @@
                 setTimeout(() => flash.remove(), 1600);
             }
 
-            form.addEventListener('input', event => {
-                // 成品图分组的单选按钮自己会更新分组并渲染，这里不用再读一遍表单
-                if (isGroupRadio(event.target)) return;
+            form.addEventListener('input', () => {
                 state = readFormState();
                 render();
                 queueSave();
             });
 
             form.addEventListener('change', event => {
-                if (event.target === imageInput) {
-                    handleImages(imageInput.files);
+                // 每个粘贴框各有一个文件输入框，靠 data-box-input 认出是哪一个
+                const boxInput = event.target.closest('[data-box-input]');
+                if (boxInput) {
+                    handleImages(boxInput.files, Number(boxInput.dataset.boxInput));
+                    boxInput.value = '';
                     return;
                 }
-                if (isGroupRadio(event.target)) return;
                 state = readFormState();
                 render();
                 queueSave();
@@ -3073,51 +3102,90 @@
             document.querySelectorAll('[data-watermark]').forEach(badge => {
                 badge.addEventListener('click', () => setWatermark(badge.dataset.watermark));
             });
-            // 拖拽上传（与其余工具一致）：高亮提示 + 复用 handleImages 的格式/数量校验
-            let dragDepth = 0;
-            function setDragActive(active) {
-                uploadWindow.classList.toggle('is-dragover', active);
-            }
 
-            uploadWindow.addEventListener('dragenter', event => {
+            // 粘贴框：拖拽 / 点击 / 移除全部用事件委托（render 会重建这些节点）
+            addPasteBoxButton.addEventListener('click', addPasteBox);
+
+            let dragDepth = 0;
+            let dragBox = null;
+            pasteBoxList.addEventListener('dragenter', event => {
+                const box = event.target.closest('.paste-box');
+                if (!box) return;
                 event.preventDefault();
                 dragDepth += 1;
-                setDragActive(true);
+                dragBox = box;
+                box.classList.add('is-dragover');
             });
-            uploadWindow.addEventListener('dragover', event => {
+            pasteBoxList.addEventListener('dragover', event => {
+                if (!event.target.closest('.paste-box')) return;
                 event.preventDefault();
                 if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
             });
-            uploadWindow.addEventListener('dragleave', event => {
+            pasteBoxList.addEventListener('dragleave', event => {
+                const box = event.target.closest('.paste-box');
+                if (!box) return;
                 event.preventDefault();
                 dragDepth = Math.max(0, dragDepth - 1);
-                if (!dragDepth) setDragActive(false);
+                if (!dragDepth) box.classList.remove('is-dragover');
             });
-            uploadWindow.addEventListener('drop', event => {
+            pasteBoxList.addEventListener('drop', event => {
+                const box = event.target.closest('.paste-box');
+                if (!box) return;
                 event.preventDefault();
                 dragDepth = 0;
-                setDragActive(false);
+                if (dragBox) dragBox.classList.remove('is-dragover');
+                dragBox = null;
                 const files = event.dataTransfer ? Array.from(event.dataTransfer.files || []) : [];
-                if (files.length) handleImages(files);
+                if (files.length) handleImages(files, Number(box.dataset.box));
             });
 
-            // 点击虚线区任意空白处也能打开选择框（避开「移除」按钮与「选择」按钮，避免重复触发）
-            uploadWindow.addEventListener('click', event => {
-                if (event.target.closest('button, a, input, .upload-button, .upload-file-row')) return;
-                imageInput.click();
+            pasteBoxList.addEventListener('click', event => {
+                const box = event.target.closest('.paste-box');
+                if (!box) return;
+
+                const removeBox = event.target.closest('[data-remove-box]');
+                if (removeBox) { removePasteBox(Number(removeBox.dataset.removeBox)); return; }
+
+                const removeImageButton = event.target.closest('[data-remove-image]');
+                if (removeImageButton) { removeImage(Number(removeImageButton.dataset.removeImage)); return; }
+
+                const group = Number(box.dataset.box);
+                const inBody = Boolean(event.target.closest('.paste-box-body'));
+
+                // 点哪个框，粘贴就落到哪个框
+                if (group !== activeGroup) {
+                    setActiveGroup(group);
+                    if (inBody) {
+                        const nextInput = pasteBoxList.querySelector(`[data-box-input="${group}"]`);
+                        if (nextInput) nextInput.click();
+                    }
+                    return;
+                }
+                if (event.target.closest('button, label, input, .upload-file-row')) return;
+                // 点框内的粘贴区（不只是那个按钮）都能打开选择框
+                if (!inBody) return;
+                const input = box.querySelector('[data-box-input]');
+                if (input) input.click();
             });
 
             // 拖到页面其它位置时不要让浏览器直接打开图片
             ['dragover', 'drop'].forEach(type => {
                 document.addEventListener(type, event => {
-                    if (!uploadWindow.contains(event.target)) event.preventDefault();
+                    if (!pasteBoxList.contains(event.target)) event.preventDefault();
                 });
             });
 
-            // 粘贴截图（与其余工具一致）
+            // 粘贴截图：落到当前激活的粘贴框（点哪个框就进哪个框）
             document.addEventListener('paste', event => {
                 const target = event.target;
-                if (target && (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+                const tag = target && target.tagName;
+                // 只有能装文字的输入框才跳过；文件框 / 单选 / 按钮拿到焦点时仍然可以粘贴图片
+                const typing = Boolean(target) && (
+                    target.isContentEditable
+                    || tag === 'TEXTAREA'
+                    || (tag === 'INPUT' && !['file', 'checkbox', 'radio', 'button', 'submit', 'reset'].includes(String(target.type || 'text')))
+                );
+                if (typing) return;
                 const items = event.clipboardData ? Array.from(event.clipboardData.items || []) : [];
                 const files = [];
                 items.forEach((item, index) => {
@@ -3125,9 +3193,9 @@
                     const blob = item.getAsFile();
                     if (!blob) return;
                     const ext = String(blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
-                    files.push(new File([blob], `粘贴的课堂图片-${Date.now()}-${index + 1}.${ext}`, { type: blob.type }));
+                    files.push(new File([blob], `粘贴的素材图片-${Date.now()}-${index + 1}.${ext}`, { type: blob.type }));
                 });
-                if (files.length) handleImages(files);
+                if (files.length) handleImages(files, activeGroup);
             });
 
             teacherInput.addEventListener('blur', () => {
@@ -3143,11 +3211,6 @@
                     event.preventDefault();
                     teacherInput.blur();
                 }
-            });
-            imageFileList.addEventListener('click', event => {
-                const button = event.target.closest('[data-remove-image]');
-                if (!button) return;
-                removeImage(Number(button.dataset.removeImage));
             });
             exportButton.addEventListener('click', exportPoster);
             exportBothButton.addEventListener('click', exportPosterBoth);
