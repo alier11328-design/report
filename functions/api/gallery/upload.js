@@ -99,7 +99,10 @@ export async function onRequestPost(context) {
             storedKey = objectKey;
         }
 
-        // 没有 R2 绑定就把二进制直接存进 D1 的 data 列
+        // 没有 R2 绑定就把二进制直接存进 D1 的 data 列。
+        // 注意必须传 Uint8Array：直接把 ArrayBuffer 交给 D1 绑定会被吞成空 BLOB，
+        // 表现为「存成功了但下载是 0 字节」。
+        const payload = storedKey ? null : new Uint8Array(buffer);
         await env[DB_BINDING]
             .prepare(`INSERT INTO gallery
                 (id, object_key, mime, bytes, width, height,
@@ -121,11 +124,24 @@ export async function onRequestPost(context) {
                 meta.course_code,
                 meta.teacher,
                 meta.course_name,
-                storedKey ? null : buffer,
+                payload,
                 Date.now(),
                 ipHash
             )
             .run();
+
+        // 写完立刻读回长度自查：宁可当场报错，也不要留下一张打不开的坏图
+        if (payload) {
+            const check = await env[DB_BINDING]
+                .prepare('SELECT length(data) AS len FROM gallery WHERE id = ?1')
+                .bind(id)
+                .first();
+            if (!check || Number(check.len) !== buffer.byteLength) {
+                await env[DB_BINDING].prepare('DELETE FROM gallery WHERE id = ?1').bind(id).run();
+                console.error('[gallery upload] 写入自检失败', { id, expected: buffer.byteLength, actual: check?.len });
+                return fail('图片写入数据库后校验失败，请重试一次。', 500);
+            }
+        }
 
         const item = toItem({
             id,

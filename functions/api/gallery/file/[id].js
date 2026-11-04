@@ -19,6 +19,16 @@ function safeBaseName(row) {
     return raw || '万能班长成品图';
 }
 
+// D1 的 BLOB 可能以 ArrayBuffer / Uint8Array / 数字数组返回，统一转成可放进 Response 的二进制；
+// 长度 0 一律当缺失处理——空响应会让浏览器显示一张打不开的图，不如直接 404。
+function toBinary(raw) {
+    if (!raw) return null;
+    if (raw instanceof ArrayBuffer) return raw.byteLength ? raw : null;
+    if (ArrayBuffer.isView(raw)) return raw.byteLength ? raw : null;
+    if (Array.isArray(raw)) return raw.length ? new Uint8Array(raw) : null;
+    return null;
+}
+
 export async function onRequestGet(context) {
     const { params, env, request } = context;
     const id = String(params.id || '');
@@ -50,11 +60,25 @@ export async function onRequestGet(context) {
             if (!object) return fail('图片文件已丢失。', 404);
             body = object.body;
             mime = object.httpMetadata?.contentType || mime;
-        } else if (row.data) {
-            body = row.data;
+        } else {
+            body = toBinary(row.data);
         }
 
-        if (!body) return fail('图片文件已丢失。', 404);
+        if (!body) {
+            // 早期版本用 ArrayBuffer 绑定导致存进了空 BLOB，这类记录没有任何价值：
+            // 读到就顺手删掉（只删确实没有二进制的那条），避免图库里一直挂着破图。
+            if (!row.object_key) {
+                try {
+                    await env[DB_BINDING]
+                        .prepare('DELETE FROM gallery WHERE id = ?1 AND (data IS NULL OR length(data) = 0)')
+                        .bind(id)
+                        .run();
+                } catch (error) {
+                    console.warn('[gallery file] 清理空图失败', id, error?.message);
+                }
+            }
+            return fail('这张图的图片数据缺失，已自动清理，请重新存入。', 404);
+        }
 
         const headers = {
             'Content-Type': mime,

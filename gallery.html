@@ -127,6 +127,12 @@
         background-size: 200% 100%; animation: shine 1.3s linear infinite;
     }
     @keyframes shine { to { background-position: -200% 0; } }
+    .broken-thumb {
+        position: absolute; inset: 0; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 8px;
+        color: #94a3b8; font-size: 12.5px; background: #f8fafc;
+    }
+    .broken-thumb i { font-size: 22px; color: #cbd5e1; }
     .badges {
         display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 7px;
     }
@@ -416,7 +422,11 @@
         });
         img.addEventListener('error', () => {
             skeleton.remove();
-            img.classList.remove('loaded');
+            img.remove();
+            const broken = document.createElement('div');
+            broken.className = 'broken-thumb';
+            broken.innerHTML = '<i class="fas fa-triangle-exclamation"></i><span>图片已失效</span>';
+            thumb.appendChild(broken);
         });
 
         const badges = document.createElement('div');
