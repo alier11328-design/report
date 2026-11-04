@@ -76,6 +76,26 @@
         .preview-header h2 { font-size: 20px; color: #1e293b; }
         .preview-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
+        /* 多张成品图时，复制按钮右上角挂一个数量角标，说明这一下会处理几张 */
+        .btn.has-count { position: relative; }
+        .copy-badge {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            min-width: 17px;
+            height: 17px;
+            padding: 0 5px;
+            border-radius: 9px;
+            background: var(--primary-color);
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 17px;
+            text-align: center;
+            box-shadow: 0 0 0 2px #fff;
+            pointer-events: none;
+        }
+
         /* 导出 / 复制图片期间盖住预览：双版本导出要先切到「无」再切回来，
            不遮住的话用户会看到海报闪一下。遮罩不影响 offsetHeight 测量。 */
         .preview-veil {
@@ -1055,7 +1075,7 @@
                     <div class="group-editor" id="groupEditor" hidden>
                         <div class="group-editor-head">
                             <span class="group-editor-title">成品图分组</span>
-                            <span class="group-editor-hint">每张成品图单独出一张海报</span>
+                            <span class="group-editor-hint">每张成品图单独出一张海报；多张时点「复制」，当前这张进剪贴板、其余自动下载</span>
                         </div>
                         <div class="group-matrix" id="groupMatrix"></div>
                     </div>
@@ -1606,6 +1626,7 @@
                 renderMediaSlots();
                 renderImageList();
                 renderGroupUI();
+                syncCopyButtons();
                 requestAnimationFrame(scalePreview);
             }
 
@@ -2838,33 +2859,105 @@
                 }
             }
 
-            // 复制指定水印版本的图片到剪贴板：点哪个按钮就复制哪个版本，不再弹窗二次选择
+            // 复制按钮的数量角标与提示：只有一张成品图时保持原来的文案
+            function syncCopyButtons() {
+                const count = Math.max(1, groupsOf().length);
+                const multiple = count > 1;
+                [[copyW1Button, '带水印'], [copyNoneButton, '无水印']].forEach(([button, label]) => {
+                    if (button.dataset.busy === '1') return;   // 复制进行中，别覆盖掉 spinner
+                    button.textContent = '';
+                    const icon = document.createElement('i');
+                    icon.className = 'fas fa-clipboard';
+                    button.append(icon, document.createTextNode(` 复制${label}图`));
+                    button.classList.toggle('has-count', multiple);
+                    if (multiple) {
+                        const badge = document.createElement('span');
+                        badge.className = 'copy-badge';
+                        badge.textContent = String(count);
+                        badge.setAttribute('aria-hidden', 'true');
+                        button.appendChild(badge);
+                        button.title = `复制全部 ${count} 张成品图（${label}）：当前这张进剪贴板，其余 ${count - 1} 张自动下载`;
+                    } else {
+                        button.title = `复制${label}图片到剪贴板`;
+                    }
+                });
+            }
+
+            // 复制指定水印版本的图片。
+            // 单张成品图：原样复制这一张。
+            // 多张成品图：剪贴板一次只能装一张图（浏览器明确不支持多 ClipboardItem），
+            // 所以当前预览的这张进剪贴板，其余几张自动下载——点一次就能拿到整批成品图。
             async function copyPosterImage(watermark, button) {
                 const label = watermark === 'none' ? '无水印' : '带水印';
-                const originalLabel = button.innerHTML;
-                // 要复制的版本和当前预览一致时不必重渲染，也就不必上遮罩，点下去几乎瞬间完成
+                const groups = exportGroups();
+                const multiple = groups.length > 1;
+                const restoreGroup = activeGroup;
+                const base = posterFileBase();
+                // 要复制的版本和当前预览一致时不必上遮罩，点下去几乎瞬间完成
                 const needsSwitch = activeWatermark() !== watermark;
+                let copied = false;
+                let downloaded = 0;
+                let clipboardError = null;
 
                 setExportBusy(true);
-                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 复制中…';
-                setStatus(`正在生成${label}图片…`);
-                if (needsSwitch) setVeil(true, `正在生成${label}图片…`);
+                button.dataset.busy = '1';
+                button.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${multiple ? `复制 1/${groups.length}…` : '复制中…'}`;
+                setStatus(multiple ? `正在生成 ${groups.length} 张成品图（${label}）…` : `正在生成${label}图片…`);
+                if (multiple || needsSwitch) setVeil(true, `正在生成${label}图片…`);
 
                 try {
-                    // 先起一个不 await 的渲染任务，让 clipboard.write 仍留在点击手势的同一 tick 内
-                    const blobPromise = renderVariantBlob(watermark);
-                    await writeImageToClipboard(blobPromise);
-                    const groupNote = groupsOf().length > 1 ? `（成品图 ${activeGroup}）` : '';
-                    setStatus(`已复制${label}图片${groupNote}到剪贴板，可直接粘贴。`, 'success');
+                    // 第一张（当前预览的这张）要趁点击手势还在时提交给 clipboard.write，
+                    // 所以先起一个不 await 的渲染任务，把它的 Promise 直接交给剪贴板 API。
+                    const firstBlobPromise = renderVariantBlob(watermark);
+                    try {
+                        await writeImageToClipboard(firstBlobPromise);
+                        copied = true;
+                    } catch (error) {
+                        clipboardError = error;
+                        console.error('[poster copy image]', error);
+                    }
+
+                    if (multiple) {
+                        // 剪贴板已拿到当前这张，剩下的逐张出图后直接下载
+                        for (const group of groups) {
+                            if (copied && group === restoreGroup) continue;
+                            activeGroup = group;
+                            const note = `保存 ${group}/${groups.length}…`;
+                            setVeil(true, `正在保存成品图 ${group}/${groups.length}…`);
+                            button.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${note}`;
+                            const blob = await renderVariantBlob(watermark);
+                            downloadBlob(blob, `${base}_成品图${group}_${label}.png`);
+                            downloaded += 1;
+                            // 相邻下载之间留间隔，避免后一张被浏览器当成非手势下载丢掉
+                            await new Promise(resolve => setTimeout(resolve, 320));
+                        }
+                    }
+
+                    if (copied && multiple) {
+                        setStatus(
+                            `已复制成品图 ${restoreGroup}（${label}）到剪贴板，另外 ${downloaded} 张已下载（剪贴板一次只能放 1 张图）。`,
+                            'success'
+                        );
+                    } else if (copied) {
+                        setStatus(`已复制${label}图片到剪贴板，可直接粘贴。`, 'success');
+                    } else if (downloaded) {
+                        setStatus(
+                            `剪贴板复制不可用，${downloaded} 张成品图已改为下载。${clipboardError?.message || ''}`,
+                            'error'
+                        );
+                    } else {
+                        throw clipboardError || new Error('图片复制失败');
+                    }
                 } catch (error) {
                     console.error('[poster copy image]', error);
                     setStatus(`图片复制失败：${error.message || '请改用「导出 PNG」'}`, 'error');
                 } finally {
                     watermarkOverride = null;
-                    render();
+                    activeGroup = restoreGroup;
+                    delete button.dataset.busy;
+                    render();   // render 里会调用 syncCopyButtons 恢复按钮文案与角标
                     setVeil(false);
                     setExportBusy(false);
-                    button.innerHTML = originalLabel;
                 }
             }
 
