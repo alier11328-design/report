@@ -142,6 +142,8 @@
         .theme-badge.active { background: var(--primary-color); border-color: var(--primary-color); color: white; }
         .theme-badge:not(.active):hover { background: #e9eef3; }
 
+        /* 水印尺寸由 JS 按图片区自适应后写进 background-size（见 watermarkDrawSize）；
+           这里的 80% auto 只是脚本生效前的兜底 */
         .poster-watermark {
             position: absolute;
             left: var(--media-pad-x);
@@ -265,12 +267,12 @@
         .form-group.field-off > select { opacity: 0.5; }
         .custom-material-input { margin-top: 8px; }
 
-        /* 分区标题带上总开关时改成两端对齐 */
+        /* 分区标题的总开关紧跟在标题文字后面 */
         .form-section-title.has-toggle {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 12px;
+            justify-content: flex-start;
+            gap: 9px;
         }
 
         /* 成品图分组：每行一张成品图，勾选要拼进这张图的图片 */
@@ -464,11 +466,42 @@
             padding: 4px;
             overflow: auto;
         }
+        .poster-stage {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 18px;
+        }
         .poster-host {
             position: relative;
             width: 750px;
             flex: none;
             margin: 0 auto;
+        }
+        /* 多张成品图并排：每张都缩放后平铺，不再用 auto 外边距争抢剩余空间 */
+        .poster-stage.is-multi {
+            justify-content: center;
+            padding-top: 26px;
+        }
+        .poster-stage.is-multi .poster-host { margin: 0; }
+        .poster-host-label {
+            position: absolute;
+            left: 0;
+            top: -24px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 999px;
+            background: #e2e8f0;
+            color: #475569;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .poster-host.is-active .poster-host-label {
+            background: var(--primary-color);
+            color: #fff;
         }
         .caption-modal {
             position: fixed;
@@ -1052,6 +1085,7 @@
                 <div class="group-tabs" id="groupTabs" role="tablist" aria-label="成品图切换" hidden></div>
 
                 <div class="preview-viewport" id="previewViewport">
+                    <div class="poster-stage" id="posterStage">
                     <div class="poster-host" id="posterHost">
                         <article class="poster" id="poster" data-theme="course" aria-label="朋友圈海报预览">
                             <header class="poster-topbar">
@@ -1081,6 +1115,7 @@
                                 <div class="poster-footer-right">CLASSBRO</div>
                             </footer>
                         </article>
+                    </div>
                     </div>
                 </div>
                 <p class="status-line" id="exportStatus" role="status" aria-live="polite">修改左侧字段后，预览会自动更新 · 导出 1500 px 宽双倍清晰度 PNG</p>
@@ -1137,6 +1172,9 @@
             const WATERMARK_SIZE = 0.8;
             const WATERMARK_POSITION_Y = 0.5;
             const WATERMARK_OPACITY = 0.3;
+            // 水印原图 576 × 640；尺寸跟着图片区自适应（见 watermarkDrawSize）
+            const WATERMARK_ASPECT = 576 / 640;   // 宽 / 高
+            const WATERMARK_MAX_HEIGHT = 0.8;     // 高度上限占图片区高度的比例，避免宽图海报把水印裁掉
 
             const THEME_TITLES = {
                 course: '包课辅导',
@@ -1202,6 +1240,7 @@
             const form = document.getElementById('posterForm');
             const poster = document.getElementById('poster');
             const posterHost = document.getElementById('posterHost');
+            const posterStage = document.getElementById('posterStage');
             const previewViewport = document.getElementById('previewViewport');
             const imageInput = document.getElementById('posterImages');
             const posterContent = document.getElementById('posterContent');
@@ -1482,6 +1521,62 @@
             function renderGroupUI() {
                 renderGroupTabs();
                 renderGroupMatrix();
+                renderPosterStage();
+            }
+
+            // 一张成品图的完整海报：克隆已经渲染好的主海报，只替换图片区内容，
+            // 标题、色带、字号、水印位置都与主海报保持完全一致。
+            function clonePosterForGroup(group) {
+                const clone = poster.cloneNode(true);
+                clone.removeAttribute('id');
+                clone.removeAttribute('style');            // 去掉主海报的缩放 transform
+                clone.setAttribute('aria-label', `成品图 ${group} 预览`);
+                clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+                const content = clone.querySelector('.poster-content');
+                if (content) fillPosterContent(content, itemsOfGroup(group));
+                return clone;
+            }
+
+            function setHostLabel(host, group, visible) {
+                let label = host.querySelector('.poster-host-label');
+                if (!visible) {
+                    if (label) label.remove();
+                    return;
+                }
+                if (!label) {
+                    label = document.createElement('span');
+                    label.className = 'poster-host-label';
+                    host.appendChild(label);
+                }
+                label.textContent = `成品图 ${group} · ${itemsOfGroup(group).length} 张`;
+            }
+
+            // 多张成品图时把其余几张并排铺开；主海报（当前选中的那张）始终是 #poster
+            function renderPosterStage() {
+                posterStage.querySelectorAll('.poster-host.is-extra').forEach(node => node.remove());
+                posterHost.dataset.group = String(activeGroup);
+
+                const groups = groupsOf();
+                const multi = groups.length > 1;
+                posterStage.classList.toggle('is-multi', multi);
+                posterHost.classList.add('is-active');
+                setHostLabel(posterHost, activeGroup, multi);
+
+                if (!multi) return;
+
+                const hosts = [posterHost];
+                groups.forEach(group => {
+                    if (group === activeGroup) return;
+                    const host = document.createElement('div');
+                    host.className = 'poster-host is-extra';
+                    host.dataset.group = String(group);
+                    host.appendChild(clonePosterForGroup(group));
+                    setHostLabel(host, group, true);
+                    hosts.push(host);
+                });
+                // 按成品图编号排序，当前那张不会因为克隆顺序跳到末尾
+                hosts.sort((a, b) => Number(a.dataset.group) - Number(b.dataset.group));
+                posterStage.append(...hosts);
             }
 
             // 分组矩阵里的单选按钮：分组变化只影响图片，不影响表单里那些文字状态
@@ -1537,13 +1632,13 @@
                 return placeholder;
             }
 
-            function renderMediaSlots() {
-                // 只渲染当前这张成品图上的图片；没有图片时留一个占位块
-                const items = currentItems();
+            // 图片区内容（图片 + 水印叠层）——主海报和并排预览的其余成品图共用同一套画法，
+            // 只要传入的 items 不同，就能拼出另一张成品图。
+            function fillPosterContent(contentEl, items) {
                 const visibleItems = items.length ? items : [null];
                 const slotHeights = computeMediaHeights(items);
-                posterContent.replaceChildren();
-                posterContent.dataset.count = String(visibleItems.length);
+                contentEl.replaceChildren();
+                contentEl.dataset.count = String(visibleItems.length);
 
                 visibleItems.forEach((item, index) => {
                     const figure = document.createElement('figure');
@@ -1559,7 +1654,7 @@
                         figure.appendChild(createPlaceholder('请上传 1–3 张课堂图片'));
                     }
 
-                    posterContent.appendChild(figure);
+                    contentEl.appendChild(figure);
                 });
 
                 // 水印只加一次，盖在整块图片区的中间
@@ -1569,8 +1664,13 @@
                     overlay.className = 'poster-watermark';
                     overlay.setAttribute('aria-hidden', 'true');
                     overlay.style.backgroundImage = `url("${watermark.url}")`;
-                    posterContent.appendChild(overlay);
+                    contentEl.appendChild(overlay);
                 }
+            }
+
+            function renderMediaSlots() {
+                // 只渲染当前这张成品图上的图片；没有图片时留一个占位块
+                fillPosterContent(posterContent, currentItems());
             }
 
             function renderImageList() {
@@ -1851,14 +1951,50 @@
                 saveTimer = setTimeout(persistState, 250);
             }
 
+            // 水印尺寸跟着图片区自适应：宽度最多占 80%，图片区不够高时按高度等比缩小，
+            // 这样宽图海报的水印不会被上下裁掉，长图海报也不会显得过小。
+            function watermarkDrawSize(areaWidth, areaHeight) {
+                if (!areaWidth || !areaHeight) return { width: 0, height: 0 };
+                let width = areaWidth * WATERMARK_SIZE;
+                let height = width / WATERMARK_ASPECT;
+                const maxHeight = areaHeight * WATERMARK_MAX_HEIGHT;
+                if (height > maxHeight) {
+                    height = maxHeight;
+                    width = height * WATERMARK_ASPECT;
+                }
+                return { width, height };
+            }
+
+            // 预览里的水印是 CSS 背景图，这里把算出来的像素尺寸写进去（缩放交给 transform）
+            function applyWatermarkSizing(root) {
+                root.querySelectorAll('.poster-watermark').forEach(overlay => {
+                    const size = watermarkDrawSize(overlay.offsetWidth, overlay.offsetHeight);
+                    if (!size.width) return;
+                    overlay.style.backgroundSize = `${size.width}px ${size.height}px`;
+                });
+            }
+
             function scalePreview() {
                 const available = Math.max(220, previewViewport.clientWidth - 16);
-                const scale = Math.min(1, available / POSTER_WIDTH);
-                const posterHeight = poster.offsetHeight;
-                poster.style.transform = `scale(${scale})`;
-                posterHost.style.width = `${POSTER_WIDTH * scale}px`;
-                posterHost.style.height = `${posterHeight * scale}px`;
-                previewMeta.textContent = `${POSTER_WIDTH} × ${posterHeight}`;
+                const hosts = Array.from(posterStage.querySelectorAll('.poster-host'));
+                const multi = hosts.length > 1;
+                const gap = 18;
+                // 多张成品图并排：每张分到的宽度变小，整体一起缩小
+                const perPoster = multi
+                    ? Math.max(120, (available - gap * (hosts.length - 1)) / hosts.length)
+                    : available;
+                const scale = Math.min(1, perPoster / POSTER_WIDTH);
+
+                hosts.forEach(host => {
+                    const article = host.querySelector('.poster');
+                    if (!article) return;
+                    article.style.transform = `scale(${scale})`;
+                    host.style.width = `${POSTER_WIDTH * scale}px`;
+                    host.style.height = `${article.offsetHeight * scale}px`;
+                });
+                // 水印尺寸按未缩放的图片区实测值算，缩放由 transform 统一处理
+                applyWatermarkSizing(posterStage);
+                previewMeta.textContent = `${POSTER_WIDTH} × ${poster.offsetHeight}`;
             }
 
             function setStatus(message, tone = '') {
@@ -2177,18 +2313,18 @@
                 return info ? loadImageForCanvas(info.url) : Promise.resolve(null);
             }
 
-            // 与 .poster-watermark 的 CSS 一致：宽度 80%、整块居中、透明度 0.3
+            // 与 .poster-watermark 的 CSS 一致：尺寸按图片区自适应（watermarkDrawSize）、整块居中、透明度 0.3
             function drawWatermark(ctx, img, x, y, width, height) {
                 const naturalWidth = img.naturalWidth || img.width || 0;
                 const naturalHeight = img.naturalHeight || img.height || 0;
                 if (!naturalWidth || !naturalHeight) return;
-                const drawWidth = width * WATERMARK_SIZE;
-                const drawHeight = drawWidth * (naturalHeight / naturalWidth);
-                const drawX = x + (width - drawWidth) * 0.5;
-                const drawY = y + (height - drawHeight) * WATERMARK_POSITION_Y;
+                const size = watermarkDrawSize(width, height);
+                if (!size.width) return;
+                const drawX = x + (width - size.width) * 0.5;
+                const drawY = y + (height - size.height) * WATERMARK_POSITION_Y;
                 ctx.save();
                 ctx.globalAlpha = WATERMARK_OPACITY;
-                ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+                ctx.drawImage(img, drawX, drawY, size.width, size.height);
                 ctx.restore();
             }
 
