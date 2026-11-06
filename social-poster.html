@@ -284,8 +284,19 @@
         .field-toggle input:disabled::after { box-shadow: none; }
         /* 关掉显示时输入框变淡，但内容保留，随时可以再打开 */
         .form-group.field-off > input,
-        .form-group.field-off > select { opacity: 0.5; }
-        .custom-material-input { margin-top: 8px; }
+        .form-group.field-off > select,
+        .form-group.field-off > .field-note { opacity: 0.5; }
+        /* 顶部素材类型只留「是否显示」开关，具体类型在每张成品图的粘贴框里各自设置 */
+        .field-note {
+            margin: 0;
+            padding: 10px 12px;
+            border: 1.5px dashed #e2e8f0;
+            border-radius: 12px;
+            background: #f8fafc;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #64748b;
+        }
 
         /* 分区标题的总开关紧跟在标题文字后面 */
         .form-section-title.has-toggle {
@@ -347,6 +358,41 @@
             transition: 0.2s;
         }
         .paste-box-remove:hover { border-color: #dc2626; color: #dc2626; }
+        /* 每张成品图自己的素材类型：只影响这一张海报的标题第二块 */
+        .paste-box-material {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 9px;
+        }
+        .paste-box-material-label {
+            flex: 0 0 auto;
+            font-size: 12px;
+            font-weight: 700;
+            color: #94a3b8;
+        }
+        .paste-box.is-active .paste-box-material-label { color: var(--primary-color); }
+        .paste-box-material select,
+        .paste-box-material input {
+            flex: 1 1 0;
+            min-width: 0;
+            padding: 7px 10px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            background: #fff;
+            color: inherit;
+            font-size: 13px;
+            transition: 0.2s;
+        }
+        .paste-box-material select:focus,
+        .paste-box-material input:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.08);
+        }
+        /* [hidden] 会被上面的 flex 布局样式盖掉，这里显式钉死 */
+        .paste-box-material input[hidden] { display: none; }
+
         .paste-box-body {
             display: flex;
             align-items: center;
@@ -1002,22 +1048,12 @@
                         </div>
                         <div class="form-group" data-toggle-group="showTitleSecondary">
                             <div class="field-head">
-                                <label for="titleSecondary"><i class="fas fa-images"></i> 素材类型</label>
+                                <label><i class="fas fa-images"></i> 素材类型</label>
                                 <label class="field-toggle" title="取消勾选后，素材类型不会出现在海报上">
                                     <input type="checkbox" id="showTitleSecondary" name="showTitleSecondary" aria-label="在海报上显示" checked>
                                 </label>
                             </div>
-                            <select id="titleSecondary" name="titleSecondary">
-                                <option value="课堂展示">课堂展示</option>
-                                <option value="好评分享">好评分享</option>
-                                <option value="讲师产出">讲师产出</option>
-                                <option value="高分喜报">高分喜报</option>
-                                <option value="课后答疑">课后答疑</option>
-                                <option value="客户复购">客户复购</option>
-                                <option value="辅导下单">辅导下单</option>
-                                <option value="自定义">自定义…</option>
-                            </select>
-                            <input class="custom-material-input" id="titleSecondaryCustom" name="titleSecondaryCustom" maxlength="12" placeholder="输入自定义素材类型，例如：辅导下单" hidden>
+                            <p class="field-note">在下方每张成品图上单独选择</p>
                         </div>
                     </div>
 
@@ -1087,13 +1123,13 @@
                             <input id="courseName" name="courseName" maxlength="70" placeholder="例如：Genes, Cells &amp; Evolution">
                         </div>
                     </div>
-                    <span class="field-help">字段名右侧的开关关掉后，对应内容不会出现在海报上（填的内容会保留）；「课程信息」标题旁的总开关可以一次性关掉下面六项。素材类型选「自定义…」后可自己输入文字。辅导老师会自动补上「老师」——填 <b>Michelle.许</b>，海报显示 <b>Michelle.许老师</b>；课程名称保留英文原名会更符合参考海报的视觉节奏。</span>
+                    <span class="field-help">字段名右侧的开关关掉后，对应内容不会出现在海报上（填的内容会保留）；「课程信息」标题旁的总开关可以一次性关掉下面六项。素材类型在下方每张成品图上单独选择，选「自定义」后可自己输入文字。辅导老师会自动补上「老师」——填 <b>Michelle.许</b>，海报显示 <b>Michelle.许老师</b>；课程名称保留英文原名会更符合参考海报的视觉节奏。</span>
 
                     <div class="form-section-title">素材图片</div>
                     <div class="paste-box-list" id="pasteBoxList"></div>
                     <div class="paste-box-add">
                         <button class="btn btn-sm" id="addPasteBox" type="button"><i class="fas fa-plus"></i> 新增粘贴框</button>
-                        <span class="upload-hint">一个粘贴框 = 一张成品图。框内可放 1–3 张图，按顺序上下拼接。</span>
+                        <span class="upload-hint">一个粘贴框 = 一张成品图。框内可放 1–3 张图，按顺序上下拼接；框内的素材类型只作用于这张成品图。</span>
                     </div>
                     <span class="field-help" id="imageError">支持 JPG、PNG 和 WebP，每个粘贴框最多 3 张，单张建议不超过 12 MB。</span>
                     <div class="save-state" id="saveState" role="status" aria-live="polite">已自动保存</div>
@@ -1217,6 +1253,17 @@
             };
             const HIGH_SCORE_MATERIAL = '高分喜报';   // 该素材类型启用 AI 识图读分
             const CUSTOM_MATERIAL = '自定义';          // 素材类型选它时可自由输入文字
+            // 素材类型候选（每张成品图各自选一个）
+            const MATERIAL_TITLES = [
+                '课堂展示',
+                '好评分享',
+                '讲师产出',
+                HIGH_SCORE_MATERIAL,
+                '课后答疑',
+                '客户复购',
+                '辅导下单',
+                CUSTOM_MATERIAL
+            ];
             const MAX_AI_IMAGE_SIDE = 1600;           // 送 AI 前压缩到长边 1600，够读分又不至于太大
             const WATERMARK_SIZE = 0.8;
             const WATERMARK_POSITION_Y = 0.5;
@@ -1241,9 +1288,10 @@
 
             const DEFAULT_STATE = {
                 theme: 'course',
+                // 素材类型的默认值（新建粘贴框时用它，实际取值按成品图分别存在 materials 里）
                 titleSecondary: '课堂展示',
-                // 「自定义」素材类型时手填的文字
-                titleSecondaryCustom: '',
+                // 每张成品图各自的素材类型：{ [成品图编号]: { title, custom } }
+                materials: {},
                 watermark: 'w1',
                 // 「课程信息」默认全部留空，由使用者自己填写
                 region: '',
@@ -1306,8 +1354,6 @@
             const saveState = document.getElementById('saveState');
             const imageError = document.getElementById('imageError');
             const posterLogo = document.getElementById('posterLogo');
-            const titleSecondarySelect = document.getElementById('titleSecondary');
-            const titleSecondaryCustom = document.getElementById('titleSecondaryCustom');
             const previewTitleSecondary = document.getElementById('previewTitleSecondary');
             const previewChipSchool = document.getElementById('previewChipSchool');
             const previewChipCourse = document.getElementById('previewChipCourse');
@@ -1351,12 +1397,20 @@
                     delete migrated.imageFit;
                     const next = { ...DEFAULT_STATE, ...migrated };
                     if (!THEME_TITLES[next.theme]) next.theme = DEFAULT_STATE.theme;
-                    const materialTitles = titleSecondarySelect
-                        ? Array.from(titleSecondarySelect.options, option => option.value)
-                        : [];
-                    if (materialTitles.length && !materialTitles.includes(next.titleSecondary)) {
+                    if (!MATERIAL_TITLES.includes(next.titleSecondary)) {
                         next.titleSecondary = DEFAULT_STATE.titleSecondary;
                     }
+                    // 每张成品图的素材类型：老存档没有这个键时留空对象，由 normalizeMaterials 按默认值补齐
+                    next.materials = (next.materials && typeof next.materials === 'object' && !Array.isArray(next.materials))
+                        ? next.materials
+                        : {};
+                    // 老存档只有一个全局素材类型：把它落到第 1 张成品图上，其余成品图沿用同一默认值
+                    if (!Object.keys(next.materials).length) {
+                        next.materials = {
+                            1: { title: next.titleSecondary, custom: String(migrated.titleSecondaryCustom || '') }
+                        };
+                    }
+                    delete next.titleSecondaryCustom;
                     // 水印不读存档：每次进入页面都强制默认「万能班长」
                     next.watermark = DEFAULT_STATE.watermark;
                     Object.entries(LEGACY_DEMO_VALUES).forEach(([key, demo]) => {
@@ -1364,7 +1418,6 @@
                     });
                     // 显示开关统一成布尔值：老存档没有这些键时按「显示」处理
                     FIELD_TOGGLE_KEYS.forEach(key => { next[key] = next[key] !== false; });
-                    next.titleSecondaryCustom = String(next.titleSecondaryCustom || '');
                     return next;
                 } catch {
                     return { ...DEFAULT_STATE };
@@ -1380,8 +1433,9 @@
                 const next = {
                     theme: String(data.get('theme') || 'course'),
                     watermark: state.watermark || DEFAULT_STATE.watermark,
-                    titleSecondary: String(data.get('titleSecondary') || '').trim(),
-                    titleSecondaryCustom: String(data.get('titleSecondaryCustom') || '').trim(),
+                    // 素材类型按成品图分别存放，这里原样带过去（不会因为改别的字段被清掉）
+                    titleSecondary: state.titleSecondary || DEFAULT_STATE.titleSecondary,
+                    materials: state.materials || {},
                     region: String(data.get('region') || '').trim(),
                     school: String(data.get('school') || '').trim(),
                     major: String(data.get('major') || '').trim(),
@@ -1428,12 +1482,25 @@
                 return watermarkOverride || state.watermark;
             }
 
+            // 某张成品图的素材类型（成品图编号从 1 开始，缺省回落到默认值）
+            function materialOf(group) {
+                const store = state.materials || {};
+                const entry = store[group] || {};
+                const title = MATERIAL_TITLES.includes(entry.title) ? entry.title : DEFAULT_STATE.titleSecondary;
+                return { title, custom: String(entry.custom || '') };
+            }
+
             // 素材类型文字：选「自定义」时用手填内容（空则回落到「自定义」）
-            function materialTypeText() {
-                if (state.titleSecondary === CUSTOM_MATERIAL) {
-                    return String(state.titleSecondaryCustom || '').trim() || CUSTOM_MATERIAL;
-                }
-                return state.titleSecondary || DEFAULT_STATE.titleSecondary;
+            // 每张成品图各自一份，默认用当前预览的那张
+            function materialTypeText(group = activeGroup) {
+                const { title, custom } = materialOf(group);
+                if (title === CUSTOM_MATERIAL) return custom.trim() || CUSTOM_MATERIAL;
+                return title;
+            }
+
+            // 当前预览这张成品图的素材类型（「高分喜报」才启用 AI 识图、图库元数据也用它）
+            function activeMaterialTitle() {
+                return materialOf(activeGroup).title;
             }
 
             // 海报上要显示的各项文字。空字符串 = 该项被关掉，预览与导出都不出现。
@@ -1475,7 +1542,6 @@
                     toggle.disabled = !enabled;
                     group.classList.toggle('field-off', !enabled || !toggle.checked);
                 });
-                titleSecondaryCustom.hidden = state.titleSecondary !== CUSTOM_MATERIAL;
             }
 
             // ---------- 成品图（一个粘贴框 = 一张成品图 = 一张要发出去的海报） ----------
@@ -1501,6 +1567,22 @@
                     item.group = Math.min(group, boxCount);
                 });
                 activeGroup = Math.min(Math.max(1, activeGroup), boxCount);
+                normalizeMaterials();
+            }
+
+            // 每张成品图的素材类型：按框号整理成 1..boxCount，缺的用默认值补齐，
+            // 多出来的（删框后残留）丢掉，保证 state.materials 与粘贴框一一对应。
+            function normalizeMaterials() {
+                const store = state.materials || {};
+                const next = {};
+                groupsOf().forEach(group => {
+                    const saved = store[group] || {};
+                    next[group] = {
+                        title: MATERIAL_TITLES.includes(saved.title) ? saved.title : DEFAULT_STATE.titleSecondary,
+                        custom: String(saved.custom || '')
+                    };
+                });
+                state.materials = next;
             }
 
             function setActiveGroup(group) {
@@ -1562,6 +1644,34 @@
                         head.appendChild(remove);
                     }
                     box.appendChild(head);
+
+                    // 素材类型按成品图单独设置：只影响这一张海报标题里的第二块文字
+                    const material = materialOf(group);
+                    const materialRow = document.createElement('div');
+                    materialRow.className = 'paste-box-material';
+                    const materialLabel = document.createElement('span');
+                    materialLabel.className = 'paste-box-material-label';
+                    materialLabel.textContent = '素材类型';
+                    const materialSelect = document.createElement('select');
+                    materialSelect.dataset.boxMaterial = String(group);
+                    materialSelect.setAttribute('aria-label', `成品图 ${group} 的素材类型`);
+                    MATERIAL_TITLES.forEach(title => {
+                        const option = document.createElement('option');
+                        option.value = title;
+                        option.textContent = title === CUSTOM_MATERIAL ? '自定义…' : title;
+                        materialSelect.appendChild(option);
+                    });
+                    materialSelect.value = material.title;
+                    const materialCustom = document.createElement('input');
+                    materialCustom.type = 'text';
+                    materialCustom.maxLength = 12;
+                    materialCustom.placeholder = '输入自定义素材类型';
+                    materialCustom.dataset.boxMaterialCustom = String(group);
+                    materialCustom.setAttribute('aria-label', `成品图 ${group} 的自定义素材类型`);
+                    materialCustom.value = material.custom;
+                    materialCustom.hidden = material.title !== CUSTOM_MATERIAL;
+                    materialRow.append(materialLabel, materialSelect, materialCustom);
+                    box.appendChild(materialRow);
 
                     const body = document.createElement('div');
                     body.className = 'paste-box-body';
@@ -1631,6 +1741,59 @@
                 renderPosterStage();
             }
 
+            // 每个粘贴框里的素材类型控件：改完只刷新预览标题，不重建编辑区
+            // （重建会把正在输入的自定义输入框换掉，焦点和光标都会丢）
+            function handleMaterialChange(event) {
+                const select = event.target.closest('[data-box-material]');
+                const custom = event.target.closest('[data-box-material-custom]');
+                if (!select && !custom) return;
+                // 别冒泡到 form 上那对通用监听：它们会 readFormState + 整个 render
+                event.stopPropagation();
+                const box = event.target.closest('.paste-box');
+                const group = Number(box && box.dataset.box);
+                if (!Number.isInteger(group) || group < 1) return;
+
+                const entry = materialOf(group);
+                if (select) {
+                    entry.title = MATERIAL_TITLES.includes(select.value)
+                        ? select.value
+                        : DEFAULT_STATE.titleSecondary;
+                    const customInput = box.querySelector('[data-box-material-custom]');
+                    if (customInput) {
+                        customInput.hidden = entry.title !== CUSTOM_MATERIAL;
+                        if (!customInput.hidden) customInput.focus();
+                    }
+                }
+                if (custom) entry.custom = String(custom.value || '');
+                state.materials = { ...(state.materials || {}), [group]: entry };
+                refreshMaterialPreview();
+                queueSave();
+            }
+
+            // 海报标题的第二块（素材类型）按成品图各自显示：
+            // 主海报在 render 里已经写好，并排预览的克隆必须单独覆盖，否则会跟着主海报走。
+            function applyMaterialTitle(root, group) {
+                const titleRow = root.querySelector('.poster-title');
+                if (!titleRow) return;
+                const span = titleRow.querySelectorAll(':scope > span')[1];
+                if (!span) return;
+                const text = state.showTitleSecondary === false ? '' : materialTypeText(group);
+                span.textContent = text;
+                span.hidden = !text;
+            }
+
+            // 只改素材类型时不必重建整个编辑区（重建会让自定义输入框丢焦点），
+            // 直接把各张海报的标题第二块改掉即可，高度变化交给 scalePreview 重算。
+            function refreshMaterialPreview() {
+                posterStage.querySelectorAll('.poster-host').forEach(host => {
+                    const group = Number(host.dataset.group);
+                    if (!Number.isInteger(group) || group < 1) return;
+                    applyMaterialTitle(host.querySelector('.poster') || host, group);
+                    if (host.querySelector('.poster-host-label')) setHostLabel(host, group, true);
+                });
+                requestAnimationFrame(scalePreview);
+            }
+
             // 一张成品图的完整海报：克隆已经渲染好的主海报，只替换图片区内容，
             // 标题、色带、字号、水印位置都与主海报保持完全一致。
             function clonePosterForGroup(group) {
@@ -1641,6 +1804,8 @@
                 clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
                 const content = clone.querySelector('.poster-content');
                 if (content) fillPosterContent(content, itemsOfGroup(group));
+                // 素材类型各家不同，克隆必须覆盖成自己那张的
+                applyMaterialTitle(clone, group);
                 return clone;
             }
 
@@ -1656,7 +1821,8 @@
                     host.appendChild(label);
                 }
                 const count = itemsOfGroup(group).length;
-                label.textContent = `成品图 ${group} · ${count ? `${count} 张` : '空'}`;
+                const material = state.showTitleSecondary === false ? '' : materialTypeText(group);
+                label.textContent = `成品图 ${group}${material ? ` · ${material}` : ''} · ${count ? `${count} 张` : '空'}`;
             }
 
             // 多张成品图时把其余几张并排铺开；主海报（当前选中的那张）始终是 #poster
@@ -1879,7 +2045,8 @@
             // 只有「高分喜报」通道需要识图读分；其余通道不传图。
             // 只送当前这张成品图上的图片，AI 读到的分和正在生成的海报对得上。
             async function collectCaptionImages() {
-                if ((state.titleSecondary || '') !== HIGH_SCORE_MATERIAL) return [];
+                // 素材类型是按成品图分的，看当前这张是不是「高分喜报」
+                if (activeMaterialTitle() !== HIGH_SCORE_MATERIAL) return [];
                 const items = currentItems();
                 if (!items.length) return [];
                 const urls = [];
@@ -1912,7 +2079,7 @@
                     const images = await collectCaptionImages();
                     if (images.length) {
                         setCaptionNote(`正在识别图片里的分数，并生成 3 条不同风格的文案…`, 'loading');
-                    } else if ((state.titleSecondary || '') === HIGH_SCORE_MATERIAL) {
+                    } else if (activeMaterialTitle() === HIGH_SCORE_MATERIAL) {
                         setCaptionStatus('未检测到可识别的图片，本次按泛化文案生成。');
                     }
                     const payload = images.length ? { ...input, images } : input;
@@ -2211,10 +2378,14 @@
                     imageMessage(`最多 ${MAX_BOXES} 张成品图。要加新的，先删掉不用的粘贴框。`);
                     return;
                 }
+                // 新框沿用上一张的素材类型（多数是同一批素材换个画面，要改也只需动一下下拉框）
+                const previous = materialOf(boxCount);
+                state.materials = { ...(state.materials || {}), [boxCount + 1]: { ...previous } };
                 boxCount += 1;
                 activeGroup = boxCount;
                 resetImageMessage();
                 render();
+                queueSave();
                 // 滚到新框，省得用户自己找
                 const newest = pasteBoxList.lastElementChild;
                 if (newest) newest.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -2230,10 +2401,19 @@
                         if (current > group) item.group = current - 1;
                         return item;
                     });
+                // 素材类型跟着框一起前移，删掉第 2 张时第 3 张的设置不会串到第 2 张上
+                const shifted = {};
+                Object.entries(state.materials || {}).forEach(([key, value]) => {
+                    const current = Number(key);
+                    if (!Number.isInteger(current) || current === group) return;
+                    shifted[current > group ? current - 1 : current] = value;
+                });
+                state.materials = shifted;
                 boxCount -= 1;
                 activeGroup = Math.min(group, boxCount);
                 resetImageMessage();
                 render();
+                queueSave();   // 素材类型跟着框前移了，存档也要跟上
             }
 
             // 部分手机浏览器（旧版 Safari / 安卓 WebView）的 canvas 不认 oklch()，
@@ -3328,6 +3508,10 @@
                 const removeImageButton = event.target.closest('[data-remove-image]');
                 if (removeImageButton) { removeImage(Number(removeImageButton.dataset.removeImage)); return; }
 
+                // 点素材类型就不算「选中这个框」：这里不能切 activeGroup，
+                // 一 render 整个粘贴框会被重建，正在展开的下拉框会当场失效。
+                if (event.target.closest('.paste-box-material')) return;
+
                 const group = Number(box.dataset.box);
                 const inBody = Boolean(event.target.closest('.paste-box-body'));
 
@@ -3346,6 +3530,10 @@
                 const input = box.querySelector('[data-box-input]');
                 if (input) input.click();
             });
+
+            // 素材类型：下拉框（select 会先 input 再 change）与自定义输入框都走这里
+            pasteBoxList.addEventListener('input', handleMaterialChange);
+            pasteBoxList.addEventListener('change', handleMaterialChange);
 
             // 拖到页面其它位置时不要让浏览器直接打开图片
             ['dragover', 'drop'].forEach(type => {
