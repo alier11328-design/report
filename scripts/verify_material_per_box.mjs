@@ -72,6 +72,7 @@ const READ_SCRIPT = `(() => {
   const boxes = Array.from(document.querySelectorAll('.paste-box')).map(box => ({
     group: Number(box.dataset.box),
     select: box.querySelector('[data-box-material]')?.value,
+    options: Array.from(box.querySelectorAll('[data-box-material] option'), o => o.value),
     customHidden: box.querySelector('[data-box-material-custom]')?.hidden,
     customValue: box.querySelector('[data-box-material-custom]')?.value,
     count: box.querySelector('.paste-box-count')?.textContent,
@@ -108,6 +109,9 @@ let st = await ev(READ_SCRIPT);
 check('顶部不再有全局素材类型下拉框', st.hasTopSelect === false);
 check('单个粘贴框默认素材类型 = 课堂展示', st.boxes.length === 1 && st.boxes[0].select === '课堂展示', JSON.stringify(st.boxes.map(b => b.select)));
 check('海报标题显示默认素材类型', st.main.text === '课堂展示', st.main.text);
+// 新增的两个素材类型必须出现在下拉里，且不会被 normalizeMaterials 洗掉
+check('下拉包含「辅导下单」与「辅导展示」', st.boxes[0].options.includes('辅导下单') && st.boxes[0].options.includes('辅导展示'), JSON.stringify(st.boxes[0].options));
+check('下拉共 9 个候选（含「自定义」）', st.boxes[0].options.length === 9, String(st.boxes[0].options.length));
 await shot('material-single-default.png');
 
 // ---------- ② 第 1 张改成 高分喜报 ----------
@@ -145,6 +149,14 @@ await wait(500);
 st = await ev(READ_SCRIPT);
 check('切回成品图 1 后海报显示「高分喜报」', st.main.text === '高分喜报', st.main.text);
 check('成品图 2 的设置为「好评分享」不受影响', st.boxes[1].select === '好评分享', st.boxes[1].select);
+
+// ---------- ④.5 新类型「辅导展示」能选中并同步到海报 ----------
+await ev(setMaterial(2, '辅导展示'));
+await wait(400);
+st = await ev(READ_SCRIPT);
+check('成品图 2 可切到「辅导展示」', st.boxes[1].select === '辅导展示', st.boxes[1].select);
+check('并排预览里成品图 2 显示「辅导展示」', st.hosts.find(h => h.group === 2)?.secondary.text === '辅导展示', st.hosts.find(h => h.group === 2)?.secondary.text);
+check('切「辅导展示」不影响成品图 1', st.hosts.find(h => h.group === 1)?.secondary.text === '高分喜报', st.hosts.find(h => h.group === 1)?.secondary.text);
 
 // ---------- ⑤ 自定义素材类型 ----------
 await ev(setMaterial(2, '自定义'));
@@ -213,14 +225,14 @@ await ev(DROP_SCRIPT(2, 210), true);
 await wait(700);
 await ev(setMaterial(1, '高分喜报'));
 await wait(300);
-await ev(setMaterial(2, '课后答疑'));
+await ev(setMaterial(2, '辅导展示'));
 await wait(300);
 await ev(`document.getElementById('exportButton').click(); 'ok'`);
 await wait(4500);
 const status = await ev(`document.getElementById('exportStatus').textContent`);
 check('多张成品图导出成功', /已导出 2 张成品图/.test(status), status);
 st = await ev(READ_SCRIPT);
-check('导出后回到原来那张成品图、素材类型没被改动', st.main.text === '课后答疑', st.main.text);
+check('导出后回到原来那张成品图、素材类型没被改动', st.main.text === '辅导展示', st.main.text);
 
 ws.close();
 
