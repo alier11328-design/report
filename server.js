@@ -1281,6 +1281,85 @@ ${JSON.stringify(req.body?.context || {}, null, 2)}
     }
 });
 
+// 朋友圈海报：课程信息截图识图（与 functions/api/ai/poster-ocr.js 的提示词和清洗规则保持一致）
+const OCR_FIELD_LIMITS = {
+    region: 18,
+    school: 30,
+    major: 24,
+    courseCode: 20,
+    teacher: 24,
+    courseName: 70
+};
+
+const OCR_PROMPT = `请读取下面这些图片里的文字（可能是同一份课程信息的多张截图，每张可能是聊天记录、课程表、订单截图、学校系统页面或课程信息卡片），综合所有图片，提取用于制作朋友圈海报的 6 项课程信息。
+
+只输出严格合法的 JSON，键名固定为：
+{ "region": "", "school": "", "major": "", "courseCode": "", "teacher": "", "courseName": "" }
+
+【字段含义】
+- region：国家或地区（例如 澳洲、英国、美国、加拿大、新加坡）。只写地区名，不要写学校名。
+- school：学校名称，保留图片里的原文（中英文都可以）。
+- major：专业名称。
+- courseCode：课程代码，通常是「字母 + 数字」的编号（如 BIOL1020、COMP1000、ACCT1101）。不要把学号、订单号、手机号、日期、时间、金额当成课程代码。
+- teacher：辅导老师姓名。不要把学生姓名、群昵称、客服当成老师；图中写成「XX老师」时去掉「老师」二字，只留名字。
+- courseName：课程名称。英文课程名保留英文原文，不要翻译成中文；不要和 courseCode 拼在一起。
+
+【硬性规则】
+1. 只能填写图片中确实看得见的信息；所有图片里都没有、看不清、不确定的字段一律留空字符串 ""，严禁根据常识推测、补全或编造。
+2. 值里不要带标签文字（如「学校：」「课程代码」「Course:」）、引号、换行、emoji、括号注释，只给值本身。
+3. 同一字段出现多个候选值时，取最像「本次课程」的那一个：优先课程卡片 / 订单主体 / 本次安排，其次才是聊天正文；不要取聊天里举例或历史消息里的旧信息。多张图片里同一字段取值冲突时按同一原则取舍；不同字段分散在不同图片里时，分别取出来合并成一份结果。
+4. 值要简短：region ≤ 18 字，school ≤ 30 字，major ≤ 24 字，courseCode ≤ 20 字，teacher ≤ 24 字，courseName ≤ 70 字。
+5. 如果所有图片里完全没有课程相关信息，6 个字段全部返回空字符串。
+6. 只输出 JSON，不要任何解释。`;
+
+// 模型偶尔会把「学校：」这类标签或占位词带进值里，这里统一兜底清洗
+function cleanOcrValue(value, limit) {
+    let text = String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+    for (let i = 0; i < 2; i += 1) {
+        text = text.replace(/^(?:国家或地区|地区|国家|学校|院校|大学|专业|课程代码|课程编号|课程号|辅导老师|老师|课程名称|课程名|课程|region|school|major|course\s*code|teacher|course\s*name)\s*[:：]\s*/iu, '');
+    }
+    text = text.replace(/^["'「『【（(\[]+|["'」』】）)\]]+$/gu, '').trim();
+    if (/^(?:未填写|无|没有|未知|暂无|null|none|n\/a|nan|undefined|（未填写）|\(未填写\))$/iu.test(text)) return '';
+    return text.slice(0, limit);
+}
+
+function cleanOcrFields(raw) {
+    const fields = {};
+    Object.entries(OCR_FIELD_LIMITS).forEach(([key, limit]) => {
+        fields[key] = cleanOcrValue(raw?.[key], limit);
+    });
+    return fields;
+}
+
+app.post('/api/ai/poster-ocr', async (req, res, next) => {
+    try {
+        // 新版前端传 images 数组（一次看多张截图）；image 单图字段保留给旧前端兜底
+        const single = typeof req.body?.image === 'string' ? req.body.image : '';
+        const images = (Array.isArray(req.body?.images) ? req.body.images : [])
+            .filter(url => typeof url === 'string' && url.startsWith('data:image/'))
+            .slice(0, 4);
+        if (!images.length && single.startsWith('data:image/')) images.push(single);
+        if (!images.length) {
+            return res.status(400).json({ error: '缺少课程信息图片' });
+        }
+        if (images.some(image => image.length > 16 * 1024 * 1024)) {
+            return res.status(413).json({ error: '图片过大，请换一张更小的截图' });
+        }
+        if (images.reduce((total, image) => total + image.length, 0) > 24 * 1024 * 1024) {
+            return res.status(413).json({ error: '图片总大小超出限制，请减少张数或换更小的截图' });
+        }
+        const raw = await askQwenForJson({
+            prompt: OCR_PROMPT,
+            images,
+            temperature: 0.1,
+            disableThinking: true
+        });
+        res.json({ data: cleanOcrFields(raw) });
+    } catch (error) {
+        next(error);
+    }
+});
+
 app.post('/api/ai/poster-caption', async (req, res, next) => {
     try {
         const productType = normalizeString(req.body?.productType);

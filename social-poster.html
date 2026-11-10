@@ -213,7 +213,7 @@
             color: #475569;
             margin-bottom: 6px;
         }
-        .form-group input, .form-group select {
+        .form-group input, .form-group select, .form-group textarea {
             width: 100%;
             padding: 12px 14px;
             border: 1.5px solid #e2e8f0;
@@ -223,12 +223,20 @@
             color: inherit;
             transition: 0.2s;
         }
-        .form-group input:focus, .form-group select:focus {
+        /* 课程名称可能很长：允许多行输入，回车即手动换行 */
+        .form-group textarea {
+            display: block;
+            min-height: 48px;
+            max-height: 120px;
+            resize: vertical;
+            line-height: 1.5;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
             border-color: var(--primary-color);
             outline: none;
             box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.08);
         }
-        .form-group input::placeholder { color: #94a3b8; }
+        .form-group input::placeholder, .form-group textarea::placeholder { color: #94a3b8; }
         .form-group input[aria-invalid="true"] { border-color: #dc2626; }
 
         .field-help { display: block; margin: 6px 0 0; font-size: 12px; color: #94a3b8; line-height: 1.5; }
@@ -285,6 +293,7 @@
         /* 关掉显示时输入框变淡，但内容保留，随时可以再打开 */
         .form-group.field-off > input,
         .form-group.field-off > select,
+        .form-group.field-off > textarea,
         .form-group.field-off > .field-note { opacity: 0.5; }
         /* 素材类型是全局默认值，单张成品图可以覆盖（见 .paste-box-material） */
         .custom-material-input { margin-top: 8px; }
@@ -307,6 +316,113 @@
             justify-content: flex-start;
             gap: 9px;
         }
+
+        /* 课程信息截图识图：上传 / 粘贴 / 拖拽 */
+        .ocr-import { margin-bottom: 2px; }
+        .ocr-import-title { margin: 20px 0 10px; font-size: 15px; }
+        .ocr-dropzone {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 16px;
+            border: 1.5px dashed #cbd5e1;
+            border-radius: 14px;
+            background: var(--primary-bg-soft);
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .ocr-dropzone:hover, .ocr-dropzone.is-dragover {
+            border-color: var(--primary-color);
+            background: var(--primary-bg-hover);
+        }
+        /* 页面加载时输入框会拿到焦点，聚焦样式只用淡描边，避免看起来像报错 */
+        .ocr-dropzone:focus-visible {
+            outline: 2px solid rgba(var(--primary-rgb), 0.3);
+            outline-offset: 2px;
+        }
+        .ocr-dropzone.is-ready { border-style: solid; border-color: rgba(var(--primary-rgb), 0.36); }
+        .ocr-dropzone.is-busy { cursor: progress; opacity: 0.78; }
+        .ocr-icon {
+            flex: 0 0 auto;
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: grid;
+            place-items: center;
+            font-size: 18px;
+            background: #fff;
+            color: var(--primary-color);
+            border: 1px solid rgba(var(--primary-rgb), 0.18);
+        }
+        .ocr-copy { flex: 1; min-width: 0; }
+        .ocr-copy strong { display: block; font-size: 13px; color: #1e293b; }
+        .ocr-copy span { display: block; margin-top: 4px; font-size: 12px; line-height: 1.5; color: #64748b; }
+        /* 待识别图片队列：一张缩略图 = 一张截图，右上角可单独移除 */
+        .ocr-queue {
+            margin-top: 10px;
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #fff;
+        }
+        .ocr-queue[hidden], .ocr-mini-btn[hidden] { display: none; }
+        .ocr-thumbs { display: flex; flex-wrap: wrap; gap: 12px; }
+        .ocr-thumb { position: relative; width: 58px; height: 58px; }
+        .ocr-thumb img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+        }
+        .ocr-thumb-index {
+            position: absolute;
+            left: 3px;
+            bottom: 3px;
+            min-width: 16px;
+            padding: 0 3px;
+            border-radius: 5px;
+            background: rgba(15, 23, 42, .68);
+            color: #fff;
+            font-size: 10px;
+            line-height: 16px;
+            text-align: center;
+        }
+        .ocr-thumb-remove {
+            position: absolute;
+            top: -7px;
+            right: -7px;
+            width: 21px;
+            height: 21px;
+            display: grid;
+            place-items: center;
+            padding: 0;
+            border: 1px solid #e2e8f0;
+            border-radius: 50%;
+            background: #fff;
+            color: #64748b;
+            font-size: 14px;
+            line-height: 1;
+            cursor: pointer;
+            box-shadow: 0 1px 4px rgba(15, 23, 42, .12);
+        }
+        .ocr-thumb-remove:hover { border-color: var(--primary-color); color: var(--primary-color); }
+        .ocr-thumb-remove:disabled { opacity: .5; cursor: not-allowed; }
+        .ocr-controls {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .ocr-controls-hint { font-size: 12px; line-height: 1.5; color: #64748b; }
+        .ocr-status { display: block; margin-top: 8px; font-size: 12px; line-height: 1.5; color: #64748b; }
+        .ocr-status[data-tone="loading"] { color: var(--primary-color); }
+        .ocr-status[data-tone="success"] { color: #15803d; }
+        .ocr-status[data-tone="error"] { color: #dc2626; }
 
         /* 素材粘贴框：一个框 = 一张成品图，框内的图片按顺序上下拼接 */
         .paste-box-list { display: grid; gap: 10px; }
@@ -745,7 +861,7 @@
             .form-row { flex-direction: column; }
         }
         @media (pointer: coarse) {
-            .btn, .upload-button, .form-group input, .form-group select { min-height: 44px; }
+            .btn, .upload-button, .form-group input, .form-group select, .form-group textarea { min-height: 44px; }
         }
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after {
@@ -891,7 +1007,6 @@
 
         .poster-course {
             max-width: 100%;
-            overflow: clip;
             margin-top: 2px;
             color: var(--poster-accent-deep);
             font-family: var(--font-display);
@@ -900,8 +1015,10 @@
             letter-spacing: .6px;
             /* 与参考稿的 .course 行盒高度一致 */
             line-height: 40px;
-            white-space: nowrap;
-            text-overflow: ellipsis;
+            /* 长课程名自动折行；手动回车（pre-wrap）也保留；超长英文单词按字符断开。
+               画布导出会读取 DOM 真正排出来的每一行，保证预览 = 导出。 */
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
             transition: color .4s ease;
         }
 
@@ -1042,7 +1159,7 @@
                 </div>
                 <h3 class="form-section-title"><i class="fas fa-image" style="color:var(--primary-color);"></i> 朋友圈海报 · 编辑信息</h3>
 
-                <form id="posterForm" novalidate>
+                <form id="posterForm" novalidate autocomplete="off">
                     <div class="form-row">
                         <div class="form-group">
                             <label for="theme"><i class="fas fa-tag"></i> 产品类型</label>
@@ -1071,6 +1188,28 @@
                             <input class="custom-material-input" id="titleSecondaryCustom" name="titleSecondaryCustom" maxlength="12" placeholder="输入自定义素材类型，例如：辅导下单" hidden>
                             <p class="field-note">这里是默认值，下方所有成品图都跟随它；某一张要单独改，在那个粘贴框里改就行。</p>
                         </div>
+                    </div>
+
+                    <!-- 课程信息截图识图：可先攒多张图，再点「开始识别」一次性读取 -->
+                    <div class="ocr-import">
+                        <div class="form-section-title ocr-import-title"><i class="fas fa-camera" style="color:var(--primary-color);"></i> 从图片识别课程信息</div>
+                        <div class="ocr-dropzone" id="ocrDropzone" tabindex="0" role="button" aria-label="上传、粘贴或拖拽课程信息截图，可添加多张后统一识别">
+                            <input class="poster-image-input" type="file" id="ocrFileInput" accept="image/png,image/jpeg,image/webp" multiple>
+                            <div class="ocr-icon"><i class="fas fa-images"></i></div>
+                            <div class="ocr-copy">
+                                <strong>上传 / 粘贴 / 拖拽课程信息截图（可多张）</strong>
+                                <span>课程信息分散在几张图里也没关系：连续添加，最后点下方「开始识别」一起读取。Ctrl+V（Mac 用 ⌘V）粘贴；点过下方素材框后，先点一下本框再粘贴。</span>
+                            </div>
+                        </div>
+                        <div class="ocr-queue" id="ocrQueue" hidden>
+                            <div class="ocr-thumbs" id="ocrThumbs"></div>
+                        </div>
+                        <div class="ocr-controls">
+                            <button type="button" class="btn btn-primary btn-sm" id="ocrStartButton" disabled><i class="fas fa-wand-magic-sparkles"></i> <span id="ocrStartLabel">开始识别</span></button>
+                            <button type="button" class="ocr-mini-btn" id="ocrClearButton" hidden>清空图片</button>
+                            <span class="ocr-controls-hint" id="ocrCountHint">最多 4 张；添加图片后点「开始识别」</span>
+                        </div>
+                        <span class="ocr-status" id="ocrStatus" role="status" aria-live="polite">支持 JPG / PNG / WebP，单张不超过 12 MB，最多 4 张。识别只填空字段，已写好的内容不会被覆盖；刷新页面后文字会清空。</span>
                     </div>
 
                     <div class="form-section-title has-toggle">
@@ -1136,10 +1275,10 @@
                                     <input type="checkbox" id="showCourseName" name="showCourseName" aria-label="在海报上显示" checked>
                                 </label>
                             </div>
-                            <input id="courseName" name="courseName" maxlength="70" placeholder="例如：Genes, Cells &amp; Evolution">
+                            <textarea id="courseName" name="courseName" rows="2" maxlength="70" placeholder="例如：Genes, Cells &amp; Evolution（可回车手动换行）"></textarea>
                         </div>
                     </div>
-                    <span class="field-help">字段名右侧的开关关掉后，对应内容不会出现在海报上（填的内容会保留）；「课程信息」标题旁的总开关可以一次性关掉下面六项。素材类型在上方选一次，下面所有成品图都用它，某一张要不一样就在那个粘贴框里单独改；选「自定义」后可自己输入文字。辅导老师会自动补上「老师」——填 <b>Michelle.许</b>，海报显示 <b>Michelle.许老师</b>；课程名称保留英文原名会更符合参考海报的视觉节奏。</span>
+                    <span class="field-help">字段名右侧的开关关掉后，对应内容不会出现在海报上（填的内容会保留）；「课程信息」标题旁的总开关可以一次性关掉下面六项。素材类型在上方选一次，下面所有成品图都用它，某一张要不一样就在那个粘贴框里单独改；选「自定义」后可自己输入文字。辅导老师会自动补上「老师」——填 <b>Michelle.许</b>，海报显示 <b>Michelle.许老师</b>；课程名称保留英文原名会更符合参考海报的视觉节奏，太长会自动折行，也可以回车手动换行。</span>
 
                     <div class="form-section-title">素材图片</div>
                     <div class="paste-box-list" id="pasteBoxList"></div>
@@ -1148,7 +1287,7 @@
                         <span class="upload-hint">一个粘贴框 = 一张成品图。框内可放 1–3 张图，按顺序上下拼接；框内素材类型默认跟随上方，改了只作用于这张成品图。</span>
                     </div>
                     <span class="field-help" id="imageError">支持 JPG、PNG 和 WebP，每个粘贴框最多 3 张，单张建议不超过 12 MB。</span>
-                    <div class="save-state" id="saveState" role="status" aria-live="polite">已自动保存</div>
+                    <div class="save-state" id="saveState" role="status" aria-live="polite" title="只保存显示开关等设置；编辑框里的文字刷新后会清空">设置已自动保存</div>
                 </form>
             </div>
 
@@ -1243,6 +1382,18 @@
             'use strict';
 
             const STORAGE_KEY = 'clasbro-social-poster-v1';
+            // 课程信息截图识图：字段顺序、最大长度与中文名（与后端 OCR_FIELD_LIMITS 对齐）
+            const OCR_FIELD_KEYS = ['region', 'school', 'major', 'courseCode', 'teacher', 'courseName'];
+            const OCR_FIELD_LIMITS = {
+                region: 18, school: 30, major: 24, courseCode: 20, teacher: 24, courseName: 70
+            };
+            const OCR_FIELD_LABELS = {
+                region: '国家或地区', school: '学校', major: '专业',
+                courseCode: '课程代码', teacher: '辅导老师', courseName: '课程名称'
+            };
+            const MAX_OCR_IMAGE_BYTES = 12 * 1024 * 1024;
+            const MAX_OCR_IMAGE_SIDE = 2000;   // 截图小字多，比文案识图的 1600 稍大一点
+            const MAX_OCR_IMAGES = 4;          // 一次最多 4 张一起识别，避免请求体过大 / 边缘超时
             // 原图上限。超过长边 1600px 的图读进来后会自动缩小，所以这里可以放得宽一些
             const MAX_IMAGE_BYTES = 30 * 1024 * 1024;
             // 素材图读入后统一压到长边 1600px 内：海报成品宽 1500px，素材区更小，完全够用，
@@ -1343,24 +1494,31 @@
                 'showCourseName'
             ];
 
-            // 早期版本给「课程信息」预填过示例内容，这里把仍是示例值的旧存档清空；
-            // 使用者自己改过的内容不会被误删。
-            const LEGACY_DEMO_VALUES = {
-                region: '澳洲',
-                school: '昆士兰大学',
-                major: '食品科学',
-                courseCode: 'BIOL1020',
-                teacher: 'Michelle.许老师',
-                courseName: 'Genes, Cells & Evolution'
-            };
+            // 所有「手填文字」字段：强刷后一律清空，不进存档恢复。
+            // 显示开关（FIELD_TOGGLE_KEYS）、产品类型、素材类型属于设置，仍然保留。
+            const TEXT_STATE_KEYS = [
+                'titleSecondaryCustom',
+                'region', 'school', 'major', 'courseCode', 'teacher', 'courseName'
+            ];
 
             const form = document.getElementById('posterForm');
+            const ocrDropzone = document.getElementById('ocrDropzone');
+            const ocrFileInput = document.getElementById('ocrFileInput');
+            const ocrImport = document.querySelector('.ocr-import');
+            const ocrQueue = document.getElementById('ocrQueue');
+            const ocrThumbs = document.getElementById('ocrThumbs');
+            const ocrStartButton = document.getElementById('ocrStartButton');
+            const ocrStartLabel = document.getElementById('ocrStartLabel');
+            const ocrClearButton = document.getElementById('ocrClearButton');
+            const ocrCountHint = document.getElementById('ocrCountHint');
+            const ocrStatus = document.getElementById('ocrStatus');
             const poster = document.getElementById('poster');
             const posterHost = document.getElementById('posterHost');
             const posterStage = document.getElementById('posterStage');
             const previewViewport = document.getElementById('previewViewport');
             const posterContent = document.getElementById('posterContent');
             const teacherInput = document.getElementById('teacher');
+            const courseNameInput = document.getElementById('courseName');
             const pasteBoxList = document.getElementById('pasteBoxList');
             const addPasteBoxButton = document.getElementById('addPasteBox');
             const exportButton = document.getElementById('exportButton');
@@ -1393,6 +1551,12 @@
 
             let state = loadState();
             let imageItems = [];
+            // 课程信息识图：图片队列只留在内存里，不进 localStorage（强刷后左侧编辑框保持空白）
+            let ocrImages = [];          // [{ id, dataUrl, name }]
+            let ocrImageSeq = 0;
+            let ocrRecognized = false;   // 识别成功后按钮变成「重新识别」
+            let ocrBusy = false;
+            let ocrRequestSeq = 0;       // 图片变动 / 清空时递增，丢弃在途的旧结果
             // 粘贴框数量 = 成品图数量。一个粘贴框对应一张成品图，框内可放 1–3 张图。
             let boxCount = 1;
             // 每张图片的唯一编号，删图时按编号定位，避免索引错乱
@@ -1410,6 +1574,8 @@
             let selectedCaptionIndex = 0; // 导出后自动复制的是选中那条，默认第一条
 
             function loadState() {
+                // 强刷（以及任何重新打开）都不恢复编辑框里的文字：文字一律从空白开始，
+                // 只有产品类型、素材类型、显示开关这类「设置」跨刷新保留。
                 try {
                     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
                     const migrated = { ...(saved || {}) };
@@ -1422,32 +1588,31 @@
                     if (!MATERIAL_TITLES.includes(next.titleSecondary)) {
                         next.titleSecondary = DEFAULT_STATE.titleSecondary;
                     }
-                    // 每张成品图的覆盖项：老存档没有这个键时留空对象（= 全部跟随顶部默认值）
-                    next.materials = (next.materials && typeof next.materials === 'object' && !Array.isArray(next.materials))
-                        ? next.materials
-                        : {};
-                    // 老存档里的全局素材类型 + 自定义文字继续当默认值用（字段名本来就一致，不用搬）
-                    next.titleSecondaryCustom = String(next.titleSecondaryCustom || '');
-                    // 上一版把每张成品图都存成了自己的值：跟默认值一样的那些直接降级成
-                    // 「跟随默认」，这样改了顶部它们也会一起变（与用户预期一致）。
-                    Object.keys(next.materials).forEach(key => {
-                        const entry = next.materials[key] || {};
-                        if (entry.title !== next.titleSecondary) return;
-                        if (entry.title === CUSTOM_MATERIAL
-                            && String(entry.custom || '').trim() !== next.titleSecondaryCustom.trim()) return;
-                        delete next.materials[key];
-                    });
+                    // 自定义素材文字属于「文字」，也不跨刷新保留；覆盖关系一并回到跟随默认
+                    next.materials = {};
+                    TEXT_STATE_KEYS.forEach(key => { next[key] = ''; });
                     // 水印不读存档：每次进入页面都强制默认「万能班长」
                     next.watermark = DEFAULT_STATE.watermark;
-                    Object.entries(LEGACY_DEMO_VALUES).forEach(([key, demo]) => {
-                        if (String(next[key] || '').trim() === demo) next[key] = '';
-                    });
                     // 显示开关统一成布尔值：老存档没有这些键时按「显示」处理
                     FIELD_TOGGLE_KEYS.forEach(key => { next[key] = next[key] !== false; });
+                    // 顺手把旧存档里的文字也抹掉，避免后续版本再读回来
+                    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* 隐私模式下忽略 */ }
                     return next;
                 } catch {
-                    return { ...DEFAULT_STATE };
+                    return { ...DEFAULT_STATE, materials: {} };
                 }
+            }
+
+            // 课程名称支持手动换行：逐行去掉首尾空白、丢掉空行，避免海报出现空白行，
+            // 也避免文件名 / AI 文案里混入换行符。
+            function normalizeCourseName(value) {
+                return String(value || '')
+                    .replace(/\r\n?/g, '\n')
+                    .split('\n')
+                    .map(line => line.replace(/\s+/g, ' ').trim())
+                    .filter(Boolean)
+                    .join('\n')
+                    .slice(0, 70);
             }
 
             function readFormState() {
@@ -1468,7 +1633,7 @@
                     major: String(data.get('major') || '').trim(),
                     courseCode: String(data.get('courseCode') || '').trim(),
                     teacher: String(data.get('teacher') || '').trim(),
-                    courseName: String(data.get('courseName') || '').trim()
+                    courseName: normalizeCourseName(data.get('courseName'))
                 };
                 FIELD_TOGGLE_KEYS.forEach(key => { next[key] = isChecked(key); });
                 return next;
@@ -2120,23 +2285,28 @@
                     productType: THEME_TITLES[state.theme] || THEME_TITLES.course,
                     materialType: materialTypeText(),
                     teacher: teacherDisplayName(state.teacher),
-                    courseName: String(state.courseName || '').trim()
+                    courseName: normalizeCourseName(state.courseName).replace(/\n/g, ' ')
                 };
             }
 
             // 送 AI 识图前先按长边压缩（海报导出仍用原图，不受影响）
-            function downscaleImageForAi(dataUrl) {
+            // OCR 识图传更大的长边上限，避免聊天截图里的小字被压糊
+            function downscaleImageForAi(dataUrl, maxSideLimit = MAX_AI_IMAGE_SIDE, quality = 0.92) {
                 return new Promise(resolve => {
                     const img = new Image();
                     img.onload = () => {
                         const maxSide = Math.max(img.naturalWidth, img.naturalHeight);
-                        if (!maxSide || maxSide <= MAX_AI_IMAGE_SIDE) { resolve(dataUrl); return; }
-                        const ratio = MAX_AI_IMAGE_SIDE / maxSide;
+                        if (!maxSide || maxSide <= maxSideLimit) { resolve(dataUrl); return; }
+                        const ratio = maxSideLimit / maxSide;
                         const canvas = document.createElement('canvas');
                         canvas.width = Math.round(img.naturalWidth * ratio);
                         canvas.height = Math.round(img.naturalHeight * ratio);
-                        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                        resolve(canvas.toDataURL('image/jpeg', 0.92));
+                        const ctx = canvas.getContext('2d');
+                        // 透明 PNG 转 JPEG 会变黑底，先铺白再画，识图才读得清小字
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        resolve(canvas.toDataURL('image/jpeg', quality));
                     };
                     img.onerror = () => resolve(null);
                     img.src = dataUrl;
@@ -2156,6 +2326,192 @@
                     if (url) urls.push(url);
                 }
                 return urls;
+            }
+
+            // ===== 课程信息截图识图：多张图先入队列 → 点「开始识别」一起读 → 填六个字段 =====
+            function setOcrStatus(text, tone = '') {
+                ocrStatus.textContent = text;
+                if (tone) ocrStatus.dataset.tone = tone;
+                else delete ocrStatus.dataset.tone;
+            }
+
+            function setOcrBusy(busy) {
+                ocrBusy = busy;
+                ocrDropzone.classList.toggle('is-busy', busy);
+                ocrFileInput.disabled = busy;
+                renderOcrQueue();
+            }
+
+            function renderOcrQueue() {
+                const count = ocrImages.length;
+                ocrQueue.hidden = count === 0;
+                ocrClearButton.hidden = count === 0;
+                ocrStartButton.disabled = ocrBusy || count === 0;
+                ocrStartLabel.textContent = ocrRecognized ? '重新识别' : '开始识别';
+                ocrCountHint.textContent = count
+                    ? `已添加 ${count}/${MAX_OCR_IMAGES} 张${ocrRecognized ? '，可点「重新识别」再读一次' : '，点「开始识别」一起读取'}`
+                    : `最多 ${MAX_OCR_IMAGES} 张；添加图片后点「开始识别」`;
+                ocrDropzone.classList.toggle('is-ready', count > 0);
+                ocrThumbs.replaceChildren();
+                ocrImages.forEach((item, index) => {
+                    const wrap = document.createElement('div');
+                    wrap.className = 'ocr-thumb';
+                    const img = document.createElement('img');
+                    img.src = item.dataUrl;
+                    img.alt = `待识别截图 ${index + 1}：${item.name}`;
+                    const number = document.createElement('span');
+                    number.className = 'ocr-thumb-index';
+                    number.textContent = String(index + 1);
+                    const remove = document.createElement('button');
+                    remove.type = 'button';
+                    remove.className = 'ocr-thumb-remove';
+                    remove.dataset.ocrId = String(item.id);
+                    remove.disabled = ocrBusy;
+                    remove.setAttribute('aria-label', `移除第 ${index + 1} 张截图`);
+                    remove.title = '移除这张截图';
+                    remove.textContent = '×';
+                    wrap.append(img, number, remove);
+                    ocrThumbs.appendChild(wrap);
+                });
+            }
+
+            function readOcrFileAsDataUrl(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(String(reader.result || ''));
+                    reader.onerror = () => reject(new Error('图片读取失败'));
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            function cleanOcrFields(raw) {
+                const fields = {};
+                OCR_FIELD_KEYS.forEach(key => {
+                    fields[key] = String(raw?.[key] ?? '').replace(/\s+/g, ' ').trim().slice(0, OCR_FIELD_LIMITS[key]);
+                });
+                return fields;
+            }
+
+            // 只把图片放进待识别队列，不再自动触发 AI；用户点「开始识别」才发请求
+            async function handleOcrFiles(fileList) {
+                if (ocrBusy) {
+                    setOcrStatus('正在识别，等这一批完成再添加图片。', 'loading');
+                    return;
+                }
+                const all = Array.from(fileList || []).filter(Boolean);
+                const acceptedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+                let files = all.filter(file => acceptedTypes.includes(String(file.type || '').toLowerCase()));
+                if (!files.length) {
+                    setOcrStatus('没有检测到图片，请粘贴或选择 JPG / PNG / WebP 图片。', 'error');
+                    return;
+                }
+                const notes = [];
+                if (files.length < all.length) notes.push('已忽略非 JPG / PNG / WebP 文件');
+                const free = MAX_OCR_IMAGES - ocrImages.length;
+                if (free <= 0) {
+                    setOcrStatus(`最多只能放 ${MAX_OCR_IMAGES} 张，请先移除某张或点「清空图片」再添加。`, 'error');
+                    return;
+                }
+                if (files.length > free) {
+                    notes.push(`一次最多 ${MAX_OCR_IMAGES} 张，多余的没有加入`);
+                    files = files.slice(0, free);
+                }
+                const oversized = files.filter(file => file.size > MAX_OCR_IMAGE_BYTES);
+                files = files.filter(file => file.size <= MAX_OCR_IMAGE_BYTES);
+                if (oversized.length) notes.push(`${oversized.length} 张超过 12 MB 已跳过`);
+                if (!files.length) {
+                    setOcrStatus(notes.join('；') || '没有可用的图片。', 'error');
+                    return;
+                }
+                try {
+                    const dataUrls = await Promise.all(files.map(readOcrFileAsDataUrl));
+                    if (dataUrls.some(url => !url.startsWith('data:image/'))) throw new Error('图片读取失败');
+                    dataUrls.forEach((dataUrl, index) => {
+                        ocrImages.push({
+                            id: ++ocrImageSeq,
+                            dataUrl,
+                            name: files[index].name || `截图${ocrImages.length + 1}`
+                        });
+                    });
+                    ocrRecognized = false;
+                    ocrRequestSeq += 1;      // 队列变了，丢掉任何在途的旧结果
+                    renderOcrQueue();
+                    setOcrStatus(
+                        `已添加 ${dataUrls.length} 张，共 ${ocrImages.length} 张；点「开始识别」一起读取。` +
+                        (notes.length ? `（${notes.join('；')}）` : '')
+                    );
+                } catch (error) {
+                    setOcrStatus(`图片读取失败：${error.message || '请换一张再试'}`, 'error');
+                }
+            }
+
+            async function runOcr() {
+                if (!ocrImages.length || ocrBusy) return;
+                const seq = ++ocrRequestSeq;
+                const batch = ocrImages.slice();
+                const count = batch.length;
+                setOcrBusy(true);
+                setOcrStatus(`正在识别 ${count} 张图片里的课程信息…`, 'loading');
+                try {
+                    if (!window.aiClient || typeof window.aiClient.request !== 'function') {
+                        throw new Error('AI 服务不可用，请用本地服务地址（例如 http://localhost:3000/social-poster.html）打开本页');
+                    }
+                    // 大图先压缩，减少跨境上传时间；小截图保持原图，保证小字清晰
+                    const images = await Promise.all(batch.map(item => downscaleImageForAi(item.dataUrl, MAX_OCR_IMAGE_SIDE, 0.9)));
+                    if (images.some(image => !image)) throw new Error('图片读取失败，请换一张再试');
+                    // image 字段兼容还没部署新接口的旧后端；新后端读 images 数组，一次看完全部截图
+                    const result = await window.aiClient.request('/api/ai/poster-ocr', { images, image: images[0] });
+                    if (seq !== ocrRequestSeq) return;   // 图片已变动 / 已清空，丢弃旧结果
+                    const fields = cleanOcrFields(result);
+                    const filled = [];
+                    OCR_FIELD_KEYS.forEach(key => {
+                        const control = form.elements.namedItem(key);
+                        if (!control || !fields[key]) return;
+                        // 只填空字段：已经手填的内容一律不覆盖
+                        if (String(control.value || '').trim()) return;
+                        control.value = fields[key];
+                        filled.push(OCR_FIELD_LABELS[key]);
+                    });
+                    state = readFormState();
+                    render();
+                    queueSave();
+                    ocrRecognized = true;
+                    renderOcrQueue();
+                    if (filled.length) {
+                        setOcrStatus(`识别完成（${count} 张图），已填入 ${filled.length} 项：${filled.join('、')}。已填写的字段保持原样；要替换请先清空对应字段，再点「重新识别」。`, 'success');
+                    } else {
+                        setOcrStatus(`识别完成（${count} 张图），但没有可填入的空字段（图片里可能没有课程信息）。清空要替换的字段后可点「重新识别」。`, 'success');
+                    }
+                } catch (error) {
+                    if (seq !== ocrRequestSeq) return;
+                    ocrRecognized = false;
+                    setOcrStatus(`识别失败：${error.message || '请稍后重试'}。可以点「开始识别」再试一次。`, 'error');
+                } finally {
+                    if (seq === ocrRequestSeq) setOcrBusy(false);
+                }
+            }
+
+            function removeOcrImage(id) {
+                if (ocrBusy) return;
+                const before = ocrImages.length;
+                ocrImages = ocrImages.filter(item => String(item.id) !== String(id));
+                if (ocrImages.length === before) return;
+                ocrRequestSeq += 1;
+                ocrRecognized = false;
+                renderOcrQueue();
+                setOcrStatus(ocrImages.length
+                    ? `已移除 1 张，还剩 ${ocrImages.length} 张；点「开始识别」一起读取。`
+                    : '已移除全部截图，可以重新添加图片。');
+            }
+
+            function clearOcrImage() {
+                ocrRequestSeq += 1;
+                ocrImages = [];
+                ocrRecognized = false;
+                ocrFileInput.value = '';
+                setOcrBusy(false);       // 内部会重绘队列并恢复按钮状态
+                setOcrStatus('已清空待识别图片；下方课程信息里的文字保持不变。');
+                ocrDropzone.focus({ preventScroll: true });
             }
 
             async function generateCaption() {
@@ -2274,12 +2630,16 @@
             }
 
             function persistState() {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-                saveState.textContent = '已自动保存';
+                // 文字不落存档：只保存设置项，强刷后编辑框保持空白
+                const settingsOnly = { ...state };
+                TEXT_STATE_KEYS.forEach(key => { settingsOnly[key] = ''; });
+                settingsOnly.materials = {};
+                try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settingsOnly)); } catch { /* 隐私模式下忽略 */ }
+                saveState.textContent = '设置已自动保存';
             }
 
             function queueSave() {
-                saveState.textContent = '保存中…';
+                saveState.textContent = '设置保存中…';
                 clearTimeout(saveTimer);
                 saveTimer = setTimeout(persistState, 250);
             }
@@ -2617,6 +2977,46 @@
                     + metrics.fontBoundingBoxAscent;
             }
 
+            // 读取浏览器实际排出来的每一行文字（自动折行 / 手动回车都算）。
+            // 画布不能自己猜换行位置，否则长课程名在预览里是两行、导出却是一行或错位。
+            function domTextLines(el) {
+                const node = el && el.firstChild;
+                if (!node || node.nodeType !== Node.TEXT_NODE || !String(node.nodeValue || '')) return [];
+                const style = getComputedStyle(el);
+                const fontSize = parseFloat(style.fontSize) || 30;
+                const lineHeight = parseFloat(style.lineHeight) || fontSize * 1.3;
+                // 预览区可能整体 scale，Range 的 rect 是缩放后的坐标，阈值要跟着缩
+                const scale = el.offsetHeight ? el.getBoundingClientRect().height / el.offsetHeight : 0;
+                if (!scale) return [];                 // 元素被隐藏（display:none）
+                const threshold = Math.max(1, lineHeight * scale * 0.6);
+                const range = document.createRange();
+                const text = node.nodeValue;
+                const lines = [];
+                let current = '';
+                let lastTop = null;
+                for (let i = 0; i < text.length; i += 1) {
+                    const ch = text[i];
+                    if (ch === '\n' || ch === '\r') {
+                        if (current.trim()) lines.push(current.trim());
+                        current = '';
+                        lastTop = null;
+                        continue;
+                    }
+                    range.setStart(node, i);
+                    range.setEnd(node, i + 1);
+                    const box = range.getBoundingClientRect();
+                    if (!box.width && !box.height) continue;      // 折行处被折叠的空白
+                    if (lastTop !== null && Math.abs(box.top - lastTop) > threshold) {
+                        if (current.trim()) lines.push(current.trim());
+                        current = '';
+                    }
+                    current += ch;
+                    lastTop = box.top;
+                }
+                if (current.trim()) lines.push(current.trim());
+                return lines;
+            }
+
             function fitFontSize(ctx, text, maxWidth, startSize, minSize, weight, family) {
                 let size = startSize;
                 while (size > minSize) {
@@ -2842,7 +3242,8 @@
                 const heroEl = document.querySelector('.poster-hero');
                 const titleRowEl = document.querySelector('.poster-title');
                 const chipEl = document.querySelector('.poster-chip');
-                const courseEl = document.querySelector('.poster-course');
+                // 课程名要按 DOM 实际折行结果逐行画，必须认准主海报那一个元素
+                const courseEl = previewCourseName;
                 const footerEl = document.querySelector('.poster-footer');
                 const heroHeight = heroEl.offsetHeight;
                 const titleRowHeight = titleRowEl.offsetHeight;
@@ -2951,14 +3352,21 @@
 
                 const courseText = texts.courseName;
                 if (courseText) {
-                    const courseSize = fitFontSize(ctx, courseText, POSTER_WIDTH - 48, 30, 18, 900, displayFont);
-                    setLetterSpacing(ctx, '0.6px');
                     const courseStyle = getComputedStyle(courseEl);
-                    ctx.font = `900 ${courseSize}px ${displayFont}`;
+                    const courseSize = parseFloat(courseStyle.fontSize) || 30;
+                    const courseLineHeight = parseFloat(courseStyle.lineHeight) || 40;
+                    const courseLines = domTextLines(courseEl);
+                    const courseSpacing = parseFloat(courseStyle.letterSpacing);
+                    setLetterSpacing(ctx, Number.isFinite(courseSpacing) ? `${courseSpacing}px` : '0.6px');
+                    ctx.font = `${courseStyle.fontWeight || 900} ${courseSize}px ${courseStyle.fontFamily || displayFont}`;
                     ctx.fillStyle = colors.accentDeep;
                     ctx.textBaseline = 'alphabetic';
-                    // 课程名上方有 2px 外边距（.poster-course 的 margin-top）
-                    ctx.fillText(courseText, 24, chipY + 2 + lineBoxBaselineOffset(ctx, courseStyle));
+                    const courseBaseline = lineBoxBaselineOffset(ctx, courseStyle);
+                    // 课程名上方有 2px 外边距；长课程名在预览里折成几行，导出就画几行，
+                    // 字号固定 30px（不再缩字号硬塞一行），避免预览与 PNG 不一致。
+                    courseLines.forEach((line, index) => {
+                        ctx.fillText(line, 24, chipY + 2 + index * courseLineHeight + courseBaseline);
+                    });
                 }
                 setLetterSpacing(ctx, '0px');
                 y += heroHeight;
@@ -3249,7 +3657,7 @@
                     major: state.major || '',
                     course_code: state.courseCode || '',
                     teacher: state.teacher || '',
-                    course_name: state.courseName || ''
+                    course_name: normalizeCourseName(state.courseName).replace(/\n/g, ' ')
                 };
             }
 
@@ -3545,6 +3953,8 @@
             });
 
             form.addEventListener('change', event => {
+                // 课程信息识图的 file 框由自己的 change 处理，别让表单整体 render 重建粘贴框
+                if (event.target === ocrFileInput) return;
                 // 每个粘贴框各有一个文件输入框，靠 data-box-input 认出是哪一个
                 const boxInput = event.target.closest('[data-box-input]');
                 if (boxInput) {
@@ -3555,6 +3965,47 @@
                 state = readFormState();
                 render();
                 queueSave();
+            });
+
+            // 课程信息识图框：点击 / 键盘 / 文件选择 / 拖拽统一入口；识别按钮与图片队列在框外
+            ocrDropzone.addEventListener('click', () => {
+                ocrDropzone.focus({ preventScroll: true });
+                if (!ocrBusy) ocrFileInput.click();
+            });
+            ocrDropzone.addEventListener('keydown', event => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                if (!ocrBusy) ocrFileInput.click();
+            });
+            ocrFileInput.addEventListener('change', () => {
+                const files = ocrFileInput.files;
+                ocrFileInput.value = '';   // 允许连续选同一张图
+                if (files && files.length) handleOcrFiles(files);
+            });
+            ocrStartButton.addEventListener('click', () => runOcr());
+            ocrClearButton.addEventListener('click', () => clearOcrImage());
+            // 缩略图右上角 × 单独移除一张（事件委托，队列会重建）
+            ocrThumbs.addEventListener('click', event => {
+                const button = event.target.closest('[data-ocr-id]');
+                if (!button) return;
+                event.stopPropagation();
+                removeOcrImage(button.dataset.ocrId);
+            });
+            ['dragenter', 'dragover'].forEach(type => {
+                ocrDropzone.addEventListener(type, event => {
+                    event.preventDefault();
+                    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+                    ocrDropzone.classList.add('is-dragover');
+                });
+            });
+            ocrDropzone.addEventListener('dragleave', event => {
+                if (!ocrDropzone.contains(event.relatedTarget)) ocrDropzone.classList.remove('is-dragover');
+            });
+            ocrDropzone.addEventListener('drop', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                ocrDropzone.classList.remove('is-dragover');
+                handleOcrFiles(event.dataTransfer && event.dataTransfer.files);
             });
 
             document.querySelectorAll('[data-watermark]').forEach(badge => {
@@ -3641,7 +4092,7 @@
                 });
             });
 
-            // 粘贴截图：落到当前激活的粘贴框（点哪个框就进哪个框）
+            // 粘贴截图：默认落到当前激活的素材粘贴框；焦点在「课程信息识图」框时改为识别文字
             document.addEventListener('paste', event => {
                 const target = event.target;
                 const tag = target && target.tagName;
@@ -3659,9 +4110,18 @@
                     const blob = item.getAsFile();
                     if (!blob) return;
                     const ext = String(blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
-                    files.push(new File([blob], `粘贴的素材图片-${Date.now()}-${index + 1}.${ext}`, { type: blob.type }));
+                    files.push(new File([blob], `粘贴的图片-${Date.now()}-${index + 1}.${ext}`, { type: blob.type }));
                 });
-                if (files.length) handleImages(files, activeGroup);
+                if (!files.length) return;
+                // 页面刚打开时焦点默认在识图框上；点过「开始识别」「清空图片」或缩略图后，
+                // 焦点仍在识图区域内，粘贴依旧进待识别队列；点过下方素材框才回到素材图逻辑。
+                const ocrActive = ocrImport.contains(document.activeElement);
+                if (ocrActive) {
+                    event.preventDefault();
+                    handleOcrFiles(files);
+                    return;
+                }
+                handleImages(files, activeGroup);
             });
 
             teacherInput.addEventListener('blur', () => {
@@ -3677,6 +4137,15 @@
                     event.preventDefault();
                     teacherInput.blur();
                 }
+            });
+            // 课程名失焦时把空行 / 首尾空白规整掉，输入框与海报保持一致
+            courseNameInput.addEventListener('blur', () => {
+                const normalized = normalizeCourseName(courseNameInput.value);
+                if (normalized === courseNameInput.value) return;
+                courseNameInput.value = normalized;
+                state = readFormState();
+                render();
+                queueSave();
             });
             exportButton.addEventListener('click', exportPoster);
             exportBothButton.addEventListener('click', exportPosterBoth);
@@ -3723,6 +4192,26 @@
             writeStateToForm(state);
             updateWatermarkUI();
             render();
+            renderOcrQueue();
+            // 打开页面就把焦点放在识图框：不用先点，直接 Ctrl+V 也能把截图加进待识别队列。
+            // 用户一旦点到下方素材框 / 任意输入框，焦点移走，粘贴又变回原来的素材图逻辑。
+            ocrDropzone.focus({ preventScroll: true });
+            // 浏览器刷新时会自行回填表单值（form restore），下一帧再清一次文字字段，
+            // 保证强刷后左边编辑框不会残留上次的内容；显示开关等设置不受影响。
+            form.querySelectorAll('input, textarea').forEach(control => {
+                if (control.tagName === 'TEXTAREA' || control.type === 'text' || !control.type) {
+                    control.setAttribute('autocomplete', 'off');
+                }
+            });
+            requestAnimationFrame(() => {
+                TEXT_STATE_KEYS.forEach(key => {
+                    const control = form.elements.namedItem(key);
+                    if (control) control.value = '';
+                });
+                // 若浏览器在这一帧之后才回填表单，预览也要跟着回到空白
+                state = readFormState();
+                render();
+            });
         })();
     </script>
 </body>
