@@ -1538,7 +1538,7 @@
             const previewChipSchool = document.getElementById('previewChipSchool');
             const previewChipCourse = document.getElementById('previewChipCourse');
             const previewCourseName = document.getElementById('previewCourseName');
-            const posterChips = document.querySelector('.poster-chips');
+            const posterChips = poster.querySelector('.poster-chips');
             const groupTabs = document.getElementById('groupTabs');
             const previewMeta = document.getElementById('previewMeta');
             const captionButton = document.getElementById('captionButton');
@@ -2545,12 +2545,20 @@
                         .map(item => String(item || '').trim())
                         .filter(Boolean);
                     if (!captions.length) throw new Error('AI 未返回文案，请重试');
-                    captionItems = captions.slice(0, 3).map((text, index) => ({ text, style: captionStyleName(index) }));
+                    // 服务端返回的风格名与条数一一对应：即使某条缺失，也不会把第 3 条错标成元气风
+                    const captionStyles = Array.isArray(data?.captionStyles) ? data.captionStyles : [];
+                    captionItems = captions.slice(0, 3).map((text, index) => ({
+                        text,
+                        style: String(captionStyles[index] || captionStyleName(index))
+                    }));
                     selectedCaptionIndex = 0;
                     renderCaptionList();
-                    setCaptionStatus(images.length
-                        ? '已读取图片中的分数；点卡片可选中，点「复制」可复制对应那条。'
-                        : '3 条风格各不相同；点卡片可选中，点「复制」可复制对应那条。', 'success');
+                    const intro = images.length
+                        ? '已读取图片中的分数；'
+                        : (captions.length < 3
+                            ? `本次只生成 ${captions.length} 条，可点「重新生成」再试；`
+                            : '3 条风格各不相同；');
+                    setCaptionStatus(intro + '点卡片可选中，点「复制」可复制对应那条。', 'success');
                     return selectedCaptionText();
                 } catch (error) {
                     setCaptionNote(`生成失败：${error.message || '请稍后重试'}`, 'error');
@@ -3191,13 +3199,15 @@
                 const primaryRgb = rgbTriplet('--poster-primary-rgb', '#E32B1E');
                 const accentRgb = rgbTriplet('--poster-accent-rgb', '#FFE45C');
                 const bodyFont = getComputedStyle(poster).fontFamily;
-                const displayFont = getComputedStyle(document.querySelector('.poster-title')).fontFamily;
+                // 必须限定在主海报 #poster 内查询：多成品图时并排预览的克隆按编号排在前面，
+                // document.querySelector('.poster-title') 会命中 1 号克隆，把它的素材类型画进当前这张。
+                const displayFont = getComputedStyle(poster.querySelector('.poster-title')).fontFamily;
                 let y = 0;
 
                 // 水印选「无」时：上下色带照画（高度各减半），只是不画条内的 logo / 奖章 / 文字
                 const showBrandInfo = activeWatermark() !== 'none';
                 // 顶栏高度取 DOM 实测值（水印选「无」时会被 CSS 缩到一半），不要在画布里写死
-                const topbarEl = document.querySelector('.poster-topbar');
+                const topbarEl = poster.querySelector('.poster-topbar');
                 const topbarHeight = topbarEl.offsetHeight;
                 const [logo, watermarkImage] = await Promise.all([
                     showBrandInfo ? loadLogoForCanvas() : Promise.resolve(null),
@@ -3239,12 +3249,12 @@
 
                 // 与预览完全对齐：hero / 标题行 / 信息标签 / 页脚都取页面实测尺寸，
                 // 避免画布里写死的高度和 CSS 走偏。
-                const heroEl = document.querySelector('.poster-hero');
-                const titleRowEl = document.querySelector('.poster-title');
-                const chipEl = document.querySelector('.poster-chip');
+                const heroEl = poster.querySelector('.poster-hero');
+                const titleRowEl = poster.querySelector('.poster-title');
+                const chipEl = poster.querySelector('.poster-chip');
                 // 课程名要按 DOM 实际折行结果逐行画，必须认准主海报那一个元素
                 const courseEl = previewCourseName;
-                const footerEl = document.querySelector('.poster-footer');
+                const footerEl = poster.querySelector('.poster-footer');
                 const heroHeight = heroEl.offsetHeight;
                 const titleRowHeight = titleRowEl.offsetHeight;
                 const chipHeight = chipEl.offsetHeight;
@@ -3850,6 +3860,9 @@
                     }
 
                     if (batch) {
+                        // 第一张的画布是在「当前 DOM」上量的：剪贴板写入虽然已发起，画布可能还在等下一帧。
+                        // 必须先等它真正画完再切到其它成品图，否则会互相串图（素材类型、图片内容都跟着错）。
+                        await firstBlobPromise.catch(() => {});
                         // 剪贴板已拿到当前这张，剩下的逐张出图后直接下载
                         for (const group of groups) {
                             if (copied && group === targetGroup) continue;

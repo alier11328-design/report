@@ -49,6 +49,117 @@ function hasFabricatedGrade(text) {
     return gradePattern.test(text) || scorePattern.test(text);
 }
 
+// ===== 文案条数稳定化 =====
+// 模型偶尔会把「每一行」当成 captions 的一个元素（实测出现过 13~14 个单行元素），
+// 前端只取前 3 个元素时就剩几行碎片，看起来像「只生成 1~2 条」。
+// 另外旧逻辑遇到课程名 / 无图具体分数会整条剔除，也会让条数变少。
+// 这里：① 把扁平行数组重组回 3 条完整文案；② 违规内容就地改写，最多只丢一行；③ 缺位定向补一次。
+const CAPTION_SLOT_COUNT = 3;
+const CAPTION_SLOT_STYLES = ['品牌经典风', '元气热情风', '品牌经典风'];
+
+// 品牌经典风的标题行 = 1 个 emoji + 产品类型 + 素材类型（允许中间有空白）
+function isBrandTitleLine(line, productType, materialType) {
+    const plain = String(line).trim()
+        .replace(/^[\p{Extended_Pictographic}\u2600-\u27BF\uFE0F\s]+/u, '')
+        .replace(/\s+/g, '');
+    const expected = String(productType).replace(/\s+/g, '') + String(materialType).replace(/\s+/g, '');
+    return Boolean(plain) && plain === expected;
+}
+
+function isFlatLineArray(items) {
+    if (items.length < 6) return false;
+    const singleLine = items.filter(item => !String(item).includes('\n')).length;
+    return singleLine / items.length >= 0.7;
+}
+
+// 扁平数组本身仍有序：品牌风 5 行 → 元气风 3~4 行 → 品牌风 5 行。
+// 第 1、3 条以标题行开头，用第二个标题行把三段切开。
+function regroupFlatCaptions(items, productType, materialType) {
+    const titleIndexes = [];
+    items.forEach((line, index) => {
+        if (isBrandTitleLine(line, productType, materialType)) titleIndexes.push(index);
+    });
+    const firstTitle = titleIndexes[0];
+    if (firstTitle === undefined) return null;
+    const secondTitle = titleIndexes.find(index => index > firstTitle + 2);
+    if (secondTitle === undefined) return null;
+    const groups = [
+        items.slice(firstTitle, firstTitle + 5),
+        items.slice(firstTitle + 5, secondTitle),
+        items.slice(secondTitle)
+    ];
+    if (groups.some(group => !group.length)) return null;
+    return groups.map(group => group.join('\n'));
+}
+
+// 无图时把具体分数/等级改写成泛化说法，保住这一行、也保住这一条文案
+function neutralizeGrade(text) {
+    return text
+        .replace(/High\s*Distinction/gi, '好成绩')
+        .replace(/Distinction/gi, '好成绩')
+        .replace(/(^|[^\p{L}\p{N}])HD(?=$|[^\p{L}\p{N}])/gu, '$1好成绩')
+        .replace(/\d{2,3}\s*\/\s*100/g, '理想成绩')
+        .replace(/\d{2,3}\s*分(?!钟)/g, '高分')
+        .replace(/([\u4e00-\u9fff]\s*)[ABCDF][+\-]?(?=$|[^\p{L}\p{N}])/gu, '$1高分');
+}
+
+function neutralizeCourseName(text, courseName) {
+    const name = String(courseName || '').replace(/\s+/g, ' ').trim();
+    if (name.replace(/\s/g, '').length < 4) return text;
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*');
+    return text.replace(new RegExp(escaped, 'gi'), '这门课');
+}
+
+// 逐行清洗：优先改写，实在改不干净才丢「这一行」，绝不丢整条
+function sanitizeCaptionLines(caption, ctx) {
+    const lines = String(caption || '').replace(/\r/g, '')
+        .split('\n').map(line => line.trim()).filter(Boolean);
+    const kept = [];
+    lines.forEach(line => {
+        let cleaned = neutralizeCourseName(line, ctx.courseName);
+        if (!ctx.hasImages) {
+            cleaned = neutralizeGrade(cleaned);
+            if (hasFabricatedGrade(cleaned)) return;
+        }
+        kept.push(cleaned);
+    });
+    return kept.join('\n');
+}
+
+// 返回固定 3 个位置（缺失为 null），保证前端的风格标签不会错位
+function collectCaptionSlots(raw, ctx) {
+    let items = (Array.isArray(raw?.captions) ? raw.captions : [])
+        .map(item => String(item || '').replace(/\r/g, '').trim())
+        .filter(Boolean);
+    if (!items.length) {
+        const legacy = String(raw?.caption || '').trim();
+        if (legacy) items = [legacy];
+    }
+    if (isFlatLineArray(items)) {
+        const grouped = regroupFlatCaptions(items, ctx.productType, ctx.materialType);
+        if (grouped && grouped.length >= CAPTION_SLOT_COUNT) items = grouped;
+    }
+    const slots = Array(CAPTION_SLOT_COUNT).fill(null);
+    items.slice(0, CAPTION_SLOT_COUNT).forEach((item, index) => {
+        let text = sanitizeCaptionLines(item, ctx);
+        text = normalizeGenderedAddress(text);
+        text = dedupeTeacherMentions(text, ctx.teacher);
+        slots[index] = text || null;
+    });
+    return slots;
+}
+
+function finalizeCaptions(slots) {
+    const captions = [];
+    const captionStyles = [];
+    slots.forEach((text, index) => {
+        if (!text) return;
+        captions.push(text);
+        captionStyles.push(CAPTION_SLOT_STYLES[index]);
+    });
+    return { captions, captionStyles };
+}
+
 async function callAI({ prompt, images = [], withThinking = true }, env) {
     // 全站统一走 DASHSCOPE_*（火山方舟 agent plan），文案接口不再单独指向阿里云百炼。
     // POSTER_AI_* 只作为「成对覆盖」保留：必须 key 和 baseUrl 同时配齐才生效，
@@ -163,6 +274,12 @@ export async function onRequestPost(context) {
 
 请输出 JSON：{ "captions": ["", "", ""] }
 
+【数组结构（最容易出错，必须严格遵守）】
+captions 数组必须「恰好 3 个元素」，每个元素是「一整条完整文案」：一条内部的 5 行（或 3-4 行）必须用 \\n 换行符连成同一个字符串。
+严禁把每一行拆成单独的数组元素（历史错误：返回过 13~14 个单行元素），也不要返回多于或少于 3 个元素。
+结构示意（\\n 表示换行，实际输出时是 JSON 字符串里的换行转义）：
+{"captions":["标题行\\n第二行\\n第三行\\n第四行\\n第五行","情绪钩子开头！\\n第二行\\n第三行","标题行\\n第二行\\n第三行\\n第四行\\n第五行"]}
+
 【文案结构（标题行规则只约束第 1、3 条「品牌经典风」）】
 1. 第 1、3 条的第一行（标题行）必须严格等于：1 个贴合语义的 emoji + 「${productType}」+「${materialType}」，顺序固定，不得写成其它产品类型或素材类型的字样（例如本次产品类型=毕业论文、素材类型=课后答疑 时，标题写成「💬毕业论文课后答疑」）。标题内不要空格、不要加 # 号。第 2 条的第一行自由发挥，完全不受标题行规则约束。
 2. 品牌经典风（第 1、3 条）标题行之后写 4 行短句（整条共 5 行，与下方示例一致），每行 8-20 字。整个 caption 是一个多行字符串，行与行之间用换行符分隔。
@@ -179,7 +296,7 @@ export async function onRequestPost(context) {
 【一次生成 3 条文案：两条品牌经典风 + 一条元气热情风】
 captions 数组必须按顺序给出 3 条，风格定义如下：
 1. 第 1 条「品牌经典风」：严格参照下方品牌示例的语气、节奏和分行方式，标题行 + 4 行短句，稳重耐看。
-2. 第 2 条「元气热情风」：情绪更饱满、更有号召感（如「闭眼冲」「稳了」「直接锁死」），节奏更跳跃，emoji 可用足 4 个，感叹号可以更多；第一行不用标题行，直接用情绪钩子或喊话开头；行数与品牌经典风不同（3-4 行），至少有一行把两件事写进同一句；严禁用「姐妹们」「兄弟们」这类性别称呼，喊人就用「大家」「同学们」。措辞必须尊重老师：严禁出现「甩锅」「丢给」「扔给」「推给」「包给」老师这类把功课、难题、责任推到老师身上的说法——老师是接住问题、带着学生解决的一方，不是被甩锅的一方。
+2. 第 2 条「元气热情风」：情绪更饱满、更有号召感（如「闭眼冲」「稳了」「直接锁死」），节奏更跳跃，emoji 可用足 4 个，感叹号可以更多；第一行不用标题行，直接用情绪钩子或喊话开头；行数与品牌经典风不同（必须 3-4 个短句、每句独立成行，严禁写成一整段长句），至少有一行把两件事写进同一句；严禁用「姐妹们」「兄弟们」这类性别称呼，喊人就用「大家」「同学们」。措辞必须尊重老师：严禁出现「甩锅」「丢给」「扔给」「推给」「包给」老师这类把功课、难题、责任推到老师身上的说法——老师是接住问题、带着学生解决的一方，不是被甩锅的一方。
 3. 第 3 条「品牌经典风」：风格与第 1 条相同（标题行 + 4 行短句，同样参照下方示例），但内容必须和第 1 条完全不同——换一个切入角度（例如第 1 条从老师的动作/服务切入，第 3 条从学生的收获/场景切入），开头句式、用词、各行内容都不得与第 1 条雷同，严禁只换几个词交差。
 
 【打破公式化结构（非常重要，三条都要做到）】
@@ -268,38 +385,27 @@ Luna老师群内进行详细答疑
 真诚、口语化、有画面感，像老师或学生的真实分享；单条正文最多点缀 2 个 emoji（如 ✅🔥💗🤝✨），「元气热情风」按其风格定义放宽到 4 个。
 
 【硬性要求】
-1. 只输出 JSON，不要 markdown、不要代码块、不要任何解释；captions 数组必须恰好 3 个元素。
+1. 只输出 JSON，不要 markdown、不要代码块、不要任何解释；captions 数组必须恰好 3 个元素，每个元素是一整条多行文案（内部用 \\n 分行），严禁把每一行拆成单独的数组元素。
 2. 除已提供的辅导老师，以及图片中真实可见的分数/等级外，严禁编造具体人名、学校名、专业名、课程代码、分数、日期；需要泛指时用「老师」「这门课」。
 3. 不要出现「素材」「产品类型」「文案」「（未填写）」等内部术语或占位文字；严禁出现「没图」「无图」「没分数」等元描述。
 4. 不要输出 JSON 以外的任何字段。
 5. 输出前对 3 条文案逐条自检：第 1、3 条第一行是否恰为「emoji + ${productType} + ${materialType}」（第 2 条不受此约束）；第 3 条与第 1 条的切入角度、开头、用词是否完全不同；辅导老师「${teacher || '（未填写）'}」在每条里是否只完整出现 1 次（第二次提及只用「老师」）；全文是否没有出现任何课程名称或课程代码、没有任何「甩锅/丢给老师」式措辞。最后再做一次三条横向对比：开头句式、老师出现位置是否互不相同，有雷同就重写雷同的那条。`;
 
-        const result = await callAI({ prompt, images, withThinking: true }, env);
-        // 兼容：优先取 captions 数组；老格式 caption 字段也兜底接住
-        let captions = (Array.isArray(result.captions) ? result.captions : [])
-            .map(item => String(item || '').trim())
-            .filter(Boolean);
-        if (!captions.length) {
-            const legacy = String(result.caption || '').trim();
-            if (legacy) captions.push(legacy);
+        const ctx = { productType, materialType, teacher, courseName, hasImages };
+        const callCaptionAI = () => callAI({ prompt, images, withThinking: true }, env);
+        let slots = collectCaptionSlots(await callCaptionAI(), ctx);
+        // 模型确实少给元素时，只补缺失的位置，最多重试一次（正常情况不会走这里）
+        if (slots.some(slot => !slot)) {
+            try {
+                const retry = collectCaptionSlots(await callCaptionAI(), ctx);
+                slots = slots.map((slot, index) => slot || retry[index]);
+            } catch { /* 重试失败就保留已有文案 */ }
         }
-        // 兜底清洗：性别指向称呼直接替换成中性词（无论有没有图都不允许）
-        captions = captions.map(normalizeGenderedAddress);
-        // 老师名去重：同一条里完整老师名只保留第一次出现，其余替换成「老师」
-        captions = captions.map(caption => dedupeTeacherMentions(caption, teacher));
-        // 课程名硬过滤：产品要求文案不出现课程名（防止识图图片里带出的课程名漏进文案）
-        if (courseName && courseName.length >= 4 && captions.length) {
-            const escaped = courseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*');
-            const coursePattern = new RegExp(escaped, 'i');
-            captions = captions.filter(caption => !coursePattern.test(caption));
-        }
-        // 无图硬校验：提示词禁不住高温下偶发的编造，凡含具体分数/等级字样的一律剔除
-        if (!hasImages && captions.length) {
-            captions = captions.filter(caption => !hasFabricatedGrade(caption));
-        }
+        const { captions, captionStyles } = finalizeCaptions(slots);
         if (!captions.length) return createResponse({ error: 'AI 未返回文案，请重试' }, 502);
 
-        return createResponse({ data: { captions } });
+        // captionStyles 与 captions 一一对应；缺位时前端也能显示正确的风格名，不会把第 3 条标成元气风
+        return createResponse({ data: { captions, captionStyles, incomplete: captions.length < CAPTION_SLOT_COUNT } });
     } catch (error) {
         return createResponse({ error: error.message || 'AI 文案生成失败' }, 500);
     }

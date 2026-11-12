@@ -484,6 +484,11 @@
         let feedbackListUrls = [];
         let lastHoveredPasteArea = 'schedule';
         let currentTheme = 'red';
+        // 状态提示的版本号：识别开始后自增，让「已添加文件」的延时清空失效，
+        // 否则它会在 1.8~3 秒后把正在显示的网络进度 / 错误信息一起擦掉，看起来像「点了没反应」。
+        const aiStatusToken = { schedule: 0, feedback: 0 };
+        // 线上 Pages 经 CF 边缘访问火山偶发 100s+ 超时，识别请求统一带超时 + 一次自动重试。
+        const AI_REQUEST_OPTIONS = { timeoutMs: 50000, retries: 1, retryDelayMs: 900 };
         
         let currentWatermark = 'w1';
         let currentCopyright = 'c1';
@@ -980,7 +985,7 @@
             });
         }
 
-       async function callAIScheduleExtract() {
+       async function callAIScheduleExtract(onRetry) {
             if (!scheduleImages.length) return [];
             const prepared = await window.aiClient.prepareFiles(scheduleImages, { maxImages: 8, maxTextFiles: 6 });
             if (!prepared.images.length && !prepared.textBlocks.length) {
@@ -1002,11 +1007,11 @@
                     usedHours: document.getElementById('usedHoursInp')?.value || '',
                     totalHours: document.getElementById('totalHoursInp')?.value || ''
                 }
-            });
-            return Array.isArray(result.rows) ? result.rows : [];
+            }, { ...AI_REQUEST_OPTIONS, onRetry });
+            return Array.isArray(result && result.rows) ? result.rows : [];
        }
 
-       async function callAIFeedbackExtract() {
+       async function callAIFeedbackExtract(onRetry) {
             if (!feedbackImages.length) return {};
             const prepared = await window.aiClient.prepareFiles(feedbackImages, { maxImages: 8, maxTextFiles: 6 });
             if (!prepared.images.length && !prepared.textBlocks.length) {
@@ -1016,7 +1021,7 @@
             if (prepared.skipped.length) {
                 console.warn('Skipped files:', prepared.skipped);
             }
-            return window.aiClient.request('/api/ai/period-feedback/feedback', {
+            return await window.aiClient.request('/api/ai/period-feedback/feedback', {
                 images: prepared.images,
                 textBlocks: prepared.textBlocks,
                 context: {
@@ -1032,7 +1037,7 @@
                     mastery: document.getElementById('masteryText')?.value || '',
                     suggestion: document.getElementById('suggestionText')?.value || ''
                 }
-            });
+            }, { ...AI_REQUEST_OPTIONS, onRetry }) || {};
        }
 
        function addImagesToTarget(files, target) {
@@ -1046,10 +1051,15 @@
             const statusId = target === 'schedule' ? 'scheduleAiStatus' : 'feedbackAiStatus';
             const statusEl = document.getElementById(statusId);
             if (statusEl) {
+                const token = ++aiStatusToken[target];
                 const fileNames = newFiles.map(f => f.name).join(', ');
                 statusEl.innerText = `✅ 已添加 ${newFiles.length} 个文件：${fileNames}`;
                 statusEl.style.color = '#22c55e';
-                setTimeout(() => { statusEl.innerText = ''; statusEl.style.color = ''; }, 3000);
+                setTimeout(() => {
+                    if (aiStatusToken[target] !== token) return;
+                    statusEl.innerText = '';
+                    statusEl.style.color = '';
+                }, 3000);
             }
         }
 
@@ -1063,29 +1073,33 @@
             const btn = document.getElementById('aiScheduleRecognizeBtn');
             if (btn.disabled) return;
             if (!scheduleImages.length) { alert('请先上传排课截图或PDF文件'); return; }
+            const originalBtnHtml = btn.innerHTML;
             btn.disabled = true;
             btn.style.opacity = '0.6';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 识别中…';
             const statusDiv = document.getElementById('scheduleAiStatus');
+            // 作废「已添加文件」的延时清空，保证识别进度 / 报错一直可见
+            aiStatusToken.schedule++;
+            const setStatus = (text, color = '') => { statusDiv.innerText = text; statusDiv.style.color = color; };
             const fileInfo = scheduleImages.map(f => `${f.name}(${(f.size/1024).toFixed(1)}KB)`).join(', ');
-            statusDiv.innerText = `⏳ 正在解析 ${scheduleImages.length} 个文件：${fileInfo}`;
-            statusDiv.style.color = '';
+            setStatus(`⏳ 正在处理 ${scheduleImages.length} 个文件并调用 AI 识别：${fileInfo}`);
             try {
-                const rows = await callAIScheduleExtract();
+                const rows = await callAIScheduleExtract(attempt => {
+                    setStatus(`🔄 网络响应超时，正在自动重试（第 ${attempt + 1} 次）…`);
+                });
                 if (rows && rows.length > 0) {
                     scheduleData = rows;
                     renderScheduleTable();
                     renderPreview();
-                    statusDiv.innerText = `✅ 识别完成，找到 ${rows.length} 条课程记录`;
-                    statusDiv.style.color = '#22c55e';
+                    setStatus(`✅ 识别完成，找到 ${rows.length} 条课程记录`, '#22c55e');
                 } else {
-                    statusDiv.innerText = '❌ 未识别到课程数据，请检查文件内容是否包含排课信息';
-                    statusDiv.style.color = '#ef4444';
+                    setStatus('❌ 未识别到课程数据：请确认上传的是含「课程 / 开始时间 / 结束时间 / 时长」的排课截图，或分批上传后重试。', '#ef4444');
                 }
             } catch (err) {
-                statusDiv.innerText = `❌ ${err.message || 'AI 识别失败'}`;
-                statusDiv.style.color = '#ef4444';
+                setStatus(`❌ ${err.message || 'AI 识别失败'}。可再次点击「AI 识别排课」重试，或稍后再试 / 减少图片数量。`, '#ef4444');
                 console.error('识别错误:', err);
             } finally {
+                btn.innerHTML = originalBtnHtml;
                 btn.disabled = false;
                 btn.style.opacity = '';
             }
@@ -1095,31 +1109,34 @@
             const btn = document.getElementById('aiFeedbackRecognizeBtn');
             if (btn.disabled) return;
             if (!feedbackImages.length) { alert('请先上传反馈截图或PDF文件'); return; }
+            const originalBtnHtml = btn.innerHTML;
             btn.disabled = true;
             btn.style.opacity = '0.6';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 识别中…';
             const statusDiv = document.getElementById('feedbackAiStatus');
+            aiStatusToken.feedback++;
+            const setStatus = (text, color = '') => { statusDiv.innerText = text; statusDiv.style.color = color; };
             const fileInfo = feedbackImages.map(f => `${f.name}(${(f.size/1024).toFixed(1)}KB)`).join(', ');
-            statusDiv.innerText = `⏳ 正在解析 ${feedbackImages.length} 个文件：${fileInfo}`;
-            statusDiv.style.color = '';
+            setStatus(`⏳ 正在处理 ${feedbackImages.length} 个文件并调用 AI 识别：${fileInfo}`);
             try {
-                const data = await callAIFeedbackExtract();
+                const data = await callAIFeedbackExtract(attempt => {
+                    setStatus(`🔄 网络响应超时，正在自动重试（第 ${attempt + 1} 次）…`);
+                });
                 if (data.performance !== undefined || data.progress !== undefined || data.mastery !== undefined || data.suggestion !== undefined) {
                     if (data.performance !== undefined) document.getElementById('performanceText').value = data.performance;
                     if (data.progress !== undefined) document.getElementById('progressText').value = data.progress;
                     if (data.mastery !== undefined) document.getElementById('masteryText').value = data.mastery;
                     if (data.suggestion !== undefined) document.getElementById('suggestionText').value = data.suggestion;
                     renderPreview();
-                    statusDiv.innerText = '✅ 识别完成，已填充反馈字段';
-                    statusDiv.style.color = '#22c55e';
+                    setStatus('✅ 识别完成，已填充反馈字段', '#22c55e');
                 } else {
-                    statusDiv.innerText = '❌ 未识别到反馈内容，请检查文件格式';
-                    statusDiv.style.color = '#ef4444';
+                    setStatus('❌ 未识别到反馈内容，请检查文件格式', '#ef4444');
                 }
             } catch (err) {
-                statusDiv.innerText = `❌ ${err.message || 'AI 识别失败'}`;
-                statusDiv.style.color = '#ef4444';
+                setStatus(`❌ ${err.message || 'AI 识别失败'}。可再次点击「AI 识别反馈」重试，或稍后再试 / 减少图片数量。`, '#ef4444');
                 console.error('识别错误:', err);
             } finally {
+                btn.innerHTML = originalBtnHtml;
                 btn.disabled = false;
                 btn.style.opacity = '';
             }
@@ -1152,7 +1169,11 @@
                     addImagesToTarget(files, target);
                     const statusId = target === 'schedule' ? 'scheduleAiStatus' : 'feedbackAiStatus';
                     const statusEl = document.getElementById(statusId);
-                    if (statusEl) { statusEl.innerText = `📋 已添加 ${files.length} 个文件到${target === 'schedule' ? '排课' : '反馈'}区`; setTimeout(() => statusEl.innerText = '', 1800); }
+                    if (statusEl) {
+                        const token = ++aiStatusToken[target];
+                        statusEl.innerText = `📋 已添加 ${files.length} 个文件到${target === 'schedule' ? '排课' : '反馈'}区`;
+                        setTimeout(() => { if (aiStatusToken[target] === token) statusEl.innerText = ''; }, 1800);
+                    }
                 }
             });
             document.getElementById('clearScheduleImagesBtn').addEventListener('click', () => clearImages('schedule'));

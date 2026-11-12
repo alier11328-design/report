@@ -231,20 +231,61 @@ async function parseFileOnServer(file) {
         };
     }
 
-    async function request(path, body) {
-        const response = await fetch(getApiUrl(path), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
-        });
+    // options 为可选的网络弹性参数，默认全部关闭，其它页面的调用行为保持不变：
+    //   timeoutMs    单次请求超时（毫秒），超时会抛「网络超时」错误
+    //   retries      超时 / 网络错误 / 5xx / 429 时的自动重试次数
+    //   retryDelayMs 重试间隔
+    //   onRetry      (attempt, error) => void，重试前回调，供页面更新进度提示
+    async function request(path, body, options = {}) {
+        const timeoutMs = Number(options && options.timeoutMs) || 0;
+        const retries = Math.max(0, Number(options && options.retries) || 0);
+        const retryDelayMs = Number(options && options.retryDelayMs) || 900;
+        const onRetry = typeof (options && options.onRetry) === 'function' ? options.onRetry : null;
 
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) {
-            throw new Error(payload.error || 'AI 请求失败');
+        let lastError;
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            const controller = (timeoutMs > 0 && typeof AbortController !== 'undefined')
+                ? new AbortController() : null;
+            const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+            try {
+                const response = await fetch(getApiUrl(path), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body),
+                    ...(controller ? { signal: controller.signal } : {})
+                });
+
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    const error = new Error(payload.error || `AI 请求失败 (HTTP ${response.status})`);
+                    error.status = response.status;
+                    throw error;
+                }
+                return payload.data;
+            } catch (err) {
+                const isTimeout = err && err.name === 'AbortError';
+                const seconds = timeoutMs >= 1000
+                    ? Math.round(timeoutMs / 1000)
+                    : (timeoutMs / 1000).toFixed(1);
+                lastError = isTimeout
+                    ? new Error(`网络超时（超过 ${seconds} 秒未响应）`)
+                    : err;
+                // 业务 4xx 不重试；超时、断网、5xx/524、限流才重试
+                const status = Number(err && err.status) || 0;
+                const retryable = isTimeout || err instanceof TypeError ||
+                    status === 0 || status === 429 || status >= 500;
+                if (!retryable || attempt >= retries) throw lastError;
+                if (onRetry) {
+                    try { onRetry(attempt + 1, lastError); } catch (_) { /* 提示文案失败不影响请求 */ }
+                }
+                await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+            } finally {
+                if (timer) clearTimeout(timer);
+            }
         }
-        return payload.data;
+        throw lastError || new Error('AI 请求失败');
     }
 
     window.aiClient = {
