@@ -634,6 +634,9 @@
             min-height: 0;
             padding: 4px;
             overflow: auto;
+            /* 滚动条槽常驻：否则海报高度跨过溢出临界点时，滚动条出现/消失会让
+               clientWidth 反复 ±15px，和 scalePreview 写的 host 高度形成无限反馈（画面抖动） */
+            scrollbar-gutter: stable;
         }
         .poster-stage {
             display: flex;
@@ -1191,6 +1194,8 @@
                                 <option value="polish">修改润色</option>
                                 <option value="papercustom">论文定制</option>
                             </select>
+                            <!-- 无水印版本部分产品类型会换一种说法，这里同步提示海报上实际显示的文字 -->
+                            <p class="field-note" id="themeTitleHint">海报显示：包课辅导</p>
                         </div>
                         <div class="form-group" data-toggle-group="showTitleSecondary">
                             <div class="field-head">
@@ -1472,6 +1477,16 @@
                 papercustom: '论文定制'
             };
 
+            // 无水印版本的部分产品类型换一种说法：只在「显示文字」层替换，
+            // 不改 state.theme、不改配色（data-theme 仍按原类型取色）、不改左侧下拉选中值，
+            // 切回「万能班长」即自动恢复原词。导出 / 复制 / 图库 / 文件名都跟着当前生效的水印方案走。
+            const NO_WATERMARK_THEME_TITLES = {
+                hours: '讲课卡',        // 课时卡
+                cram: '押题课',         // 考前突击
+                paper: '论文导航',      // 论文辅导
+                papercard: '论文导航'   // 论文卡
+            };
+
             const DEFAULT_STATE = {
                 theme: 'course',
                 // 顶部「素材类型」= 全局默认值，所有成品图默认跟随它
@@ -1548,6 +1563,7 @@
             const saveState = document.getElementById('saveState');
             const imageError = document.getElementById('imageError');
             const posterLogo = document.getElementById('posterLogo');
+            const themeTitleHint = document.getElementById('themeTitleHint');
             const titleSecondarySelect = document.getElementById('titleSecondary');
             const titleSecondaryCustom = document.getElementById('titleSecondaryCustom');
             const previewTitleSecondary = document.getElementById('previewTitleSecondary');
@@ -1693,6 +1709,18 @@
                 return watermarkOverride || state.watermark;
             }
 
+            // 指定水印方案下海报上实际显示的产品类型文字。
+            // watermark 可显式传入：双版本导出时按各自版本取名，不受当前预览影响。
+            function themeTitleForWatermark(theme, watermark = activeWatermark()) {
+                const original = THEME_TITLES[theme] || THEME_TITLES.course;
+                return watermark === 'none' ? (NO_WATERMARK_THEME_TITLES[theme] || original) : original;
+            }
+
+            // 当前生效（含导出 / 复制时的临时接管）的显示文字
+            function displayThemeTitle() {
+                return themeTitleForWatermark(state.theme);
+            }
+
             // 顶部「素材类型」：全局默认值
             function globalMaterial() {
                 const title = MATERIAL_TITLES.includes(state.titleSecondary)
@@ -1746,7 +1774,7 @@
                 if (infoOn && state.showTeacher !== false) { courseParts.push(teacherDisplayName(state.teacher)); courseLabels.push('辅导老师'); }
 
                 return {
-                    titlePrimary: THEME_TITLES[state.theme] || THEME_TITLES.course,
+                    titlePrimary: displayThemeTitle(),
                     titleSecondary: state.showTitleSecondary === false ? '' : materialTypeText(),
                     schoolChip: joinVisible(schoolParts) || joinVisible(schoolLabels),
                     courseChip: joinVisible(courseParts) || joinVisible(courseLabels),
@@ -1790,6 +1818,14 @@
                 }
                 if (titleSecondaryCustom) {
                     titleSecondaryCustom.hidden = state.titleSecondary !== CUSTOM_MATERIAL;
+                }
+                // 左侧提示只读用户实际选的水印（state.watermark），双版本导出时不会被 override 带偏
+                if (themeTitleHint) {
+                    const original = THEME_TITLES[state.theme] || THEME_TITLES.course;
+                    const shown = themeTitleForWatermark(state.theme, state.watermark);
+                    themeTitleHint.textContent = shown === original
+                        ? `海报显示：${original}`
+                        : `无水印版显示：${shown}（原：${original}）`;
                 }
             }
 
@@ -2074,7 +2110,7 @@
                     applyMaterialTitle(host.querySelector('.poster') || host, group);
                     if (host.querySelector('.poster-host-label')) setHostLabel(host, group, true);
                 });
-                requestAnimationFrame(scalePreview);
+                scheduleScalePreview();
             }
 
             // 一张成品图的完整海报：克隆已经渲染好的主海报，只替换图片区内容，
@@ -2161,7 +2197,7 @@
                 renderGroupUI();
                 // 粘贴框重建完再把各张的下拉 / 「单独设置」标记对齐一次
                 syncMaterialControls();
-                requestAnimationFrame(scalePreview);
+                scheduleScalePreview();
             }
 
             // 图片宽度固定为内容区宽度，高度完全按原图比例换算；
@@ -2317,7 +2353,7 @@
             // 文案生成依据：海报类型（产品类型）+ 素材类型 + 辅导老师 + 课程名称（老师与海报显示一致，带「老师」）
             function currentCaptionInput() {
                 return {
-                    productType: THEME_TITLES[state.theme] || THEME_TITLES.course,
+                    productType: displayThemeTitle(),
                     materialType: materialTypeText(),
                     teacher: teacherDisplayName(state.teacher),
                     courseName: normalizeCourseName(state.courseName).replace(/\n/g, ' ')
@@ -2716,7 +2752,20 @@
                 root.querySelectorAll('.poster-watermark').forEach(overlay => {
                     const size = watermarkDrawSize(overlay.offsetWidth, overlay.offsetHeight);
                     if (!size.width) return;
-                    overlay.style.backgroundSize = `${size.width}px ${size.height}px`;
+                    const value = `${size.width}px ${size.height}px`;
+                    if (overlay.style.backgroundSize !== value) overlay.style.backgroundSize = value;
+                });
+            }
+
+            let scalePreviewFrame = 0;
+            let lastViewportBoxWidth = 0;
+
+            // render / resize / ResizeObserver 可能同一帧内多次触发，用 rAF 合并成一次
+            function scheduleScalePreview() {
+                if (scalePreviewFrame) return;
+                scalePreviewFrame = requestAnimationFrame(() => {
+                    scalePreviewFrame = 0;
+                    scalePreview();
                 });
             }
 
@@ -2730,17 +2779,22 @@
                     ? Math.max(120, (available - gap * (hosts.length - 1)) / hosts.length)
                     : available;
                 const scale = Math.min(1, perPoster / POSTER_WIDTH);
+                const transform = `scale(${scale})`;
+                const hostWidth = `${POSTER_WIDTH * scale}px`;
 
                 hosts.forEach(host => {
                     const article = host.querySelector('.poster');
                     if (!article) return;
-                    article.style.transform = `scale(${scale})`;
-                    host.style.width = `${POSTER_WIDTH * scale}px`;
-                    host.style.height = `${article.offsetHeight * scale}px`;
+                    const hostHeight = `${article.offsetHeight * scale}px`;
+                    // 值没变就不写，避免在自己的 ResizeObserver 回调里制造多余的 layout
+                    if (article.style.transform !== transform) article.style.transform = transform;
+                    if (host.style.width !== hostWidth) host.style.width = hostWidth;
+                    if (host.style.height !== hostHeight) host.style.height = hostHeight;
                 });
                 // 水印尺寸按未缩放的图片区实测值算，缩放由 transform 统一处理
                 applyWatermarkSizing(posterStage);
-                previewMeta.textContent = `${POSTER_WIDTH} × ${poster.offsetHeight}`;
+                const meta = `${POSTER_WIDTH} × ${poster.offsetHeight}`;
+                if (previewMeta.textContent !== meta) previewMeta.textContent = meta;
             }
 
             function setStatus(message, tone = '') {
@@ -3599,8 +3653,8 @@
                 });
             }
 
-            function posterFileBase() {
-                return `${safeFilePart(THEME_TITLES[state.theme])}_${safeFilePart(state.courseCode || state.courseName)}`;
+            function posterFileBase(watermark = activeWatermark()) {
+                return `${safeFilePart(themeTitleForWatermark(state.theme, watermark))}_${safeFilePart(state.courseCode || state.courseName)}`;
             }
 
             function downloadBlob(blob, filename) {
@@ -3639,7 +3693,6 @@
 
             async function exportPosterBoth() {
                 const originalLabel = exportBothButton.innerHTML;
-                const base = posterFileBase();
                 const groups = exportGroups();
                 const multiple = groups.length > 1;
                 const restoreGroup = activeGroup;
@@ -3664,7 +3717,9 @@
 
                     setVeil(true, '正在保存文件…');
                     for (const { group, variant, blob } of rendered) {
-                        downloadBlob(blob, `${base}${multiple ? `_成品图${group}` : ''}_${variant.suffix}.png`);
+                        // 文件名里的产品类型也按各自版本取：无水印版写「讲课卡」而不是「课时卡」
+                        const variantBase = posterFileBase(variant.watermark);
+                        downloadBlob(blob, `${variantBase}${multiple ? `_成品图${group}` : ''}_${variant.suffix}.png`);
                         exported += 1;
                         await new Promise(resolve => setTimeout(resolve, 320));
                     }
@@ -3685,7 +3740,7 @@
                 setStatus(
                     multiple
                         ? `已导出 ${exported} 张：${groups.length} 张成品图 × 带水印 / 无水印`
-                        : `已导出 2 张：${base}_带水印.png、${base}_无水印.png`,
+                        : `已导出 2 张：${posterFileBase('w1')}_带水印.png、${posterFileBase('none')}_无水印.png`,
                     'success'
                 );
                 await attachCaptionToExport(exported);
@@ -3703,7 +3758,7 @@
                 return {
                     width,
                     height,
-                    product_type: THEME_TITLES[state.theme] || '',
+                    product_type: displayThemeTitle(),
                     material_type: materialTypeText(),
                     country: state.region || '',
                     school: state.school || '',
@@ -3851,7 +3906,8 @@
                 const originalGroup = activeGroup;
                 const restoreGroup = groups.includes(activeGroup) ? activeGroup : groups[0];
                 const targetGroup = onlyGroup === null ? restoreGroup : onlyGroup;
-                const base = posterFileBase();
+                // 降级下载的文件名按这次要复制的水印版本取名
+                const base = posterFileBase(watermark);
                 // 要复制的版本和当前预览一致时不必上遮罩，点下去几乎瞬间完成
                 const needsSwitch = activeWatermark() !== watermark;
                 let copied = false;
@@ -4207,8 +4263,19 @@
             });
 
             posterLogo.addEventListener('error', () => { posterLogo.hidden = true; });
-            window.addEventListener('resize', scalePreview, { passive: true });
-            if ('ResizeObserver' in window) new ResizeObserver(scalePreview).observe(previewViewport);
+            window.addEventListener('resize', scheduleScalePreview, { passive: true });
+            if ('ResizeObserver' in window) {
+                // 滚动条出现/消失只改 contentRect，边框盒宽度不变，这种回调必须忽略：
+                // 否则 scalePreview 写的 host 高度又会让滚动条翻面，形成无限抖动。
+                // 只有窗口/侧栏真的变宽变窄（边框盒宽度变化）才需要重算缩放。
+                lastViewportBoxWidth = Math.round(previewViewport.getBoundingClientRect().width);
+                new ResizeObserver(() => {
+                    const width = Math.round(previewViewport.getBoundingClientRect().width);
+                    if (width === lastViewportBoxWidth) return;
+                    lastViewportBoxWidth = width;
+                    scheduleScalePreview();
+                }).observe(previewViewport);
+            }
 
             // 水印图不在 DOM 里（靠 CSS background 显示），初始化时先解码一次。
             // 图源已是 data URI，预热瞬时完成，不再有网络等待。logo 复用顶栏那张，无需预热。
