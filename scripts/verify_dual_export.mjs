@@ -3,7 +3,7 @@
 //  ②两张图确实是两个不同版本（顶栏色带高度 + 条内白像素 + 图区水印差异）
 //  ③导出结束后水印选择、海报高度、左侧高亮、存档被完整还原
 //  ④文案随导出进入剪贴板；文案区已有内容时不重新调 AI
-//  ⑤「复制带水印图 / 复制无水印图」两个按钮各自一次点击写入对应版本，且不弹任何选择框
+//  ⑤两个复制按钮已下线：页面不再包含它们，导出 / 水印还原仍正常
 // 前置：node server.js 已起（3000），无头 Chrome 已开（9222）
 import fs from 'node:fs';
 import path from 'node:path';
@@ -324,41 +324,16 @@ const clickAndReadClip = async buttonId => {
     return shot;
 };
 
-const copyW1 = await clickAndReadClip('copyW1Button');
-console.log('复制带水印图：', JSON.stringify(copyW1));
-ok('「复制带水印图」一次点击即写入剪贴板', Boolean(copyW1), '未读到图片');
-if (copyW1) {
-    ok('带水印：剪贴板图片尺寸 = 对应预览 ×2', copyW1.w === 1500 && copyW1.h === geomW1.posterH * 2, `${copyW1.w}×${copyW1.h}，期望 1500×${geomW1.posterH * 2}`);
-    ok('带水印：顶栏色带高 ≈ 172', Math.abs(copyW1.bandH - 172) <= 3, String(copyW1.bandH));
-    ok('带水印：顶栏仍是品牌红', copyW1.px[0] > 150 && copyW1.px[1] < 110, JSON.stringify(copyW1.px));
-    ok('带水印：条内有 logo/白字', copyW1.topWhite > 500, `白像素 ${copyW1.topWhite}`);
-    ok('带水印：状态提示成功', /已复制带水印图片/.test(await ev(`document.getElementById('exportStatus').textContent`)), await ev(`document.getElementById('exportStatus').textContent`));
-}
-
-const copyNone = await clickAndReadClip('copyNoneButton');
-console.log('复制无水印图：', JSON.stringify(copyNone));
-ok('「复制无水印图」一次点击即写入剪贴板', Boolean(copyNone), '未读到图片');
-if (copyNone) {
-    ok('无水印：剪贴板图片尺寸 = 对应预览 ×2', copyNone.w === 1500 && copyNone.h === geomNone.posterH * 2, `${copyNone.w}×${copyNone.h}，期望 1500×${geomNone.posterH * 2}`);
-    ok('无水印：顶栏色带高 ≈ 86', Math.abs(copyNone.bandH - 86) <= 3, String(copyNone.bandH));
-    ok('无水印：顶栏仍是品牌红', copyNone.px[0] > 150 && copyNone.px[1] < 110, JSON.stringify(copyNone.px));
-    ok('无水印：条内无 logo/白字', copyNone.topWhite === 0, `白像素 ${copyNone.topWhite}`);
-    ok('无水印：状态提示成功', /已复制无水印图片/.test(await ev(`document.getElementById('exportStatus').textContent`)), await ev(`document.getElementById('exportStatus').textContent`));
-}
-
-if (copyW1 && copyNone) {
-    ok('两个按钮复制的确实是不同版本（高度差 = 色带缩半量 ×2 = 156）', copyW1.h - copyNone.h === 156, `实际差 ${copyW1.h - copyNone.h}`);
-}
-
-// 拆按钮后不应再有任何选择弹窗，水印选择与遮罩也不该被改动
+// 两个复制按钮已下线（2026-11-13）：页面不应再出现，也不该再弹选择框
 ok('页面已无复制选择弹窗', (await ev(`document.querySelectorAll('.choice-modal').length`)) === 0);
-ok('两个按钮都在同一行且都可用', (await ev(`(() => {
-  const a = document.getElementById('copyW1Button'), b = document.getElementById('copyNoneButton');
-  return !a.disabled && !b.disabled && Math.abs(a.getBoundingClientRect().top - b.getBoundingClientRect().top) < 2;
+ok('「复制带水印图 / 复制无水印图」按钮已从页面移除', (await ev(`(() => {
+  return !document.getElementById('copyW1Button') && !document.getElementById('copyNoneButton')
+    && !Array.from(document.querySelectorAll('.preview-actions button')).some(b => /复制.*水印图/.test(b.textContent));
 })()`)) === true);
+
 const copyAfter = await ev(geometry);
-ok('复制图片后水印选择仍是万能班长', copyAfter.active === 'w1' && copyAfter.brand === 'on', `${copyAfter.active} / ${copyAfter.brand}`);
-ok('复制图片后遮罩已关闭', (await ev(`document.getElementById('previewVeil').hidden`)) === true);
+ok('页面初始水印选择仍是万能班长', copyAfter.active === 'w1' && copyAfter.brand === 'on', `${copyAfter.active} / ${copyAfter.brand}`);
+ok('初始遮罩已关闭', (await ev(`document.getElementById('previewVeil').hidden`)) === true);
 
 ws.close();
 console.log(failed === 0 ? '\n全部断言通过 ✅' : `\n${failed} 项未通过 ❌`);

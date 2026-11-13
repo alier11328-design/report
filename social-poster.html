@@ -76,26 +76,6 @@
         .preview-header h2 { font-size: 20px; color: #1e293b; }
         .preview-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-        /* 多张成品图时，复制按钮右上角挂一个数量角标，说明这一下会处理几张 */
-        .btn.has-count { position: relative; }
-        .copy-badge {
-            position: absolute;
-            top: -6px;
-            right: -6px;
-            min-width: 17px;
-            height: 17px;
-            padding: 0 5px;
-            border-radius: 9px;
-            background: var(--primary-color);
-            color: #fff;
-            font-size: 11px;
-            font-weight: 700;
-            line-height: 17px;
-            text-align: center;
-            box-shadow: 0 0 0 2px #fff;
-            pointer-events: none;
-        }
-
         /* 导出 / 复制图片期间盖住预览：双版本导出要先切到「无」再切回来，
            不遮住的话用户会看到海报闪一下。遮罩不影响 offsetHeight 测量。 */
         .preview-veil {
@@ -1335,8 +1315,6 @@
                     <div class="preview-actions">
                         <span class="preview-meta" id="previewMeta">750 × 1258</span>
                         <button class="btn" id="captionButton" type="button"><i class="fas fa-wand-magic-sparkles"></i> 生成文案</button>
-                        <button class="btn" id="copyW1Button" type="button" title="复制带水印图片到剪贴板"><i class="fas fa-clipboard"></i> 复制带水印图</button>
-                        <button class="btn" id="copyNoneButton" type="button" title="复制无水印图片到剪贴板"><i class="fas fa-clipboard"></i> 复制无水印图</button>
                         <button class="btn" id="exportButton" type="button">
                             <i class="fas fa-download"></i>
                             <span class="button-label"><span>导出 PNG</span></span>
@@ -1563,8 +1541,6 @@
             const addPasteBoxButton = document.getElementById('addPasteBox');
             const exportButton = document.getElementById('exportButton');
             const exportBothButton = document.getElementById('exportBothButton');
-            const copyW1Button = document.getElementById('copyW1Button');
-            const copyNoneButton = document.getElementById('copyNoneButton');
             const galleryButton = document.getElementById('galleryButton');
             const previewVeil = document.getElementById('previewVeil');
             const previewVeilText = document.getElementById('previewVeilText');
@@ -2185,7 +2161,6 @@
                 renderGroupUI();
                 // 粘贴框重建完再把各张的下拉 / 「单独设置」标记对齐一次
                 syncMaterialControls();
-                syncCopyButtons();
                 requestAnimationFrame(scalePreview);
             }
 
@@ -3659,8 +3634,6 @@
             function setExportBusy(busy) {
                 exportButton.disabled = busy;
                 exportBothButton.disabled = busy;
-                copyW1Button.disabled = busy;
-                copyNoneButton.disabled = busy;
                 galleryButton.disabled = busy;
             }
 
@@ -3863,32 +3836,7 @@
                 }
             }
 
-            // 复制按钮的数量角标与提示：只有一张成品图时保持原来的文案
-            function syncCopyButtons() {
-                // 只算真正有图的成品图：空粘贴框不参与复制 / 导出
-                const count = exportGroups().length;
-                const multiple = count > 1;
-                [[copyW1Button, '带水印'], [copyNoneButton, '无水印']].forEach(([button, label]) => {
-                    if (button.dataset.busy === '1') return;   // 复制进行中，别覆盖掉 spinner
-                    button.textContent = '';
-                    const icon = document.createElement('i');
-                    icon.className = 'fas fa-clipboard';
-                    button.append(icon, document.createTextNode(` 复制${label}图`));
-                    button.classList.toggle('has-count', multiple);
-                    if (multiple) {
-                        const badge = document.createElement('span');
-                        badge.className = 'copy-badge';
-                        badge.textContent = String(count);
-                        badge.setAttribute('aria-hidden', 'true');
-                        button.appendChild(badge);
-                        button.title = `复制全部 ${count} 张成品图（${label}）：当前这张进剪贴板，其余 ${count - 1} 张自动下载`;
-                    } else {
-                        button.title = `复制${label}图片到剪贴板`;
-                    }
-                });
-            }
-
-            // 复制指定水印版本的图片。
+            // 复制指定水印版本的图片。button 可为 null（双击成品图复制时没有按钮可显示进度）。
             // 单张成品图 / 指定了 onlyGroup（双击某张）：只复制这一张。
             // 多张成品图且没指定：剪贴板一次只能装一张图（浏览器明确不支持多 ClipboardItem），
             // 所以当前预览的这张进剪贴板，其余几张自动下载——点一次就能拿到整批成品图。
@@ -3911,8 +3859,8 @@
                 let clipboardError = null;
 
                 setExportBusy(true);
-                button.dataset.busy = '1';
-                button.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${batch ? `复制 1/${groups.length}…` : '复制中…'}`;
+                if (button) button.dataset.busy = '1';
+                if (button) button.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${batch ? `复制 1/${groups.length}…` : '复制中…'}`;
                 setStatus(batch ? `正在生成 ${groups.length} 张成品图（${label}）…` : `正在生成${label}图片…`);
                 if (batch || needsSwitch) setVeil(true, `正在生成${label}图片…`);
 
@@ -3939,7 +3887,7 @@
                             activeGroup = group;
                             const note = `保存 ${group}/${groups.length}…`;
                             setVeil(true, `正在保存成品图 ${group}/${groups.length}…`);
-                            button.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${note}`;
+                            if (button) button.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${note}`;
                             const blob = await renderVariantBlob(watermark);
                             downloadBlob(blob, `${base}_成品图${group}_${label}.png`);
                             downloaded += 1;
@@ -3975,8 +3923,8 @@
                     watermarkOverride = null;
                     // 双击某张时停在这一张（双击即选中）；点按钮则回到原来正在看的那张
                     activeGroup = onlyGroup === null ? originalGroup : targetGroup;
-                    delete button.dataset.busy;
-                    render();   // render 里会调用 syncCopyButtons 恢复按钮文案与角标
+                    if (button) delete button.dataset.busy;
+                    render();   // 恢复预览
                     setVeil(false);
                     setExportBusy(false);
                 }
@@ -3993,8 +3941,7 @@
                     return;
                 }
                 const watermark = activeWatermark();   // 所见即所得：复制当前预览的水印方案
-                const button = watermark === 'none' ? copyNoneButton : copyW1Button;
-                const result = await copyPosterImage(watermark, button, { onlyGroup: group });
+                const result = await copyPosterImage(watermark, null, { onlyGroup: group });
                 flashHostResult(group, result?.copied
                     ? `✓ 已复制成品图 ${group}`
                     : '复制失败，请用「导出 PNG」',
@@ -4232,8 +4179,6 @@
             });
             exportButton.addEventListener('click', exportPoster);
             exportBothButton.addEventListener('click', exportPosterBoth);
-            copyW1Button.addEventListener('click', () => copyPosterImage('w1', copyW1Button));
-            copyNoneButton.addEventListener('click', () => copyPosterImage('none', copyNoneButton));
             galleryButton.addEventListener('click', saveToGallery);
 
             // 双击某张成品图 = 单独复制这一张（多张并排时比切标签再点按钮快得多）。
@@ -4243,7 +4188,7 @@
                 if (!host) return;
                 const group = Number(host.dataset.group);
                 if (!Number.isInteger(group) || group < 1) return;
-                if (copyW1Button.disabled) return;   // 正在导出 / 复制中，别插队
+                if (exportButton.disabled) return;   // 正在导出 / 复制中，别插队
                 event.preventDefault();
                 // 记住双击位置（相对这张海报），提示就弹在手指底下
                 const box = host.getBoundingClientRect();

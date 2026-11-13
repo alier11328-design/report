@@ -112,7 +112,7 @@ await ev(`(() => {
   return 'dblclicked group 2';
 })()`);
 for (let i = 0; i < 40; i++) {
-    const busy = await ev(`document.getElementById('copyW1Button').disabled`);
+    const busy = await ev(`document.getElementById('exportButton').disabled`);
     if (!busy && i > 1) break;
     await sleep(500);
 }
@@ -145,12 +145,12 @@ if (png && process.argv.includes('--png')) {
     console.log('   已保存：', out);
 }
 
-// ④ 其它入口回归：按钮复制、双击 1 号张、只剩 1 张
+// ④ 其它入口回归：双击第 2 张、双击第 1 张、只剩 1 张
 async function runCase(label, triggerExpr) {
     await ev(`window.__canvasTexts = []; window.__captures = []; 'cleared'`);
     await ev(triggerExpr);
     for (let i = 0; i < 40; i++) {
-        const busy = await ev(`document.getElementById('copyW1Button').disabled`);
+        const busy = await ev(`document.getElementById('exportButton').disabled`);
         if (!busy && i > 1) break;
         await sleep(400);
     }
@@ -160,12 +160,12 @@ async function runCase(label, triggerExpr) {
     const active = await ev(`document.getElementById('posterHost').dataset.group`);
     console.log(`④ ${label}\n   画布文字 = ${JSON.stringify(words)}  捕获 = ${JSON.stringify(captures)}  当前张 = ${active}`);
 }
-await runCase('点「复制带水印图」按钮（当前第 2 张）',
-    `document.getElementById('copyW1Button').click(); 'clicked'`);
+await runCase('双击第 2 张（当前水印版）',
+    `(() => { const h = Array.from(document.querySelectorAll('.poster-host')).find(x => x.dataset.group === '2'); h.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, clientX: 10, clientY: 10 })); return 'ok'; })()`);
 await runCase('双击第 1 张',
     `(() => { const h = Array.from(document.querySelectorAll('.poster-host')).find(x => x.dataset.group === '1'); h.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, clientX: 10, clientY: 10 })); return 'ok'; })()`);
 await runCase('删掉第 2 个框后只剩 1 张',
-    `(() => { const b = document.querySelector('[data-remove-box="2"]'); if (b) b.click(); setTimeout(() => document.getElementById('copyW1Button').click(), 500); return 'ok'; })()`);
+    `(() => { const b = document.querySelector('[data-remove-box="2"]'); if (b) b.click(); setTimeout(() => { const h = document.querySelector('.poster-host'); if (h) h.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, clientX: 10, clientY: 10 })); }, 500); return 'ok'; })()`);
 
 await send('Target.closeTarget', { targetId: t.result.targetId });
 ws.close();
