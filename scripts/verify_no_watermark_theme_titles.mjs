@@ -95,6 +95,37 @@ await ev(`localStorage.removeItem('clasbro-social-poster-v1'); 1`);
 await send('Page.reload', {}, sessionId);
 await sleep(2200);
 
+// 线上 CDN 资源慢时，固定等待后事件监听可能还没绑完（表现：切主题/切水印都没反应）。
+// 用「功能探测」等页面真正可用：改主题看标题是否跟着变 + 点无水印看 brand 是否变 off，
+// 探完立刻恢复原状态，不污染后面的用例。
+const waitForReady = async () => {
+    for (let i = 0; i < 40; i++) {
+        const ready = await ev(`(() => {
+            const sel = document.getElementById('theme');
+            const title = document.getElementById('previewTitlePrimary');
+            const badge = document.querySelector('[data-watermark="none"]');
+            const poster = document.getElementById('poster');
+            if (!sel || !title || !badge || !poster) return false;
+            const original = sel.value;
+            const probe = original === 'hours' ? 'cram' : 'hours';
+            sel.value = probe;
+            sel.dispatchEvent(new Event('change', { bubbles: true }));
+            const themeOk = title.textContent === (probe === 'hours' ? '课时卡' : '考前突击');
+            sel.value = original;
+            sel.dispatchEvent(new Event('change', { bubbles: true }));
+            if (!themeOk) return false;
+            badge.click();
+            const watermarkOk = poster.dataset.brand === 'off';
+            document.querySelector('[data-watermark="w1"]').click();
+            return watermarkOk;
+        })()`);
+        if (ready) return true;
+        await sleep(500);
+    }
+    return false;
+};
+ok('页面初始化完成（表单 / 水印监听已绑定）', await waitForReady());
+
 const setTheme = theme => ev(`(() => {
     const sel = document.getElementById('theme');
     sel.value = ${JSON.stringify(theme)};
@@ -109,7 +140,20 @@ const readState = () => ev(`(() => ({
     brand: document.getElementById('poster').dataset.brand,
     activeWatermark: Array.from(document.querySelectorAll('[data-watermark]')).filter(el => el.classList.contains('active')).map(el => el.dataset.watermark).join(',')
 }))()`);
-const setWatermark = value => ev(`document.querySelector('[data-watermark=${JSON.stringify(value)}]').click(); 1`);
+const setWatermark = async value => {
+    for (let i = 0; i < 10; i++) {
+        const applied = await ev(`(() => {
+            document.querySelector('[data-watermark=${JSON.stringify(value)}]').click();
+            const brand = document.getElementById('poster').dataset.brand;
+            const active = Array.from(document.querySelectorAll('[data-watermark]'))
+                .filter(el => el.classList.contains('active')).map(el => el.dataset.watermark).join(',');
+            return brand === ${JSON.stringify(value === 'none' ? 'off' : 'on')} && active === ${JSON.stringify(value)};
+        })()`);
+        if (applied) return true;
+        await sleep(300);
+    }
+    return false;
+};
 
 // ---------- 1) 带水印：11 个产品类型全部显示原词 ----------
 console.log('\n--- 带水印（万能班长） ---');
