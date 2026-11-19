@@ -728,6 +728,9 @@
         (function() {
             "use strict";
 
+            // 线上 Pages 经 CF 边缘访问火山偶发 100s+ 超时，识别请求带超时 + 一次自动重试。
+            const AI_REQUEST_OPTIONS = { timeoutMs: 90000, retries: 1, retryDelayMs: 900 };
+
             // ---------- 数据 ----------
             let courseCode = '';
             let courseName = '';
@@ -1365,6 +1368,9 @@
                     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> AI识别中...';
                     const statusEl = document.getElementById('uploadStatus');
                     if (statusEl) statusEl.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> AI 正在识别文件内容...';
+                    const onRetry = (attempt) => {
+                        if (statusEl) statusEl.innerHTML = `<span style="color:#d97706;">🔄 网络响应超时，正在自动重试（第 ${attempt + 1} 次）…</span>`;
+                    };
 
                     try {
                         const prepared = await window.aiClient.prepareFiles(uploadedFiles, { maxImages: 8, maxTextFiles: 6 });
@@ -1383,7 +1389,7 @@
                                 courseCode: document.getElementById('codeInput')?.value || '',
                                 courseName: document.getElementById('nameInput')?.value || ''
                             }
-                        });
+                        }, { ...AI_REQUEST_OPTIONS, onRetry });
 
                         if (result.courseCode) document.getElementById('codeInput').value = result.courseCode;
                         if (result.courseName) document.getElementById('nameInput').value = result.courseName;
@@ -1414,8 +1420,9 @@
                         renderPreview();
                     } catch (e) {
                         console.error('AI识别错误:', e);
-                        if (statusEl) statusEl.innerHTML = `<span style="color:#BF2A32;">识别失败：${e.message || '未知错误'}</span>`;
-                        alert('AI识别失败：' + (e.message || '未知错误，请刷新页面后重试'));
+                        const msg = e.message || '未知错误';
+                        if (statusEl) statusEl.innerHTML = `<span style="color:#BF2A32;">识别失败：${msg}。可再次点击识别，或稍后重试 / 减少图片数量。</span>`;
+                        alert('AI识别失败：' + msg + '\n\n线上偶发网络超时，可再次点击识别重试，或改用本地启动（start-server.bat）更稳定。');
                     } finally {
                         btn.disabled = false;
                         btn.innerHTML = originalText;

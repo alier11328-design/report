@@ -1176,6 +1176,49 @@ ${JSON.stringify({
     }
 });
 
+// 结课报告（多门）· 下学期学习建议生成（基于整份报告已填内容，无需上传材料）
+app.post('/api/ai/final-report-multi/suggestions', async (req, res, next) => {
+    try {
+        const context = req.body?.context || {};
+        const prompt = `
+请为「结课报告」撰写"下学期学习建议"部分，直接可用于正式报告回填。
+
+上下文信息：
+${JSON.stringify({
+        studentName: context.studentName || '',
+        university: context.university || '',
+        periodStart: context.periodStart || '',
+        periodEnd: context.periodEnd || '',
+        attendanceRate: context.attendanceRate || '',
+        attendanceDesc: context.attendanceDesc || '',
+        taskCompletionRate: context.taskCompletionRate || '',
+        taskCompletionDesc: context.taskCompletionDesc || '',
+        interactionRate: context.interactionRate || '',
+        interactionDesc: context.interactionDesc || '',
+        reportOverview: context.reportOverview || '',
+        courses: Array.isArray(context.courses) ? context.courses : []
+    }, null, 2)}
+
+要求：
+1. 先写一段"建议概述"（100-160 字），总体肯定本学期表现并点出下学期的成长方向。
+2. 再写 3-5 条具体建议，每条含简洁小标题（6-10 字）与具体内容（60-120 字），要贴合上面课程的学习目标、成果与不足，可涉及知识巩固、学习习惯、时间管理、进阶方向等，避免空泛套话。
+3. 语气正式、真诚、鼓励为主；不要编造上下文中没有的具体分数或事实。
+4. 上下文中为空的字段直接略过，不要出现 [studentName]、[courses] 之类占位符或方括号。
+5. 请输出 JSON：{ "suggestionsIntro": "建议概述", "suggestions": [ { "subtitle": "小标题", "content": "具体内容" } ] }，不要输出结构外字段。
+`;
+
+        const result = await askQwenForJson({ prompt });
+        res.json({
+            data: {
+                suggestionsIntro: normalizeString(result.suggestionsIntro),
+                suggestions: normalizeMultiCourseOutcomeArray(result.suggestions)
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
 app.post('/api/ai/period-feedback/schedule', async (req, res, next) => {
     try {
         const images = Array.isArray(req.body?.images) ? req.body.images : [];

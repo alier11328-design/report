@@ -218,13 +218,16 @@ export async function onRequestPost(context) {
 
         const result = await callAI({ prompt, images, textBlocks }, env);
 
+        // AI 偶尔把 focusPoints/difficultyPoints 返回成数组，统一成换行文本，避免前端文本框显示成逗号串
+        const toMultiline = (v) => Array.isArray(v) ? v.filter(Boolean).join('\n') : (typeof v === 'string' ? v : '');
+
         return createResponse({
             data: {
                 courseCode: result.courseCode || '',
                 courseName: result.courseName || '',
                 courseDesc: result.courseDesc || '',
-                focusPoints: result.focusPoints || '核心知识模块与监管框架\n技术方法与应用实践\n合规标准与道德要求\n客户沟通与参与策略',
-                difficultyPoints: result.difficultyPoints || '整合多领域知识制定合规方案\n将理论转化为实践策略\n批判性思维与复杂决策\n框架应用与灵活调整',
+                focusPoints: toMultiline(result.focusPoints) || '核心知识模块与监管框架\n技术方法与应用实践\n合规标准与道德要求\n客户沟通与参与策略',
+                difficultyPoints: toMultiline(result.difficultyPoints) || '整合多领域知识制定合规方案\n将理论转化为实践策略\n批判性思维与复杂决策\n框架应用与灵活调整',
                 assessments: Array.isArray(result.assessments) ? result.assessments.map(a => ({
                     seq: a.seq || '',
                     name: a.name || '',
